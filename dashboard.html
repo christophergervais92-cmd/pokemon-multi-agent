@@ -447,7 +447,7 @@
         @media (max-width: 768px) {
             .app {
                 padding: 1rem;
-                padding-bottom: 6rem;
+                padding-top: 5rem;
             }
             
             header {
@@ -463,23 +463,23 @@
             
             nav {
                 position: fixed;
-                bottom: 0;
+                top: 0;
                 left: 0;
                 right: 0;
                 background: var(--bg-card);
                 border: none;
-                border-top: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
                 border-radius: 0;
                 margin: 0;
                 padding: 0.5rem;
-                padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+                padding-top: calc(0.5rem + env(safe-area-inset-top));
                 z-index: 1000;
                 display: flex;
                 justify-content: space-around;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
                 gap: 0.25rem;
-                box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+                box-shadow: 0 4px 24px rgba(0,0,0,0.4);
                 backdrop-filter: blur(20px);
                 -webkit-backdrop-filter: blur(20px);
             }
@@ -596,7 +596,7 @@
         @media (max-width: 480px) {
             .app {
                 padding: 0.75rem;
-                padding-bottom: 5.5rem;
+                padding-top: 4.5rem;
             }
             
             .nav-btn {
