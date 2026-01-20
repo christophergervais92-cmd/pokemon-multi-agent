@@ -1,0 +1,405 @@
+{
+  "name": "LO TCG Multi-Agent System",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": [],
+  "pinData": {},
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "⏰ Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 400],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "unified-scanner",
+      "name": "🔍 Unified Stock Scanner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:5001/scanner/unified",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "pokemon elite trainer box"
+            },
+            {
+              "name": "zip",
+              "value": "90210"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "format-scan-results",
+      "name": "📦 Format Scan Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 400],
+      "parameters": {
+        "jsCode": "// Format unified scanner results for downstream agents\nconst data = $json;\n\nconst products = data.products || data.in_stock_only || [];\nconst inStock = products.filter(p => p.stock);\n\nreturn [{\n  json: {\n    success: data.success !== false,\n    set_name: 'Pokemon TCG',\n    query: data.query || 'pokemon',\n    zip_code: data.zip_code || '90210',\n    sources_checked: data.by_retailer ? Object.keys(data.by_retailer) : [],\n    total_products: data.total || products.length,\n    in_stock_count: data.in_stock_count || inStock.length,\n    products: products,\n    scan_timestamp: new Date().toISOString(),\n  }\n}];"
+      }
+    },
+    {
+      "id": "price-agent",
+      "name": "💰 Price Analysis Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5001/agent/price",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "grading-agent",
+      "name": "📊 Grading & ROI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5001/agent/grading",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "autobuy-agent",
+      "name": "🛒 Auto-Buy Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5001/agent/autobuy",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "discord-stock",
+      "name": "📢 Discord: Stock Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [1560, 280],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channelId": "={{ $env.DISCORD_CHANNEL_ID || '1404800573206827139' }}",
+        "message": "📦 **Pokemon Stock Scan Complete**\n\n🔍 Query: {{ $json.query || 'pokemon' }}\n📊 Products: {{ $json.total_products || $json.products?.length || 0 }} | ✅ In Stock: {{ $json.in_stock_count || 0 }}\n\n{{ $json.products?.filter(p => p.stock).slice(0, 5).map(p => `🟢 **${p.name}**\\n🏪 ${p.retailer} - $${p.price}\\n🔗 ${p.url || 'N/A'}`).join('\\n\\n') || 'No products in stock' }}\n\n_⏱️ {{ new Date().toLocaleString() }} | Next scan in 1 min_"
+      }
+    },
+    {
+      "id": "if-deals",
+      "name": "🤔 Has Deals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 460],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "deal-check",
+              "leftValue": "={{ $json.alerts ? $json.alerts.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "discord-deals",
+      "name": "🔥 Discord: Deal Alerts",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [1780, 400],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channelId": "={{ $env.DISCORD_CHANNEL_ID || '1404800573206827139' }}",
+        "message": "🔥 **DEAL ALERT - BUY NOW!** 🔥\n\n{{ $json.alerts?.map(a => `**${a.product_name}**\\n🏪 ${a.retailer} - **$${a.price}**\\n📈 Market: $${a.market_price} (${Math.round(a.delta_pct * 100)}% below!)\\n🛒 ${a.url || 'Link unavailable'}\\n━━━━━━━━━━━━━━━`).join('\\n\\n') || 'Check products for deals!' }}"
+      }
+    },
+    {
+      "id": "multiuser-notify",
+      "name": "👥 Multi-User Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 560],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5001/users/notify",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ products: $json.products?.filter(p => p.stock && p.evaluation?.should_buy) || [] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "if-purchases",
+      "name": "💳 Has Purchases?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 640],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "purchase-check",
+              "leftValue": "={{ $json.purchase_count || 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "discord-purchases",
+      "name": "✅ Discord: Purchase Confirmation",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [1780, 700],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channelId": "={{ $env.DISCORD_CHANNEL_ID || '1404800573206827139' }}",
+        "message": "✅ **AUTO-BUY EXECUTED** ✅\n\n{{ $json.simulation_mode ? '⚠️ SIMULATION MODE' : '💳 REAL PURCHASE' }}\n\nPurchases: {{ $json.purchase_count }}\nDaily: ${{ $json.daily_spend || 0 }} / ${{ $json.daily_limit || 500 }}\n\n{{ $json.purchases?.filter(p => p.success).map(p => `✅ ${p.product} @ ${p.retailer} - $${p.price}`).join('\\n') || 'No purchases' }}"
+      }
+    },
+    {
+      "id": "market-analysis",
+      "name": "📊 Market Analysis Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 700],
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:5001/market/analysis",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "discord-market",
+      "name": "📊 Discord: Market Report",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [660, 700],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channelId": "={{ $env.DISCORD_CHANNEL_ID || '1404800573206827139' }}",
+        "message": "📊 **MARKET REPORT**\n\n{{ $json.overall_sentiment?.emoji || '📊' }} **{{ $json.overall_sentiment?.sentiment?.toUpperCase() || 'NEUTRAL' }}**\n{{ $json.overall_sentiment?.description || 'Market data loading...' }}\n\n📦 Sealed: {{ $json.category_sentiments?.sealed?.average_change_pct || 0 }}%\n🃏 Raw: {{ $json.category_sentiments?.raw?.average_change_pct || 0 }}%\n💎 Slabs: {{ $json.category_sentiments?.slabs?.average_change_pct || 0 }}%"
+      }
+    },
+    {
+      "id": "webhook-grading",
+      "name": "📷 Card Image Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 900],
+      "parameters": {
+        "path": "grade-card",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "grade-card-webhook"
+    },
+    {
+      "id": "ai-visual-grading",
+      "name": "🔬 AI Visual Grading Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 900],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5001/grader/analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body || $json) }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "discord-grading",
+      "name": "🔬 Discord: Grading Result",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [660, 900],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channelId": "={{ $env.DISCORD_CHANNEL_ID || '1404800573206827139' }}",
+        "message": "🎴 **CARD GRADING REPORT**\n\n📛 {{ $json.card_name || 'Unknown Card' }}\n\n📊 **GRADES**\n• PSA: {{ $json.predicted_grades?.PSA || 'N/A' }}\n• CGC: {{ $json.predicted_grades?.CGC || 'N/A' }}\n• BGS: {{ $json.predicted_grades?.BGS || 'N/A' }}\n• Confidence: {{ Math.round(($json.grade_confidence || 0) * 100) }}%\n\n📐 **SUBGRADES**\n• Centering: {{ $json.subgrades?.centering || 'N/A' }}\n• Corners: {{ $json.subgrades?.corners || 'N/A' }}\n• Edges: {{ $json.subgrades?.edges || 'N/A' }}\n• Surface: {{ $json.subgrades?.surface || 'N/A' }}\n\n💰 Worth grading: {{ $json.worth_grading ? 'YES ✅' : 'NO ❌' }}"
+      }
+    },
+    {
+      "id": "grading-response",
+      "name": "📤 Return Grading Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 900],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "⏰ Schedule Trigger": {
+      "main": [
+        [
+          { "node": "🔍 Unified Stock Scanner", "type": "main", "index": 0 },
+          { "node": "📊 Market Analysis Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔍 Unified Stock Scanner": {
+      "main": [
+        [
+          { "node": "📦 Format Scan Results", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📦 Format Scan Results": {
+      "main": [
+        [
+          { "node": "💰 Price Analysis Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "💰 Price Analysis Agent": {
+      "main": [
+        [
+          { "node": "📊 Grading & ROI Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📊 Grading & ROI Agent": {
+      "main": [
+        [
+          { "node": "🛒 Auto-Buy Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🛒 Auto-Buy Agent": {
+      "main": [
+        [
+          { "node": "📢 Discord: Stock Alert", "type": "main", "index": 0 },
+          { "node": "🤔 Has Deals?", "type": "main", "index": 0 },
+          { "node": "💳 Has Purchases?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🤔 Has Deals?": {
+      "main": [
+        [
+          { "node": "🔥 Discord: Deal Alerts", "type": "main", "index": 0 },
+          { "node": "👥 Multi-User Notify", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "💳 Has Purchases?": {
+      "main": [
+        [
+          { "node": "✅ Discord: Purchase Confirmation", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "📊 Market Analysis Agent": {
+      "main": [
+        [
+          { "node": "📊 Discord: Market Report", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📷 Card Image Webhook": {
+      "main": [
+        [
+          { "node": "🔬 AI Visual Grading Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔬 AI Visual Grading Agent": {
+      "main": [
+        [
+          { "node": "🔬 Discord: Grading Result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🔬 Discord: Grading Result": {
+      "main": [
+        [
+          { "node": "📤 Return Grading Result", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  }
+}

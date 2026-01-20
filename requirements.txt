@@ -1,0 +1,31 @@
+# Pokemon Multi-Agent System Dependencies
+# Poke Agent - AI-Powered Pokemon TCG Dashboard
+
+# Core server
+flask>=3.0.0
+flask-cors>=4.0.0
+requests>=2.31.0
+gunicorn>=21.0.0
+
+# Discord bot (multi-user support)
+discord.py>=2.3.0
+aiohttp>=3.9.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Security (encrypted payment storage)
+cryptography>=41.0.0
+
+# Web scraping (for stock checking)
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# Optional: AI Visual Grading
+# openai>=1.0.0        # For GPT-4 Vision
+# anthropic>=0.8.0     # For Claude Vision
+
+# Optional: Multi-Channel Notifications
+# twilio>=8.0.0        # For SMS notifications
+# pushbullet.py>=0.12  # For Pushbullet push notifications
+# python-telegram-bot>=20.0  # For Telegram notifications

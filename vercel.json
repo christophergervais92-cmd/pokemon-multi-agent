@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "name": "poke-agent",
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/", "destination": "/dashboard.html" }
+  ]
+}
