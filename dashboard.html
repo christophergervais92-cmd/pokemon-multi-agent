@@ -1974,17 +1974,48 @@
         // Connection
         async function checkConnection() {
             try {
-                await fetch(`${API}/live/status`);
-                document.getElementById('statusDot').classList.remove('offline');
-                document.getElementById('statusText').textContent = 'Connected';
-            } catch {
-                document.getElementById('statusDot').classList.add('offline');
-                document.getElementById('statusText').textContent = 'Offline';
-            }
+                const res = await fetch(`${API}/health`);
+                if (res.ok) {
+                    document.getElementById('statusDot').classList.remove('offline');
+                    document.getElementById('statusText').textContent = 'Connected';
+                    return true;
+                }
+            } catch {}
+            document.getElementById('statusDot').classList.add('offline');
+            document.getElementById('statusText').textContent = 'Offline';
+            return false;
         }
 
-        // Live SSE
+        // Live SSE (only works on local, Render free tier doesn't support persistent connections)
+        let sseRetries = 0;
+        const MAX_SSE_RETRIES = 3;
+        
         function connectLive() {
+            // Skip SSE on deployed version - Render free tier doesn't support it well
+            if (API !== LOCAL_API) {
+                console.log('SSE disabled on deployed version - using polling instead');
+                // Poll for updates every 30 seconds instead
+                setInterval(async () => {
+                    try {
+                        const res = await fetch(`${API}/live/history?limit=5`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            // Show any new alerts
+                            if (data.alerts && data.alerts.length > 0) {
+                                const lastSeen = localStorage.getItem('lastAlertId') || '0';
+                                data.alerts.forEach(alert => {
+                                    if (alert.id > lastSeen) {
+                                        showAlert(alert.data || alert);
+                                        localStorage.setItem('lastAlertId', alert.id);
+                                    }
+                                });
+                            }
+                        }
+                    } catch {}
+                }, 30000);
+                return;
+            }
+            
             if (liveConnection) liveConnection.close();
             
             liveConnection = new EventSource(`${API}/live/stream`);
@@ -1992,15 +2023,25 @@
             liveConnection.addEventListener('alert', e => {
                 const data = JSON.parse(e.data);
                 showAlert(data);
+                sseRetries = 0;
             });
             
             liveConnection.addEventListener('connected', () => {
                 document.getElementById('statusText').textContent = 'Live';
+                sseRetries = 0;
             });
             
             liveConnection.onerror = () => {
-                document.getElementById('statusText').textContent = 'Reconnecting...';
-                setTimeout(connectLive, 5000);
+                sseRetries++;
+                if (sseRetries <= MAX_SSE_RETRIES) {
+                    document.getElementById('statusText').textContent = 'Reconnecting...';
+                    setTimeout(connectLive, 5000);
+                } else {
+                    // Give up on SSE, fall back to polling
+                    console.log('SSE connection failed, falling back to polling');
+                    document.getElementById('statusText').textContent = 'Connected';
+                    liveConnection.close();
+                }
             };
         }
 
