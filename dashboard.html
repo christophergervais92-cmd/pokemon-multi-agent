@@ -2648,15 +2648,25 @@
                 { chain: 'Barnes & Noble', icon: '📚', color: '#2d5a27', storeCount: 1 },
             ];
             
-            // Always have some products
-            const allProducts = [
-                { name: 'Prismatic Evolutions Elite Trainer Box', price: 54.99, sku: 'PE-ETB-001' },
-                { name: 'Prismatic Evolutions Booster Bundle', price: 24.99, sku: 'PE-BB-001' },
-                { name: 'Surging Sparks Elite Trainer Box', price: 49.99, sku: 'SS-ETB-001' },
-                { name: 'Paldean Fates Elite Trainer Box', price: 49.99, sku: 'PF-ETB-001' },
-                { name: '151 Elite Trainer Box', price: 49.99, sku: '151-ETB-001' },
-                { name: 'Pokemon TCG Booster Pack', price: 4.49, sku: 'TCG-BP-001' },
-            ];
+            // Get products filtered by query
+            const matchingProducts = generateProductsForQuery(query);
+            
+            // If no matches, show message
+            if (matchingProducts.length === 0) {
+                return [{
+                    chain: 'Search Result',
+                    store_id: 'N/A',
+                    full_address: `No products found matching "${query}"`,
+                    distance_miles: '0.0',
+                    phone: 'N/A',
+                    hours: 'N/A',
+                    has_stock: false,
+                    stock_count: 0,
+                    total_quantity: 0,
+                    products: [],
+                    online: true
+                }];
+            }
             
             const stores = [];
             let storeIndex = 0;
@@ -2667,12 +2677,12 @@
                     const hasStock = Math.random() > 0.3;
                     const distance = (1 + storeIndex * 1.5 + Math.random() * 2).toFixed(1);
                     
-                    // Give stores 1-3 random products if they have stock
-                    const numProducts = hasStock ? Math.floor(Math.random() * 3) + 1 : 0;
+                    // Give stores 1-3 random products from matching products if they have stock
+                    const numProducts = hasStock ? Math.min(Math.floor(Math.random() * 3) + 1, matchingProducts.length) : 0;
                     const storeProducts = [];
                     
-                    if (hasStock) {
-                        const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
+                    if (hasStock && numProducts > 0) {
+                        const shuffled = [...matchingProducts].sort(() => Math.random() - 0.5);
                         for (let j = 0; j < numProducts; j++) {
                             storeProducts.push({
                                 ...shuffled[j],
@@ -2707,23 +2717,87 @@
         }
         
         function generateProductsForQuery(query) {
-            const q = query.toLowerCase();
+            const q = query.toLowerCase().trim();
+            
+            // Comprehensive product list with all major sets
             const allProducts = [
-                { name: 'Prismatic Evolutions Elite Trainer Box', price: 54.99, sku: 'PE-ETB-001' },
-                { name: 'Prismatic Evolutions Booster Bundle', price: 24.99, sku: 'PE-BB-001' },
-                { name: 'Surging Sparks Elite Trainer Box', price: 49.99, sku: 'SS-ETB-001' },
-                { name: 'Paldean Fates Elite Trainer Box', price: 49.99, sku: 'PF-ETB-001' },
-                { name: '151 Elite Trainer Box', price: 49.99, sku: '151-ETB-001' },
-                { name: 'Crown Zenith Elite Trainer Box', price: 49.99, sku: 'CZ-ETB-001' },
-                { name: 'Pokemon TCG Booster Pack', price: 4.49, sku: 'TCG-BP-001' },
+                // Destined Rivals (new set!)
+                { name: 'Destined Rivals Elite Trainer Box', price: 49.99, sku: 'DR-ETB-001', set: 'destined rivals' },
+                { name: 'Destined Rivals Booster Box', price: 144.99, sku: 'DR-BB-001', set: 'destined rivals' },
+                { name: 'Destined Rivals Booster Pack', price: 4.49, sku: 'DR-BP-001', set: 'destined rivals' },
+                { name: 'Destined Rivals 3-Pack Blister', price: 14.99, sku: 'DR-3PK-001', set: 'destined rivals' },
+                // Prismatic Evolutions
+                { name: 'Prismatic Evolutions Elite Trainer Box', price: 54.99, sku: 'PE-ETB-001', set: 'prismatic evolutions' },
+                { name: 'Prismatic Evolutions Booster Bundle', price: 24.99, sku: 'PE-BB-001', set: 'prismatic evolutions' },
+                { name: 'Prismatic Evolutions Booster Pack', price: 5.99, sku: 'PE-BP-001', set: 'prismatic evolutions' },
+                // Surging Sparks
+                { name: 'Surging Sparks Elite Trainer Box', price: 49.99, sku: 'SS-ETB-001', set: 'surging sparks' },
+                { name: 'Surging Sparks Booster Box', price: 144.99, sku: 'SS-BB-001', set: 'surging sparks' },
+                { name: 'Surging Sparks Booster Pack', price: 4.49, sku: 'SS-BP-001', set: 'surging sparks' },
+                // Paldean Fates
+                { name: 'Paldean Fates Elite Trainer Box', price: 49.99, sku: 'PF-ETB-001', set: 'paldean fates' },
+                { name: 'Paldean Fates Booster Pack', price: 5.99, sku: 'PF-BP-001', set: 'paldean fates' },
+                // 151
+                { name: '151 Elite Trainer Box', price: 49.99, sku: '151-ETB-001', set: '151' },
+                { name: '151 Booster Bundle', price: 39.99, sku: '151-BB-001', set: '151' },
+                // Crown Zenith
+                { name: 'Crown Zenith Elite Trainer Box', price: 49.99, sku: 'CZ-ETB-001', set: 'crown zenith' },
+                // Scarlet & Violet Base
+                { name: 'Scarlet & Violet Elite Trainer Box', price: 44.99, sku: 'SV-ETB-001', set: 'scarlet violet' },
+                // Generic
+                { name: 'Pokemon TCG Booster Pack', price: 4.49, sku: 'TCG-BP-001', set: '' },
             ];
             
-            return allProducts.filter(p => 
-                p.name.toLowerCase().includes(q) || 
-                q.includes('etb') && p.name.includes('Elite') ||
-                q.includes('pokemon') ||
-                q.includes('booster')
+            // If empty/generic query, return popular items
+            if (!q || q === 'pokemon' || q === 'cards' || q === 'tcg') {
+                return allProducts.slice(0, 8);
+            }
+            
+            // Extract key search terms
+            const searchTerms = q.split(/\s+/).filter(t => 
+                t.length > 2 && !['pokemon', 'tcg', 'trading', 'cards', 'card', 'the', 'and'].includes(t)
             );
+            
+            // Score each product
+            const scored = allProducts.map(p => {
+                const nameLower = p.name.toLowerCase();
+                const setLower = (p.set || '').toLowerCase();
+                let score = 0;
+                
+                // Exact set name match (highest priority)
+                if (setLower && q.includes(setLower)) score += 100;
+                if (setLower && setLower.includes(q)) score += 100;
+                
+                // Check each search term
+                for (const term of searchTerms) {
+                    if (nameLower.includes(term)) score += 20;
+                    if (setLower.includes(term)) score += 30;
+                }
+                
+                // Full query phrase match
+                if (nameLower.includes(q)) score += 50;
+                
+                // Product type matches
+                if (q.includes('etb') && nameLower.includes('elite trainer')) score += 40;
+                if (q.includes('booster') && nameLower.includes('booster')) score += 30;
+                if ((q.includes('box') || q.includes('bb')) && nameLower.includes('box')) score += 20;
+                
+                return { product: p, score };
+            });
+            
+            // Filter to only matches with score > 0
+            const matches = scored.filter(s => s.score > 0)
+                                  .sort((a, b) => b.score - a.score)
+                                  .map(s => s.product);
+            
+            // If still no matches, try partial word matching
+            if (matches.length === 0) {
+                return allProducts.filter(p => 
+                    searchTerms.some(term => p.name.toLowerCase().includes(term.slice(0, 4)))
+                );
+            }
+            
+            return matches;
         }
         
         function generateAddress(zip, index) {

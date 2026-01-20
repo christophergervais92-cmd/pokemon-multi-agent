@@ -530,6 +530,70 @@ def scan_cards(card_name: str = "", set_name: str = "") -> List[Product]:
 
 
 # =============================================================================
+# SEARCH RELEVANCE HELPER
+# =============================================================================
+
+def matches_query(product_name: str, query: str) -> tuple[bool, int]:
+    """
+    Check if a product name matches the search query.
+    Returns (matches, score) where higher score = better match.
+    """
+    name_lower = product_name.lower()
+    query_lower = query.lower()
+    
+    # Extract key search terms (ignore common words)
+    ignore_words = {'pokemon', 'trading', 'cards', 'card', 'tcg', 'the', 'and', 'of', 'a'}
+    query_terms = [w for w in query_lower.split() if w not in ignore_words and len(w) > 2]
+    
+    # If no specific terms, match any Pokemon product
+    if not query_terms:
+        return ('pokemon' in name_lower or 'pokémon' in name_lower, 1)
+    
+    # Score based on how many query terms match
+    score = 0
+    matched_terms = 0
+    
+    for term in query_terms:
+        if term in name_lower:
+            matched_terms += 1
+            # Exact word match scores higher
+            if f" {term} " in f" {name_lower} ":
+                score += 10
+            else:
+                score += 5
+    
+    # Check for set name patterns (e.g., "destined rivals" should match "Destined Rivals")
+    # Handle multi-word set names
+    if len(query_terms) >= 2:
+        # Check if consecutive terms match as a phrase
+        query_phrase = ' '.join(query_terms)
+        if query_phrase in name_lower:
+            score += 50  # Big bonus for exact phrase match
+            matched_terms = len(query_terms)
+    
+    # Require at least half the terms to match (or all if only 1-2 terms)
+    min_matches = max(1, len(query_terms) // 2) if len(query_terms) > 2 else len(query_terms)
+    matches = matched_terms >= min_matches
+    
+    return (matches, score)
+
+
+def filter_by_relevance(products: List[Product], query: str) -> List[Product]:
+    """Filter and sort products by relevance to search query."""
+    scored = []
+    
+    for p in products:
+        matches, score = matches_query(p.name, query)
+        if matches:
+            scored.append((p, score))
+    
+    # Sort by score (highest first)
+    scored.sort(key=lambda x: x[1], reverse=True)
+    
+    return [p for p, _ in scored]
+
+
+# =============================================================================
 # UNIFIED SCANNER
 # =============================================================================
 
@@ -564,11 +628,14 @@ class StockChecker:
                 else:
                     products = scan_func(query)
                 
+                # Filter by relevance to query
+                relevant_products = filter_by_relevance(products, query)
+                
                 results[name] = {
-                    "count": len(products),
-                    "in_stock": len([p for p in products if p.stock]),
+                    "count": len(relevant_products),
+                    "in_stock": len([p for p in relevant_products if p.stock]),
                 }
-                all_products.extend([p.to_dict() for p in products])
+                all_products.extend([p.to_dict() for p in relevant_products])
                 
             except Exception as e:
                 errors.append(f"{name}: {str(e)}")
@@ -611,13 +678,16 @@ class StockChecker:
             else:
                 products = scan_func(query)
             
+            # Filter by relevance
+            relevant_products = filter_by_relevance(products, query)
+            
             return {
                 "success": True,
                 "retailer": retailer,
                 "query": query,
-                "total": len(products),
-                "in_stock": len([p for p in products if p.stock]),
-                "products": [p.to_dict() for p in products],
+                "total": len(relevant_products),
+                "in_stock": len([p for p in relevant_products if p.stock]),
+                "products": [p.to_dict() for p in relevant_products],
             }
         except Exception as e:
             return {"error": str(e)}
