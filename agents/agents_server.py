@@ -25,11 +25,28 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @app.after_request
 def add_cors_headers(response):
-    """Add CORS headers to all responses."""
+    """Add CORS headers and optimization headers to all responses."""
+    # CORS headers
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
     response.headers['Access-Control-Max-Age'] = '3600'
+    
+    # Performance optimizations
+    # Cache static/scanner endpoints for 30 seconds
+    if request.endpoint and any(x in request.endpoint for x in ['scanner', 'drops', 'live/status']):
+        response.cache_control.max_age = 30
+        response.cache_control.public = True
+    
+    # Cache static data longer (sets, card info)
+    if request.endpoint and any(x in request.endpoint for x in ['sets', 'cards/info']):
+        response.cache_control.max_age = 300  # 5 minutes
+        response.cache_control.public = True
+    
+    # Enable compression hint (server should compress)
+    if response.content_length and response.content_length > 1024:  # >1KB
+        response.headers['Vary'] = 'Accept-Encoding'
+    
     return response
 
 @app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
