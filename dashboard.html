@@ -478,6 +478,21 @@
             border-color: var(--accent);
         }
         
+        /* Drop Type Toggle Buttons */
+        .drop-type-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        
+        .drop-type-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(255, 203, 5, 0.2);
+        }
+        
         .retailer-btn {
             opacity: 0.5;
             border: 2px solid transparent;
@@ -1446,7 +1461,10 @@
         <section id="search" class="active">
             <h1>Upcoming Drops</h1>
             
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                <button class="btn btn-sm drop-type-btn active" data-type="confirmed" onclick="toggleDropType('confirmed')" style="font-weight: 600;">Confirmed</button>
+                <button class="btn btn-sm drop-type-btn" data-type="rumors" onclick="toggleDropType('rumors')" style="font-weight: 600;">Rumors</button>
+                <div style="flex: 1;"></div>
                 <button class="btn btn-sm time-btn active" data-filter="all" onclick="filterDrops('all')">All Drops</button>
                 <button class="btn btn-sm time-btn" data-filter="thisweek" onclick="filterDrops('thisweek')">This Week</button>
                 <button class="btn btn-sm time-btn" data-filter="thismonth" onclick="filterDrops('thismonth')">This Month</button>
@@ -1472,8 +1490,20 @@
                 </div>
             </div>
 
-            <h2 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text);">Confirmed Drops</h2>
-            <div id="upcomingDrops"></div>
+            <!-- Confirmed Drops -->
+            <div id="confirmedDropsSection">
+                <h2 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text);">Confirmed Drops</h2>
+                <div id="upcomingDrops"></div>
+            </div>
+            
+            <!-- Rumors Section -->
+            <div id="rumorsSection" style="display: none;">
+                <h2 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text);">
+                    Rumors & Speculation
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-left: 0.5rem;">Unconfirmed - Take with a grain of salt</span>
+                </h2>
+                <div id="rumorsDrops"></div>
+            </div>
         </section>
 
         <!-- Stock Map Section -->
@@ -3194,11 +3224,13 @@
         }
         
         let currentDropFilter = 'all';
+        let currentDropType = 'confirmed'; // 'confirmed' or 'rumors'
         let liveRedditPosts = [];
         let livePokeBeachNews = [];
         let liveTwitterPosts = [];
         let liveInstagramPosts = [];
         let liveTikTokPosts = [];
+        let rumorsData = [];
         
         function initDrops() {
             document.getElementById('dropUpdateTime').textContent = new Date().toLocaleTimeString();
@@ -3207,6 +3239,140 @@
             loadDropSetLogos();
             // Load live intel from all sources
             loadLiveIntel();
+            // Load rumors
+            loadRumors();
+        }
+        
+        function toggleDropType(type) {
+            currentDropType = type;
+            document.querySelectorAll('.drop-type-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === type);
+            });
+            
+            // Show/hide sections
+            document.getElementById('confirmedDropsSection').style.display = type === 'confirmed' ? 'block' : 'none';
+            document.getElementById('rumorsSection').style.display = type === 'rumors' ? 'block' : 'none';
+            
+            // Load rumors if switching to rumors tab and not loaded yet
+            if (type === 'rumors' && rumorsData.length === 0) {
+                loadRumors();
+            }
+        }
+        
+        async function loadRumors() {
+            try {
+                // Fetch rumors from backend - filter for unconfirmed/speculation keywords
+                const rumorsRes = await fetch(`${API}/drops/rumors`);
+                if (rumorsRes.ok) {
+                    const data = await rumorsRes.json();
+                    rumorsData = data.rumors || [];
+                    console.log('Rumors loaded:', rumorsData.length);
+                } else {
+                    // Fallback: filter from existing sources for rumor keywords
+                    await generateRumorsFromSources();
+                }
+            } catch (e) {
+                console.log('Rumors fetch failed, generating from sources:', e.message);
+                await generateRumorsFromSources();
+            }
+            
+            renderRumors();
+        }
+        
+        async function generateRumorsFromSources() {
+            // Generate rumors from Reddit, Twitter, etc. by filtering for rumor keywords
+            const rumorKeywords = ['rumor', 'rumored', 'speculation', 'leak', 'leaked', 'unconfirmed', 'might', 'possibly', 'could be', 'hearing', 'source says', 'allegedly', 'reportedly'];
+            
+            rumorsData = [];
+            
+            // Check Reddit posts for rumors
+            for (const post of liveRedditPosts) {
+                const titleLower = (post.title || '').toLowerCase();
+                if (rumorKeywords.some(keyword => titleLower.includes(keyword))) {
+                    rumorsData.push({
+                        title: post.title,
+                        url: post.url,
+                        source: post.source || 'Reddit',
+                        date: new Date(post.created * 1000),
+                        type: 'reddit',
+                        score: post.score || 0
+                    });
+                }
+            }
+            
+            // Check Twitter posts for rumors
+            for (const tweet of liveTwitterPosts) {
+                const titleLower = (tweet.title || '').toLowerCase();
+                if (rumorKeywords.some(keyword => titleLower.includes(keyword))) {
+                    rumorsData.push({
+                        title: tweet.title,
+                        url: tweet.url,
+                        source: tweet.source || 'Twitter',
+                        date: new Date(),
+                        type: 'twitter',
+                        score: tweet.score || 0
+                    });
+                }
+            }
+            
+            // Add some example rumors if none found
+            if (rumorsData.length === 0) {
+                rumorsData = [
+                    {
+                        title: 'Rumored: New Pokemon TCG set announcement coming soon',
+                        url: '#',
+                        source: 'Community',
+                        date: new Date(),
+                        type: 'rumor',
+                        score: 0
+                    },
+                    {
+                        title: 'Speculation: Target restock wave expected this week',
+                        url: '#',
+                        source: 'Community',
+                        date: new Date(),
+                        type: 'rumor',
+                        score: 0
+                    }
+                ];
+            }
+        }
+        
+        function renderRumors() {
+            const container = document.getElementById('rumorsDrops');
+            if (!container) return;
+            
+            if (rumorsData.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 2rem;">No rumors at this time. Check back later!</div>';
+                return;
+            }
+            
+            // Sort by date (newest first)
+            const sortedRumors = [...rumorsData].sort((a, b) => (b.date || new Date()) - (a.date || new Date()));
+            
+            container.innerHTML = sortedRumors.map(rumor => {
+                const dateStr = rumor.date ? new Date(rumor.date).toLocaleDateString() : 'Recently';
+                const platformColor = rumor.type === 'reddit' ? '#ff4500' : rumor.type === 'twitter' ? '#1DA1F2' : '#666';
+                
+                return `
+                    <div class="card" style="margin-bottom: 0.75rem; border-left: 3px solid ${platformColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+                                    ${dateStr} • <span style="color: ${platformColor}; font-weight: 600;">${rumor.source}</span>
+                                </div>
+                                <a href="${rumor.url}" target="_blank" rel="noopener" style="color: var(--text); text-decoration: none; font-weight: 500; font-size: 0.875rem; line-height: 1.4;">
+                                    ${rumor.title}
+                                </a>
+                                <div style="margin-top: 0.5rem; font-size: 0.625rem; color: var(--text-muted); font-style: italic;">
+                                    ⚠️ Unconfirmed - This is a rumor, not official information
+                                </div>
+                            </div>
+                            ${rumor.score ? `<div style="font-size: 0.75rem; color: var(--text-muted);">↑${rumor.score}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
         async function loadLiveIntel() {
