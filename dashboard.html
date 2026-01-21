@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Poke Agent</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>">
     <meta name="theme-color" content="#0a0a0a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1333,7 +1333,7 @@
 <body>
     <div class="app">
         <header>
-            <div class="logo">🎴 Poke Agent</div>
+            <div class="logo">Poke Agent</div>
             <div class="status">
                 <span class="status-dot" id="statusDot"></span>
                 <span id="statusText">Connecting...</span>
@@ -1342,9 +1342,9 @@
 
         <!-- Desktop Navigation -->
         <nav class="desktop-nav">
-            <button class="nav-btn active" data-section="search">📅 Drops</button>
+            <button class="nav-btn active" data-section="search">Drops</button>
             <button class="nav-btn" data-section="stock">🗺️ Stock</button>
-            <button class="nav-btn" data-section="card">🎴 Cards</button>
+            <button class="nav-btn" data-section="card">Cards</button>
             <button class="nav-btn" data-section="assistant">AI Assistant</button>
             <button class="nav-btn" data-section="portfolio">Portfolio</button>
             <button class="nav-btn" data-section="grade">Grading</button>
@@ -1356,25 +1356,25 @@
         <!-- Mobile Navigation Dropdown -->
         <div class="mobile-nav">
             <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
-                <option value="search">📅 Upcoming Drops</option>
+                <option value="search">Upcoming Drops</option>
                 <option value="stock">🗺️ Stock Map</option>
-                <option value="card">🎴 Card Lookup</option>
+                <option value="card">Card Lookup</option>
                 <option value="assistant">🤖 AI Assistant</option>
                 <option value="portfolio">💼 Portfolio</option>
-                <option value="grade">⭐ AI Grading</option>
-                <option value="flip">💰 Flip Calculator</option>
-                <option value="analytics">📊 Analytics</option>
-                <option value="settings">⚙️ Settings</option>
+                <option value="grade">AI Grading</option>
+                <option value="flip">Flip Calculator</option>
+                <option value="analytics">Analytics</option>
+                <option value="settings">Settings</option>
             </select>
         </div>
 
         <!-- Upcoming Drops Section -->
         <section id="search" class="active">
-            <h1>📅 Upcoming Drops</h1>
+            <h1>Upcoming Drops</h1>
             
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
                 <button class="btn btn-sm time-btn active" data-filter="all" onclick="filterDrops('all')">All Drops</button>
-                <button class="btn btn-sm time-btn" data-filter="thisweek" onclick="filterDrops('thisweek')">📅 This Week</button>
+                <button class="btn btn-sm time-btn" data-filter="thisweek" onclick="filterDrops('thisweek')">This Week</button>
                 <button class="btn btn-sm time-btn" data-filter="thismonth" onclick="filterDrops('thismonth')">📆 This Month</button>
             </div>
             
@@ -1394,7 +1394,7 @@
             <div id="upcomingDrops"></div>
             
             <div class="card" style="margin-top: 1rem;">
-                <h2>📱 Follow for Drop Alerts</h2>
+                <h2>Follow for Drop Alerts</h2>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <a href="https://twitter.com/pokaborudeals" target="_blank" class="btn btn-outline btn-sm">𝕏 @pokaborudeals</a>
                     <a href="https://twitter.com/PokeBeach" target="_blank" class="btn btn-outline btn-sm">𝕏 @PokeBeach</a>
@@ -1418,14 +1418,14 @@
             <!-- Retailer Filter - Main Retailers Only -->
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                 <button class="btn btn-sm retailer-btn active" data-retailer="all" onclick="filterRetailer('all')">All</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Target" onclick="filterRetailer('Target')" style="background: #cc0000; color: white;">🎯 Target</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Walmart" onclick="filterRetailer('Walmart')" style="background: #0071ce; color: white;">🏪 Walmart</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Amazon" onclick="filterRetailer('Amazon')" style="background: #ff9900; color: #000;">📦 Amazon</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Best Buy" onclick="filterRetailer('Best Buy')" style="background: #0046be; color: white;">💻 Best Buy</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="GameStop" onclick="filterRetailer('GameStop')" style="background: #000; color: white;">🎮 GameStop</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Pokemon Center" onclick="filterRetailer('Pokemon Center')" style="background: #ffcb05; color: #000;">⭐ Pokemon Center</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Costco" onclick="filterRetailer('Costco')" style="background: #e31837; color: white;">🏬 Costco</button>
-                <button class="btn btn-sm retailer-btn" data-retailer="Barnes & Noble" onclick="filterRetailer('Barnes & Noble')" style="background: #2d5a27; color: white;">📚 B&N</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Target" onclick="filterRetailer('Target')" style="background: #cc0000; color: white;">Target</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Walmart" onclick="filterRetailer('Walmart')" style="background: #0071ce; color: white;">Walmart</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Amazon" onclick="filterRetailer('Amazon')" style="background: #ff9900; color: #000;">Amazon</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Best Buy" onclick="filterRetailer('Best Buy')" style="background: #0046be; color: white;">Best Buy</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="GameStop" onclick="filterRetailer('GameStop')" style="background: #000; color: white;">GameStop</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Pokemon Center" onclick="filterRetailer('Pokemon Center')" style="background: #ffcb05; color: #000;">Pokemon Center</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Costco" onclick="filterRetailer('Costco')" style="background: #e31837; color: white;">Costco</button>
+                <button class="btn btn-sm retailer-btn" data-retailer="Barnes & Noble" onclick="filterRetailer('Barnes & Noble')" style="background: #2d5a27; color: white;">B&N</button>
             </div>
 
             <div class="card grid grid-4" style="margin-bottom: 1.5rem;">
@@ -1551,7 +1551,7 @@
 
             <div id="cardResults">
                 <div class="empty">
-                    <div class="empty-icon">🎴</div>
+                    <div class="empty-icon"></div>
                     <div>Search for cards or products to see all variations and price history</div>
                     <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
                         <button class="btn btn-outline btn-sm" onclick="quickCardSearch('Charizard')">Charizard</button>
@@ -1686,7 +1686,7 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <h2 style="margin: 0;">Your Collection</h2>
-                    <button class="btn btn-outline btn-sm" onclick="refreshPortfolioPrices()">🔄 Refresh Prices</button>
+                    <button class="btn btn-outline btn-sm" onclick="refreshPortfolioPrices()">Refresh Prices</button>
                 </div>
                 <div id="portfolioItems" style="display: grid; gap: 0.5rem;">
                     <!-- Portfolio items will be listed here -->
@@ -1952,7 +1952,7 @@
             <div class="card">
                 <h2>Payment Method</h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    ⚠️ Card info is stored locally in your browser only. For security, we recommend using retailer-saved payment methods.
+                    Card info is stored locally in your browser only. For security, we recommend using retailer-saved payment methods.
                 </p>
                 <div style="display: grid; gap: 0.75rem;">
                     <input type="text" id="settingsCardName" placeholder="Name on Card">
@@ -1971,7 +1971,7 @@
                 </div>
                 <div id="savedPayment" style="margin-top: 1rem; display: none;">
                     <div style="padding: 0.75rem; background: var(--bg); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                        <span id="savedPaymentDisplay">💳 •••• 1234</span>
+                        <span id="savedPaymentDisplay">•••• 1234</span>
                         <button class="btn btn-outline btn-sm" onclick="clearPayment()">Remove</button>
                     </div>
                 </div>
@@ -1984,22 +1984,22 @@
                 </p>
                 <div style="display: grid; gap: 0.5rem;">
                     <a href="https://www.target.com/account" target="_blank" class="btn btn-outline" style="text-decoration: none; text-align: left;">
-                        🎯 Target Account
+                        Target Account
                     </a>
                     <a href="https://www.walmart.com/account" target="_blank" class="btn btn-outline" style="text-decoration: none; text-align: left;">
-                        🏪 Walmart Account
+                        Walmart Account
                     </a>
                     <a href="https://www.bestbuy.com/identity/signin" target="_blank" class="btn btn-outline" style="text-decoration: none; text-align: left;">
-                        💻 Best Buy Account
+                        Best Buy Account
                     </a>
                     <a href="https://www.gamestop.com/account/" target="_blank" class="btn btn-outline" style="text-decoration: none; text-align: left;">
-                        🎮 GameStop Account
+                        GameStop Account
                     </a>
                     <a href="https://www.pokemoncenter.com/account" target="_blank" class="btn btn-outline" style="text-decoration: none; text-align: left;">
-                        ⭐ Pokemon Center Account
+                        Pokemon Center Account
                     </a>
                     <a href="https://www.tcgplayer.com/settings/account" target="_blank" class="btn btn-outline" style="text-decoration: none; text-align: left;">
-                        🃏 TCGPlayer Account
+                        TCGPlayer Account
                     </a>
                 </div>
             </div>
@@ -2270,7 +2270,7 @@
             alert.className = 'alert';
             const buyUrl = data.url || getBuyUrl(data.retailer, data.product_name, '');
             alert.innerHTML = `
-                <div class="alert-title">🔥 ${data.product_name || 'Deal Found'}</div>
+                <div class="alert-title">${data.product_name || 'Deal Found'}</div>
                 <div class="alert-body">
                     ${data.retailer || ''} - $${data.price || '??'}
                     <br><a href="${buyUrl}" target="_blank" style="color: var(--green);">Buy Now →</a>
@@ -2283,7 +2283,7 @@
             
             // Desktop notification
             if (settings.notif !== false && Notification.permission === 'granted') {
-                new Notification('🔥 Deal Alert', { body: `${data.product_name} - $${data.price}` });
+                new Notification('Deal Alert', { body: `${data.product_name} - $${data.price}` });
             }
             
             // Sound
@@ -2330,7 +2330,7 @@
             const data = await api(endpoint, { timeout: 6000 });
             
             if (data.error) {
-                results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>${data.error}</div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${data.error}</div>`;
                 return;
             }
             
@@ -2366,7 +2366,7 @@
             });
             
             if (!filteredProducts.length) {
-                results.innerHTML = '<div class="empty"><div class="empty-icon">📦</div>No quality products found</div>';
+                results.innerHTML = '<div class="empty"><div class="empty-icon"></div>No quality products found</div>';
                 return;
             }
             
@@ -2418,7 +2418,7 @@
                             <div class="product-info" style="flex: 1; min-width: 0;">
                                 <div class="product-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name || 'Unknown'}</div>
                                 <div class="product-meta">${p.retailer || ''}</div>
-                                ${p.setInfo ? `<div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.25rem;">📦 ${p.setInfo.name}</div>` : ''}
+                                ${p.setInfo ? `<div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.25rem;">${p.setInfo.name}</div>` : ''}
                                 <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;">
                                     <span class="product-price">$${priceDisplay}</span>
                                     <span class="product-stock" style="color: ${p.stock ? 'var(--green)' : 'var(--text-muted)'};">${p.stock ? '✓ In Stock' : 'Out'}</span>
@@ -2571,7 +2571,7 @@
             if (!drops.length) {
                 container.innerHTML = `
                     <div class="empty">
-                        <div class="empty-icon">📅</div>
+                        <div class="empty-icon"></div>
                         <div>No drops matching this filter</div>
                     </div>
                 `;
@@ -2584,7 +2584,7 @@
                 const isToday = daysUntil === 0;
                 const isTomorrow = daysUntil === 1;
                 
-                const timeLabel = isPast ? 'Dropped' : isToday ? '🔥 TODAY!' : isTomorrow ? '⏰ Tomorrow' : `${daysUntil} days`;
+                const timeLabel = isPast ? 'Dropped' : isToday ? 'TODAY!' : isTomorrow ? 'Tomorrow' : `${daysUntil} days`;
                 // All drops are confirmed - show green badge
                 const statusBadge = '<span style="background: var(--green); color: white; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.625rem;">✓ CONFIRMED</span>';
                 
@@ -2609,11 +2609,11 @@
                                     <img src="${setLogo}" data-drop-logo="${drop.setId}" alt="${drop.name}" 
                                         style="max-width: 60px; max-height: 35px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); margin-top: 8px;"
                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                    <span style="display:none; font-size: 1.5rem;">📦</span>
+                                    <span style="display:none; font-size: 1.5rem;"></span>
                                 ` : `
                                     <img src="" data-drop-logo="${drop.setId}" alt="${drop.name}" 
                                         style="max-width: 60px; max-height: 35px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); margin-top: 8px; display: none;">
-                                    <span style="font-size: 1.5rem; margin-top: 8px;">📦</span>
+                                    <span style="font-size: 1.5rem; margin-top: 8px;"></span>
                                 `}
                                 <!-- Product type badge -->
                                 <div style="position: absolute; bottom: 4px; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 3px;">
@@ -2637,7 +2637,7 @@
                                     ${drop.retailers.map(r => `<span style="font-size: 0.875rem; padding: 0.25rem 0.5rem; background: var(--bg); border-radius: 6px; font-weight: 500;">${r}</span>`).join('')}
                                 </div>
                                 <div style="font-size: 0.8125rem; color: var(--text-muted);">
-                                    📦 ${drop.products.join(', ')}
+                                    ${drop.products.join(', ')}
                                 </div>
                             </div>
                         </div>
@@ -2717,14 +2717,14 @@
             // Main retailers with REALISTIC stock probabilities
             // Pokemon Center is almost always sold out for popular items
             const retailers = [
-                { chain: 'Target', icon: '🎯', color: '#cc0000', storeCount: 3, stockChance: 0.5 },
-                { chain: 'Walmart', icon: '🏪', color: '#0071ce', storeCount: 2, stockChance: 0.4 },
-                { chain: 'Amazon', icon: '📦', color: '#ff9900', storeCount: 1, online: true, stockChance: 0.6 },
-                { chain: 'Best Buy', icon: '💻', color: '#0046be', storeCount: 2, stockChance: 0.35 },
-                { chain: 'GameStop', icon: '🎮', color: '#000000', storeCount: 3, stockChance: 0.45 },
-                { chain: 'Pokemon Center', icon: '⭐', color: '#ffcb05', storeCount: 1, online: true, stockChance: 0.1 }, // Usually sold out!
-                { chain: 'Costco', icon: '🏬', color: '#e31837', storeCount: 1, stockChance: 0.3 },
-                { chain: 'Barnes & Noble', icon: '📚', color: '#2d5a27', storeCount: 1, stockChance: 0.25 },
+                { chain: 'Target', icon: '', color: '#cc0000', storeCount: 3, stockChance: 0.5 },
+                { chain: 'Walmart', icon: '', color: '#0071ce', storeCount: 2, stockChance: 0.4 },
+                { chain: 'Amazon', icon: '', color: '#ff9900', storeCount: 1, online: true, stockChance: 0.6 },
+                { chain: 'Best Buy', icon: '', color: '#0046be', storeCount: 2, stockChance: 0.35 },
+                { chain: 'GameStop', icon: '', color: '#000000', storeCount: 3, stockChance: 0.45 },
+                { chain: 'Pokemon Center', icon: '', color: '#ffcb05', storeCount: 1, online: true, stockChance: 0.1 }, // Usually sold out!
+                { chain: 'Costco', icon: '', color: '#e31837', storeCount: 1, stockChance: 0.3 },
+                { chain: 'Barnes & Noble', icon: '', color: '#2d5a27', storeCount: 1, stockChance: 0.25 },
             ];
             
             // Get products filtered by query
@@ -2917,13 +2917,13 @@
         
         function renderStockResults(stores) {
             const results = document.getElementById('stockResults');
-            const icons = { 'Target': '🎯', 'Walmart': '🏪', 'Amazon': '📦', 'Best Buy': '💻', 'GameStop': '🎮', 'Pokemon Center': '⭐', 'Barnes & Noble': '📚', 'Costco': '🏬' };
+            const icons = { 'Target': '', 'Walmart': '', 'Amazon': '', 'Best Buy': '', 'GameStop': '', 'Pokemon Center': '', 'Barnes & Noble': '', 'Costco': '' };
             
             // Check if this is demo data
             const isDemo = stores.some(s => s.isDemo);
             const demoNotice = isDemo ? `
                 <div style="background: var(--gold-muted); border: 1px solid var(--gold); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 1.25rem;">⚠️</span>
+                    <span style="font-size: 1.25rem;"></span>
                     <div>
                         <div style="font-weight: 600; font-size: 0.875rem;">Simulated Stock Data</div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary);">Actual availability may vary. Click retailer links to verify real-time stock.</div>
@@ -2935,8 +2935,8 @@
                 <div class="store" style="margin-bottom: 1rem;">
                     <div class="store-header">
                         <div class="store-name">
-                            ${icons[s.chain] || '🏪'} ${s.chain} ${s.store_id !== 'Online' ? '#' + s.store_id : ''}
-                            ${s.online ? '<span style="background: var(--accent); color: white; font-size: 0.5rem; padding: 0.125rem 0.375rem; border-radius: 4px; margin-left: 0.5rem;">🌐 ONLINE</span>' : ''}
+                            ${icons[s.chain] || ''} ${s.chain} ${s.store_id !== 'Online' ? '#' + s.store_id : ''}
+                            ${s.online ? '<span style="background: var(--accent); color: white; font-size: 0.5rem; padding: 0.125rem 0.375rem; border-radius: 4px; margin-left: 0.5rem;">ONLINE</span>' : ''}
                         </div>
                         <span class="store-badge ${s.has_stock ? 'in-stock' : 'out'}">
                             ${s.has_stock ? `${s.stock_count} items (${s.total_quantity || 0} units)` : 'Out of Stock'}
@@ -2945,7 +2945,7 @@
                     
                     <div class="address-card">
                         <div class="address-line">
-                            <span class="address-icon">${s.online ? '🌐' : '📍'}</span>
+                            <span class="address-icon">${s.online ? '' : ''}</span>
                             <strong>${s.full_address || s.address}</strong>
                         </div>
                         ${!s.online ? `<div class="address-line">
@@ -2962,7 +2962,7 @@
                         </div>
                         ${s.aisle_location ? `
                             <div class="address-line">
-                                <span class="address-icon">🏷️</span>
+                                <span class="address-icon"></span>
                                 <span>Location: <strong>${s.aisle_location}</strong></span>
                             </div>
                         ` : ''}
@@ -3004,7 +3004,7 @@
                                             SKU: ${p.sku || 'N/A'} 
                                             ${p.aisle ? `• <strong>${p.aisle}</strong>` : ''}
                                         </div>
-                                        ${setInfo ? `<div style="font-size: 0.5rem; color: var(--accent); margin-top: 0.125rem;">📦 ${setInfo.name}</div>` : ''}
+                                        ${setInfo ? `<div style="font-size: 0.5rem; color: var(--accent); margin-top: 0.125rem;">${setInfo.name}</div>` : ''}
                                     </div>
                                     <div class="store-product-right">
                                         <span class="store-product-qty">×${p.quantity || 1}</span>
@@ -3126,7 +3126,7 @@
                                      alt="${card.name}"
                                      style="width: 100%; height: 160px; object-fit: contain;"
                                      loading="lazy"
-                                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22160%22><rect fill=%22%23171717%22 width=%22120%22 height=%22160%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22>🎴</text></svg>'">
+                                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22160%22><rect fill=%22%23171717%22 width=%22120%22 height=%22160%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22></text></svg>'">
                                 <div class="card-title">${card.name}</div>
                                 <div class="card-set">${card.set?.name || ''}</div>
                                 <div class="card-price">${price > 0 ? '$' + price.toFixed(2) : ''}</div>
@@ -3203,12 +3203,12 @@
                     <div class="card-details">
                         <h3>${cardName}</h3>
                         <div class="card-set">${setName} ${cardNumber}</div>
-                        ${rarity ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">✨ ${rarity}</div>` : ''}
-                        ${artist ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">🎨 Illustrated by ${artist}</div>` : ''}
+                        ${rarity ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">${rarity}</div>` : ''}
+                        ${artist ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">Illustrated by ${artist}</div>` : ''}
                         
                         ${cardInfo?.hp ? `
                             <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                                <span style="padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem;">❤️ ${cardInfo.hp} HP</span>
+                                <span style="padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem;">${cardInfo.hp} HP</span>
                                 ${cardInfo.supertype ? `<span style="padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem;">${cardInfo.supertype}</span>` : ''}
                                 ${cardInfo.subtypes?.map(s => `<span style="padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem;">${s}</span>`).join('') || ''}
                             </div>
@@ -3216,7 +3216,7 @@
                         
                         <h2>Market Prices</h2>
                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-                            ${priceData?.source ? `📊 Source: ${priceData.source}` : ''}
+                            ${priceData?.source ? `Source: ${priceData.source}` : ''}
                             ${Object.values(graded).some(g => g.source?.includes('Estimated')) ? ' • <span style="color: var(--accent);">~</span> = Estimated' : ''}
                         </div>
                         <div class="price-grid">
@@ -3322,12 +3322,7 @@
         }
         
         function getTypeEmoji(type) {
-            const emojis = {
-                'Colorless': '⚪', 'Fire': '🔥', 'Water': '💧', 'Grass': '🌿',
-                'Lightning': '⚡', 'Psychic': '🔮', 'Fighting': '👊', 'Darkness': '🌑',
-                'Metal': '⚙️', 'Dragon': '🐉', 'Fairy': '🧚',
-            };
-            return emojis[type] || '⭐';
+            return '';
         }
         
         // Format price with proper handling of null/undefined/0
@@ -3427,7 +3422,7 @@
                     await searchProducts(query);
                 }
             } catch (e) {
-                results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>${e.message}</div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${e.message}</div>`;
             }
         }
         
@@ -3664,11 +3659,11 @@
             
             // Meta tags
             const meta = [];
-            if (card.hp) meta.push(`❤️ ${card.hp} HP`);
+            if (card.hp) meta.push(`${card.hp} HP`);
             if (card.types?.length) meta.push(...card.types.map(t => `${getTypeEmoji(t)} ${t}`));
             if (card.supertype) meta.push(card.supertype);
             if (card.subtypes?.length) meta.push(...card.subtypes);
-            if (card.artist) meta.push(`🎨 ${card.artist}`);
+            if (card.artist) meta.push(`${card.artist}`);
             
             document.getElementById('detailMeta').innerHTML = meta.map(m => 
                 `<span class="meta-tag">${m}</span>`
@@ -3714,10 +3709,10 @@
             
             // Generate recent sales from multiple sources
             const salesSources = [
-                { platform: 'TCGPlayer', icon: '🎴', price: tcgMarket || basePrice, condition: 'Near Mint', verified: true },
-                { platform: 'eBay Sold', icon: '🏷️', price: ebayAvg * 0.98, condition: 'Near Mint', verified: true },
-                { platform: 'TCGPlayer', icon: '🎴', price: tcgLow || basePrice * 0.9, condition: 'Lightly Played', verified: true },
-                { platform: 'eBay Sold', icon: '🏷️', price: ebayAvg * 1.05, condition: 'Near Mint', verified: true },
+                { platform: 'TCGPlayer', icon: '', price: tcgMarket || basePrice, condition: 'Near Mint', verified: true },
+                { platform: 'eBay Sold', icon: '', price: ebayAvg * 0.98, condition: 'Near Mint', verified: true },
+                { platform: 'TCGPlayer', icon: '', price: tcgLow || basePrice * 0.9, condition: 'Lightly Played', verified: true },
+                { platform: 'eBay Sold', icon: '', price: ebayAvg * 1.05, condition: 'Near Mint', verified: true },
             ];
             
             const sales = salesSources.map((source, i) => {
@@ -3731,7 +3726,7 @@
             salesDiv.innerHTML = `
                 <div style="background: var(--bg); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem;">
                     <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-                        📊 Market Price Data (TCGPlayer + eBay Sold)
+                        Market Price Data (TCGPlayer + eBay Sold)
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: center;">
                         <div>
@@ -3782,15 +3777,15 @@
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
                     <a href="https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(card.name)}&view=grid" 
                        target="_blank" class="btn btn-outline btn-sm" style="flex: 1; text-align: center;">
-                        🎴 TCGPlayer Prices
+                        TCGPlayer Prices
                     </a>
                     <a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(card.name + ' pokemon')}&LH_Complete=1&LH_Sold=1" 
                        target="_blank" class="btn btn-outline btn-sm" style="flex: 1; text-align: center;">
-                        🏷️ eBay Sold
+                         eBay Sold
                     </a>
                 </div>
                 <div style="font-size: 0.5rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
-                    💡 Prices from TCGPlayer & eBay sold listings
+                     Prices from TCGPlayer & eBay sold listings
                 </div>
             `;
         }
@@ -3800,7 +3795,7 @@
             document.getElementById('detailName').textContent = product.name;
             document.getElementById('detailSet').textContent = product.retailer || 'Sealed Product';
             document.getElementById('detailMeta').innerHTML = `
-                <span class="meta-tag">📦 Sealed</span>
+                <span class="meta-tag">Sealed</span>
                 ${product.retailer ? `<span class="meta-tag">${product.retailer}</span>` : ''}
             `;
             
@@ -3847,7 +3842,7 @@
             // Data source header
             let priceHtml = `
                 <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.25rem;">
-                    📊 Data: TCGPlayer Market + eBay Sold Listings
+                    Data: TCGPlayer Market + eBay Sold Listings
                 </div>
             `;
             
@@ -3921,7 +3916,7 @@
             
             priceHtml += `
                 <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0.25rem;">
-                    🏆 Graded Prices ${isVintage ? '(Vintage)' : '(Modern)'} — <span style="color: var(--accent);">~</span> = Est. from eBay
+                    Graded Prices ${isVintage ? '(Vintage)' : '(Modern)'} — <span style="color: var(--accent);">~</span> = Est. from eBay
                 </div>
             `;
             
@@ -3978,16 +3973,16 @@
             if (!card.isProduct) {
                 document.getElementById('detailBuyLinks').innerHTML = `
                     <div style="font-size: 0.625rem; color: var(--text-muted); width: 100%; margin-bottom: 0.5rem;">
-                        📊 View pricing & buy from marketplace:
+                        View pricing & buy from marketplace:
                     </div>
                     <a href="https://www.tcgplayer.com/search/pokemon/product?q=${name}" target="_blank" class="btn btn-sm" style="background: #1a67bd; color: white;">
-                        🎴 TCGPlayer
+                        TCGPlayer
                     </a>
                     <a href="https://www.ebay.com/sch/i.html?_nkw=${name}+pokemon+card" target="_blank" class="btn btn-sm" style="background: #e53238; color: white;">
-                        🏷️ eBay
+                         eBay
                     </a>
                     <a href="https://www.ebay.com/sch/i.html?_nkw=PSA+${name}+pokemon" target="_blank" class="btn btn-sm" style="background: #f5af02; color: #000;">
-                        🏆 eBay Graded
+                        eBay Graded
                     </a>
                 `;
                 return;
@@ -3995,16 +3990,16 @@
             
             // For sealed products: show main retailers
             const links = [
-                { name: '🎯 Target', url: `https://www.target.com/s?searchTerm=${name}+pokemon`, color: '#cc0000' },
-                { name: '🏪 Walmart', url: `https://www.walmart.com/search?q=${name}+pokemon`, color: '#0071ce' },
-                { name: '💻 Best Buy', url: `https://www.bestbuy.com/site/searchpage.jsp?st=${name}+pokemon`, color: '#0046be' },
-                { name: '🎮 GameStop', url: `https://www.gamestop.com/search/?q=${name}+pokemon`, color: '#000000' },
-                { name: '⭐ Pokemon Center', url: `https://www.pokemoncenter.com/search/${name}`, color: '#ffcb05', textColor: '#000' },
+                { name: 'Target', url: `https://www.target.com/s?searchTerm=${name}+pokemon`, color: '#cc0000' },
+                { name: 'Walmart', url: `https://www.walmart.com/search?q=${name}+pokemon`, color: '#0071ce' },
+                { name: 'Best Buy', url: `https://www.bestbuy.com/site/searchpage.jsp?st=${name}+pokemon`, color: '#0046be' },
+                { name: 'GameStop', url: `https://www.gamestop.com/search/?q=${name}+pokemon`, color: '#000000' },
+                { name: 'Pokemon Center', url: `https://www.pokemoncenter.com/search/${name}`, color: '#ffcb05', textColor: '#000' },
             ];
             
             document.getElementById('detailBuyLinks').innerHTML = `
                 <div style="font-size: 0.625rem; color: var(--text-muted); width: 100%; margin-bottom: 0.25rem;">
-                    🛒 Buy from official retailers:
+                     Buy from official retailers:
                 </div>
             ` + links.map(l => 
                 `<a href="${l.url}" target="_blank" class="btn btn-buy btn-sm" style="background: ${l.color}; ${l.textColor ? 'color: ' + l.textColor : ''}">${l.name}</a>`
@@ -4429,7 +4424,7 @@
                     
                     results.innerHTML = `
                         <div class="card" style="padding: 2rem; text-align: center;">
-                            <h3>✅ API Working!</h3>
+                            <h3> API Working!</h3>
                             <p>Found: ${card.name} (${card.set?.name})</p>
                             <p>Image URL: <code style="font-size: 0.75rem; word-break: break-all;">${imgUrl}</code></p>
                             <img src="${imgUrl}" style="max-width: 300px; margin-top: 1rem; border-radius: 12px;">
@@ -4439,7 +4434,7 @@
                 } else {
                     results.innerHTML = `
                         <div class="card" style="padding: 2rem; text-align: center;">
-                            <h3>⚠️ No Results</h3>
+                            <h3>No Results</h3>
                             <p>No cards found for "${name}"</p>
                             <p>Try: Charizard, Pikachu, Mewtwo</p>
                         </div>
@@ -4448,7 +4443,7 @@
             } catch (e) {
                 results.innerHTML = `
                     <div class="card" style="padding: 2rem; text-align: center;">
-                        <h3>❌ Error</h3>
+                        <h3> Error</h3>
                         <p>${e.message}</p>
                         <p style="color: var(--text-muted);">This might be a CORS issue. Check browser console.</p>
                     </div>
@@ -4607,7 +4602,7 @@
             const results = document.getElementById('flipResults');
             
             if (data.error) {
-                results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>${data.error}</div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${data.error}</div>`;
                 return;
             }
             
@@ -4739,7 +4734,7 @@
             
             document.getElementById('savedPayment').style.display = 'block';
             document.getElementById('savedPaymentDisplay').textContent = 
-                `💳 ${cardType ? cardType.charAt(0).toUpperCase() + cardType.slice(1) : 'Card'} •••• ${last4}`;
+                `${cardType ? cardType.charAt(0).toUpperCase() + cardType.slice(1) : 'Card'} •••• ${last4}`;
             
             alert('✓ Payment info saved (last 4 digits only)');
         }
@@ -4767,7 +4762,7 @@
             if (settings.payment) {
                 document.getElementById('savedPayment').style.display = 'block';
                 document.getElementById('savedPaymentDisplay').textContent = 
-                    `💳 ${settings.payment.cardType ? settings.payment.cardType.charAt(0).toUpperCase() + settings.payment.cardType.slice(1) : 'Card'} •••• ${settings.payment.last4}`;
+                    `${settings.payment.cardType ? settings.payment.cardType.charAt(0).toUpperCase() + settings.payment.cardType.slice(1) : 'Card'} •••• ${settings.payment.last4}`;
             }
         }
 
@@ -4823,15 +4818,15 @@
                     const data = await api(`/prices/card/${encodeURIComponent(product)}`);
                     if (data.raw?.price) {
                         return {
-                            text: `💰 <strong>${product}</strong><br><br>
+                            text: `<strong>${product}</strong><br><br>
                                 Raw: <strong>$${data.raw.price}</strong><br>
                                 PSA 10: $${data.graded?.['PSA 10']?.price || '??'}<br>
                                 PSA 9: $${data.graded?.['PSA 9']?.price || '??'}<br><br>
                                 Want me to find this at a specific retailer?`,
                             actions: [
-                                { label: '🎯 Target', action: `window.open('${getBuyUrl('Target', product, '')}', '_blank')` },
-                                { label: '🏪 Walmart', action: `window.open('${getBuyUrl('Walmart', product, '')}', '_blank')` },
-                                { label: '🃏 TCGPlayer', action: `window.open('${getBuyUrl('TCGPlayer', product, '')}', '_blank')` },
+                                { label: 'Target', action: `window.open('${getBuyUrl('Target', product, '')}', '_blank')` },
+                                { label: 'Walmart', action: `window.open('${getBuyUrl('Walmart', product, '')}', '_blank')` },
+                                { label: 'TCGPlayer', action: `window.open('${getBuyUrl('TCGPlayer', product, '')}', '_blank')` },
                             ]
                         };
                     }
@@ -4868,26 +4863,26 @@
                 
                 if (lower.includes('month') || lower.includes('recurring') || lower.includes('auto')) {
                     return {
-                        text: `📦 I'll help you set up a recurring purchase rule.<br><br>
+                        text: `I'll help you set up a recurring purchase rule.<br><br>
                             <strong>Rule:</strong> Buy ${qty} ${product || 'sealed products'} per month<br><br>
                             I'll notify you when matching products are found under your max price. Want me to add this rule?`,
                         actions: [
-                            { label: '✅ Add Rule', action: `addAutoBuyRuleFromChat('${product || 'sealed'}', ${qty})` },
-                            { label: '⚙️ Customize', action: `switchSection('assistant'); document.querySelector('[id="ruleProduct"]').focus()` },
+                            { label: ' Add Rule', action: `addAutoBuyRuleFromChat('${product || 'sealed'}', ${qty})` },
+                            { label: 'Customize', action: `switchSection('assistant'); document.querySelector('[id="ruleProduct"]').focus()` },
                         ]
                     };
                 }
                 
                 if (product) {
                     return {
-                        text: `🛒 Ready to buy <strong>${qty}x ${product}</strong><br><br>
-                            ${settings.address?.name ? `📦 Shipping to: ${settings.address.name}, ${settings.address.address1}, ${settings.address.city}` : '⚠️ No shipping address saved'}<br>
-                            ${settings.payment?.last4 ? `💳 Payment: •••• ${settings.payment.last4}` : '⚠️ No payment method saved'}<br><br>
+                        text: ` Ready to buy <strong>${qty}x ${product}</strong><br><br>
+                            ${settings.address?.name ? `Shipping to: ${settings.address.name}, ${settings.address.address1}, ${settings.address.city}` : 'No shipping address saved'}<br>
+                            ${settings.payment?.last4 ? `Payment: •••• ${settings.payment.last4}` : 'No payment method saved'}<br><br>
                             Click a retailer to complete your purchase:`,
                         actions: [
-                            { label: '🎯 Buy at Target', action: `window.open('${getBuyUrl('Target', product, '')}', '_blank')` },
-                            { label: '🏪 Buy at Walmart', action: `window.open('${getBuyUrl('Walmart', product, '')}', '_blank')` },
-                            { label: '🎮 Buy at GameStop', action: `window.open('${getBuyUrl('GameStop', product, '')}', '_blank')` },
+                            { label: 'Buy at Target', action: `window.open('${getBuyUrl('Target', product, '')}', '_blank')` },
+                            { label: 'Buy at Walmart', action: `window.open('${getBuyUrl('Walmart', product, '')}', '_blank')` },
+                            { label: 'Buy at GameStop', action: `window.open('${getBuyUrl('GameStop', product, '')}', '_blank')` },
                         ]
                     };
                 }
@@ -4899,14 +4894,14 @@
                 const cost = portfolio.reduce((sum, item) => sum + item.cost * item.qty, 0);
                 const gain = total - cost;
                 return {
-                    text: `📊 <strong>Your Portfolio</strong><br><br>
+                    text: `<strong>Your Portfolio</strong><br><br>
                         Total Value: <strong>$${total.toFixed(2)}</strong><br>
                         Total Cost: $${cost.toFixed(2)}<br>
                         Gain/Loss: <span class="${gain >= 0 ? 'green' : 'red'}">${gain >= 0 ? '+' : ''}$${gain.toFixed(2)}</span><br>
                         Items: ${portfolio.length}<br><br>
                         ${portfolio.length === 0 ? 'Your portfolio is empty. Add some items!' : ''}`,
                     actions: [
-                        { label: '📈 View Portfolio', action: `switchSection('portfolio')` },
+                        { label: ' View Portfolio', action: `switchSection('portfolio')` },
                         { label: '➕ Add Item', action: `switchSection('portfolio'); document.getElementById('portfolioName').focus()` },
                     ]
                 };
@@ -4940,12 +4935,12 @@
                 return {
                     text: `I can help you with:<br><br>
                         <strong>🔍 Search:</strong> "Find Charizard at Target"<br>
-                        <strong>💰 Prices:</strong> "How much is Umbreon VMAX?"<br>
-                        <strong>🛒 Buy:</strong> "Buy 3 ETBs this month"<br>
-                        <strong>📦 Stock:</strong> "What's in stock near me?"<br>
-                        <strong>📊 Portfolio:</strong> "What's my collection worth?"<br>
+                        <strong>Prices:</strong> "How much is Umbreon VMAX?"<br>
+                        <strong> Buy:</strong> "Buy 3 ETBs this month"<br>
+                        <strong>Stock:</strong> "What's in stock near me?"<br>
+                        <strong>Portfolio:</strong> "What's my collection worth?"<br>
                         <strong>📸 Grade:</strong> "Grade my card"<br>
-                        <strong>🔄 Flip:</strong> "Should I grade this card?"`,
+                        <strong>Flip:</strong> "Should I grade this card?"`,
                     actions: []
                 };
             }
@@ -4986,7 +4981,7 @@
             autoBuyRules.push(rule);
             localStorage.setItem('autoBuyRules', JSON.stringify(autoBuyRules));
             renderAutoBuyRules();
-            addChatMessage(`✅ Rule added! I'll notify you when ${qty}x ${product} products under $60 are available.`, 'assistant');
+            addChatMessage(` Rule added! I'll notify you when ${qty}x ${product} products under $60 are available.`, 'assistant');
         }
         
         function addAutoBuyRule() {
@@ -5107,11 +5102,11 @@
             }
             
             const typeLabels = {
-                'card': '🃏 Raw',
-                'psa': '🏆 PSA',
+                'card': 'Raw',
+                'psa': 'PSA',
                 'cgc': '🥇 CGC',
-                'bgs': '⭐ BGS',
-                'sealed': '📦 Sealed',
+                'bgs': 'BGS',
+                'sealed': 'Sealed',
             };
             
             container.innerHTML = portfolio.map(item => {
@@ -5180,7 +5175,7 @@
             renderPortfolio();
             
             btn.disabled = false;
-            btn.textContent = '🔄 Refresh Prices';
+            btn.textContent = 'Refresh Prices';
         }
         
         // =============================================================================
@@ -5483,7 +5478,7 @@
                         ).join('')}
                     </div>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem;">
-                        ⚠️ Note: Results show API responses. Visit stores to verify actual accuracy and log verifications above.
+                        Note: Results show API responses. Visit stores to verify actual accuracy and log verifications above.
                     </p>
                 </div>
             `;
@@ -5621,14 +5616,14 @@
                 });
                 
                 if (data.error && !data.demo_mode) {
-                    results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>${data.error}</div>`;
+                    results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${data.error}</div>`;
                     return;
                 }
                 
                 renderGradeResults(data, imageData);
                 
             } catch (e) {
-                results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>${e.message}</div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${e.message}</div>`;
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Analyze Card';
@@ -5652,7 +5647,7 @@
                 <div class="card">
                     <div class="grade-result">
                         <div>
-                            <img src="${imageUrl}" class="grade-card-image" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22350%22><rect fill=%22%23171717%22 width=%22250%22 height=%22350%22/><text x=%22125%22 y=%22175%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2248%22>🎴</text></svg>'">
+                            <img src="${imageUrl}" class="grade-card-image" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22250%22 height=%22350%22><rect fill=%22%23171717%22 width=%22250%22 height=%22350%22/><text x=%22125%22 y=%22175%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2248%22></text></svg>'">
                         </div>
                         <div>
                             <h3 style="margin-bottom: 0.5rem;">${data.card_name || 'Pokemon Card'}</h3>
@@ -5704,7 +5699,7 @@
                             <h2>Recommendation</h2>
                             <div style="padding: 1rem; background: ${data.worth_grading ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; border-radius: 8px; margin-bottom: 1rem;">
                                 <div style="font-weight: 600; margin-bottom: 0.5rem;">
-                                    ${data.worth_grading ? '✅ Worth Grading' : '❌ Not Worth Grading'}
+                                    ${data.worth_grading ? ' Worth Grading' : ' Not Worth Grading'}
                                 </div>
                                 <div style="font-size: 0.875rem; color: var(--text-secondary);">
                                     ${data.recommendation || (data.worth_grading ? 'This card has good potential for a high grade.' : 'The potential grade may not justify grading costs.')}
@@ -5727,7 +5722,7 @@
                             
                             ${data.demo_mode ? `
                                 <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(234, 179, 8, 0.1); border-radius: 6px; font-size: 0.75rem; color: var(--text-secondary);">
-                                    ⚠️ Demo mode - Set ANTHROPIC_API_KEY or OPENAI_API_KEY for real AI analysis
+                                    Demo mode - Set ANTHROPIC_API_KEY or OPENAI_API_KEY for real AI analysis
                                 </div>
                             ` : ''}
                         </div>
