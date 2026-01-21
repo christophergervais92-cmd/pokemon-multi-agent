@@ -1903,6 +1903,252 @@ def list_agents():
     })
 
 
+# =============================================================================
+# AUTHENTICATION SYSTEM (Discord OAuth)
+# =============================================================================
+
+try:
+    from auth import (
+        get_discord_auth_url,
+        exchange_code_for_token,
+        get_discord_user,
+        verify_oauth_state,
+        get_or_create_user,
+        create_session,
+        validate_session,
+        invalidate_session,
+        save_user_data,
+        get_user_data,
+        get_all_user_data,
+        delete_user_data,
+        check_rate_limit,
+        sanitize_input,
+        log_audit,
+        require_auth,
+        optional_auth,
+    )
+    AUTH_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Auth module not loaded: {e}")
+    AUTH_AVAILABLE = False
+
+
+@app.route('/auth/discord', methods=['GET'])
+def auth_discord_start():
+    """Start Discord OAuth flow. Returns URL to redirect user to."""
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    ip = request.remote_addr or ''
+    if not check_rate_limit(ip, 'auth_start', max_requests=10, window_seconds=60):
+        return jsonify({'error': 'Rate limited. Try again later.'}), 429
+    
+    result = get_discord_auth_url()
+    if 'error' in result:
+        return jsonify(result), 503
+    
+    return jsonify(result)
+
+
+@app.route('/auth/discord/callback', methods=['GET', 'POST'])
+def auth_discord_callback():
+    """
+    Discord OAuth callback. Exchange code for token and create session.
+    
+    Query params:
+    - code: Authorization code from Discord
+    - state: CSRF state token
+    
+    Returns: Session token on success
+    """
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    ip = request.remote_addr or ''
+    if not check_rate_limit(ip, 'auth_callback', max_requests=5, window_seconds=60):
+        log_audit(None, 'AUTH_RATE_LIMITED', f'IP: {ip}')
+        return jsonify({'error': 'Rate limited. Try again later.'}), 429
+    
+    # Get parameters
+    code = request.args.get('code') or request.form.get('code') or ''
+    state = request.args.get('state') or request.form.get('state') or ''
+    
+    if not code or not state:
+        return jsonify({'error': 'Missing code or state parameter'}), 400
+    
+    # Verify CSRF state
+    if not verify_oauth_state(state):
+        log_audit(None, 'AUTH_INVALID_STATE', f'IP: {ip}')
+        return jsonify({'error': 'Invalid or expired state. Please try again.'}), 400
+    
+    # Exchange code for token
+    token_data = exchange_code_for_token(code)
+    if not token_data or 'access_token' not in token_data:
+        log_audit(None, 'AUTH_TOKEN_EXCHANGE_FAILED', f'IP: {ip}')
+        return jsonify({'error': 'Failed to authenticate with Discord'}), 400
+    
+    # Get user info
+    discord_user = get_discord_user(token_data['access_token'])
+    if not discord_user or 'id' not in discord_user:
+        log_audit(None, 'AUTH_USER_FETCH_FAILED', f'IP: {ip}')
+        return jsonify({'error': 'Failed to get user info from Discord'}), 400
+    
+    # Create/update user and create session
+    user_id = get_or_create_user(discord_user)
+    if not user_id:
+        return jsonify({'error': 'Failed to create user'}), 500
+    
+    user_agent = request.headers.get('User-Agent', '')[:500]
+    session_token = create_session(user_id, ip, user_agent)
+    
+    log_audit(user_id, 'LOGIN_SUCCESS', f'Discord: {discord_user.get("username")}')
+    
+    return jsonify({
+        'success': True,
+        'session_token': session_token,
+        'user': {
+            'id': user_id,
+            'discord_id': discord_user.get('id'),
+            'username': discord_user.get('username'),
+            'avatar': discord_user.get('avatar'),
+        }
+    })
+
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+    """Logout and invalidate session."""
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+    else:
+        token = request.json.get('session_token', '') if request.is_json else ''
+    
+    if token:
+        user = validate_session(token)
+        if user:
+            log_audit(user['user_id'], 'LOGOUT')
+        invalidate_session(token)
+    
+    return jsonify({'success': True})
+
+
+@app.route('/auth/me', methods=['GET'])
+def auth_me():
+    """Get current user info."""
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+    else:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user = validate_session(token)
+    if not user:
+        return jsonify({'error': 'Invalid or expired session'}), 401
+    
+    return jsonify({
+        'user_id': user['user_id'],
+        'discord_id': user['discord_id'],
+        'username': user['username'],
+        'avatar': user['avatar'],
+    })
+
+
+@app.route('/auth/data', methods=['GET'])
+def auth_get_data():
+    """Get all user data (portfolio, settings, etc.)."""
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+    else:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user = validate_session(token)
+    if not user:
+        return jsonify({'error': 'Invalid or expired session'}), 401
+    
+    data = get_all_user_data(user['user_id'])
+    return jsonify({
+        'success': True,
+        'data': data
+    })
+
+
+@app.route('/auth/data/<data_type>', methods=['GET', 'PUT'])
+def auth_data_type(data_type):
+    """Get or update specific user data type (portfolio, settings, watchlist, autobuy_rules)."""
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    if data_type not in ['portfolio', 'settings', 'watchlist', 'autobuy_rules']:
+        return jsonify({'error': 'Invalid data type'}), 400
+    
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+    else:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user = validate_session(token)
+    if not user:
+        return jsonify({'error': 'Invalid or expired session'}), 401
+    
+    ip = request.remote_addr or ''
+    
+    if request.method == 'GET':
+        data = get_user_data(user['user_id'], data_type)
+        return jsonify({'success': True, data_type: data})
+    
+    else:  # PUT
+        if not check_rate_limit(ip, f'save_{data_type}', max_requests=30, window_seconds=60):
+            return jsonify({'error': 'Rate limited'}), 429
+        
+        try:
+            new_data = request.json.get(data_type) if request.is_json else None
+            if new_data is None:
+                return jsonify({'error': f'Missing {data_type} in request body'}), 400
+            
+            save_user_data(user['user_id'], data_type, new_data)
+            log_audit(user['user_id'], f'DATA_UPDATED_{data_type.upper()}')
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+
+
+@app.route('/auth/delete', methods=['DELETE'])
+def auth_delete_data():
+    """Delete all user data (GDPR compliance)."""
+    if not AUTH_AVAILABLE:
+        return jsonify({'error': 'Authentication not configured'}), 503
+    
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+    else:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    user = validate_session(token)
+    if not user:
+        return jsonify({'error': 'Invalid or expired session'}), 401
+    
+    # Require confirmation
+    confirm = request.json.get('confirm', False) if request.is_json else False
+    if not confirm:
+        return jsonify({'error': 'Must confirm deletion by setting confirm: true'}), 400
+    
+    delete_user_data(user['user_id'])
+    return jsonify({'success': True, 'message': 'All user data has been deleted'})
+
+
 if __name__ == "__main__":
     print("🎴 LO TCG Multi-Agent Server Starting...")
     print("📡 Endpoints available at http://127.0.0.1:5001")
