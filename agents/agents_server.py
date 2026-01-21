@@ -2591,24 +2591,354 @@ def get_pokebeach_news():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/drops/all', methods=['GET'])
-def get_all_drop_intel():
+@app.route('/drops/twitter', methods=['GET'])
+def get_twitter_drops():
     """
-    Aggregate drop intel from all sources.
-    Combines Reddit + PokeBeach into a unified feed.
+    Fetch drop intel from X (Twitter) via Nitter instances.
+    Searches Pokemon TCG related hashtags and accounts.
+    """
+    try:
+        import requests as req
+        from bs4 import BeautifulSoup
+        
+        # Nitter instances (public Twitter mirrors)
+        nitter_instances = [
+            'https://nitter.net',
+            'https://nitter.privacydev.net',
+            'https://nitter.poast.org'
+        ]
+        
+        # Search terms for Pokemon TCG drops
+        search_queries = [
+            'pokemon tcg restock',
+            'pokemon cards target',
+            'pokemon cards walmart',
+            '#PokemonTCG restock',
+            '#PokemonRestock'
+        ]
+        
+        # Key accounts to check
+        accounts = [
+            'PokeGuardian',
+            'PokemonTCGDrops', 
+            'poikimon',
+            'CardCollectorNT'
+        ]
+        
+        all_tweets = []
+        
+        # Try each Nitter instance until one works
+        working_instance = None
+        for instance in nitter_instances:
+            try:
+                test_resp = req.get(f'{instance}/search?q=pokemon', headers={'User-Agent': REDDIT_USER_AGENT}, timeout=5)
+                if test_resp.status_code == 200:
+                    working_instance = instance
+                    break
+            except:
+                continue
+        
+        if not working_instance:
+            # Fallback: Return curated list of Pokemon TCG Twitter accounts
+            return jsonify({
+                'success': True,
+                'source': 'X (Twitter)',
+                'posts': [
+                    {
+                        'title': 'Follow @PokeGuardian for Pokemon TCG news and restocks',
+                        'url': 'https://twitter.com/PokeGuardian',
+                        'source': '@PokeGuardian',
+                        'platform': 'twitter',
+                        'type': 'account'
+                    },
+                    {
+                        'title': 'Follow @poikimon for Target/Walmart restock alerts',
+                        'url': 'https://twitter.com/poikimon',
+                        'source': '@poikimon',
+                        'platform': 'twitter',
+                        'type': 'account'
+                    },
+                    {
+                        'title': 'Search #PokemonRestock on X for live updates',
+                        'url': 'https://twitter.com/search?q=%23PokemonRestock',
+                        'source': '#PokemonRestock',
+                        'platform': 'twitter',
+                        'type': 'hashtag'
+                    }
+                ],
+                'note': 'Live Twitter search unavailable - showing recommended accounts'
+            })
+        
+        # Search for Pokemon TCG restocks
+        for query in search_queries[:2]:  # Limit to avoid rate limits
+            try:
+                search_url = f'{working_instance}/search?q={query.replace(" ", "+")}&f=tweets'
+                resp = req.get(search_url, headers={'User-Agent': REDDIT_USER_AGENT}, timeout=10)
+                
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    tweets = soup.select('.timeline-item')[:5]
+                    
+                    for tweet in tweets:
+                        content = tweet.select_one('.tweet-content')
+                        username = tweet.select_one('.username')
+                        
+                        if content:
+                            text = content.get_text(strip=True)[:200]
+                            user = username.get_text(strip=True) if username else 'Unknown'
+                            
+                            # Extract retailers mentioned
+                            retailers = []
+                            for r in ['Target', 'Walmart', 'Best Buy', 'GameStop', 'Amazon', 'Costco']:
+                                if r.lower() in text.lower():
+                                    retailers.append(r)
+                            
+                            all_tweets.append({
+                                'title': text,
+                                'url': f'https://twitter.com{tweet.select_one("a.tweet-link")["href"] if tweet.select_one("a.tweet-link") else ""}',
+                                'source': f'@{user}',
+                                'platform': 'twitter',
+                                'retailers': retailers,
+                                'score': len(retailers) * 10 + 5
+                            })
+            except Exception as e:
+                print(f'Twitter search error: {e}')
+                continue
+        
+        return jsonify({
+            'success': True,
+            'source': 'X (Twitter)',
+            'posts': all_tweets[:15],
+            'total': len(all_tweets)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e), 'posts': []}), 500
+
+
+@app.route('/drops/instagram', methods=['GET'])
+def get_instagram_drops():
+    """
+    Fetch drop intel from Instagram.
+    Returns curated list of Pokemon TCG influencers since Instagram API requires auth.
+    """
+    try:
+        # Instagram requires authentication for API access
+        # Return curated list of Pokemon TCG Instagram accounts to follow
+        
+        influencers = [
+            {
+                'title': 'Pokemon TCG official restocks and news',
+                'url': 'https://www.instagram.com/pokemontcg/',
+                'source': '@pokemontcg',
+                'platform': 'instagram',
+                'followers': '1.2M',
+                'type': 'official'
+            },
+            {
+                'title': 'Pokemon restock alerts and card pulls',
+                'url': 'https://www.instagram.com/pokemonrestock/',
+                'source': '@pokemonrestock',
+                'platform': 'instagram',
+                'type': 'community'
+            },
+            {
+                'title': 'Card collection tips and market analysis',
+                'url': 'https://www.instagram.com/pokerev/',
+                'source': '@pokerev',
+                'platform': 'instagram',
+                'followers': '500K+',
+                'type': 'influencer'
+            },
+            {
+                'title': 'Pokemon card investments and pricing',
+                'url': 'https://www.instagram.com/pokemon.investments/',
+                'source': '@pokemon.investments',
+                'platform': 'instagram',
+                'type': 'community'
+            },
+            {
+                'title': 'Daily Pokemon card content and restocks',
+                'url': 'https://www.instagram.com/explore/tags/pokemontcgrestock/',
+                'source': '#pokemontcgrestock',
+                'platform': 'instagram',
+                'type': 'hashtag'
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'source': 'Instagram',
+            'posts': influencers,
+            'total': len(influencers),
+            'note': 'Instagram API requires authentication - showing recommended accounts to follow'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e), 'posts': []}), 500
+
+
+@app.route('/drops/tiktok', methods=['GET'])
+def get_tiktok_drops():
+    """
+    Fetch drop intel from TikTok.
+    Returns curated list since TikTok API requires auth.
+    """
+    try:
+        # TikTok requires authentication for API access
+        # Return curated list of Pokemon TCG TikTok accounts
+        
+        creators = [
+            {
+                'title': 'Pokemon TCG pack openings and news',
+                'url': 'https://www.tiktok.com/@pokemon',
+                'source': '@pokemon',
+                'platform': 'tiktok',
+                'type': 'official'
+            },
+            {
+                'title': 'Daily restock alerts and hunting tips',
+                'url': 'https://www.tiktok.com/@pokemontcgcommunity',
+                'source': '@pokemontcgcommunity',
+                'platform': 'tiktok',
+                'type': 'community'
+            },
+            {
+                'title': 'Card pulls and collection tips',
+                'url': 'https://www.tiktok.com/@pokemoncards',
+                'source': '@pokemoncards',
+                'platform': 'tiktok',
+                'type': 'community'
+            },
+            {
+                'title': 'Search #PokemonRestock for live videos',
+                'url': 'https://www.tiktok.com/tag/pokemonrestock',
+                'source': '#pokemonrestock',
+                'platform': 'tiktok',
+                'type': 'hashtag'
+            },
+            {
+                'title': 'Search #PokemonTCG for trending content',
+                'url': 'https://www.tiktok.com/tag/pokemontcg',
+                'source': '#pokemontcg',
+                'platform': 'tiktok',
+                'type': 'hashtag'
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'source': 'TikTok',
+            'posts': creators,
+            'total': len(creators),
+            'note': 'TikTok API requires authentication - showing recommended accounts to follow'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e), 'posts': []}), 500
+
+
+@app.route('/drops/rumors', methods=['GET'])
+def get_rumors():
+    """
+    Fetch rumors and speculation from all sources.
+    Filters posts for unconfirmed/rumor keywords.
     """
     try:
         import requests as req
         
+        rumor_keywords = [
+            'rumor', 'rumored', 'rumours', 'rumoured',
+            'speculation', 'speculated', 'speculating',
+            'leak', 'leaked', 'leaking',
+            'unconfirmed', 'unverified',
+            'might', 'possibly', 'could be', 'may',
+            'hearing', 'source says', 'allegedly', 'reportedly',
+            'insider', 'insider info', 'according to sources'
+        ]
+        
+        all_rumors = []
+        base_url = f'http://127.0.0.1:{os.environ.get("PORT", 5001)}'
+        
+        # Fetch Reddit posts and filter for rumors
+        try:
+            reddit_resp = req.get(f'{base_url}/drops/reddit', timeout=10)
+            if reddit_resp.status_code == 200:
+                reddit_data = reddit_resp.json()
+                posts = reddit_data.get('posts', [])
+                
+                for post in posts:
+                    title_lower = (post.get('title', '') or '').lower()
+                    if any(keyword in title_lower for keyword in rumor_keywords):
+                        all_rumors.append({
+                            'title': post.get('title', ''),
+                            'url': post.get('url', ''),
+                            'source': post.get('source', 'Reddit'),
+                            'date': post.get('created', 0),
+                            'type': 'reddit',
+                            'score': post.get('score', 0)
+                        })
+        except:
+            pass
+        
+        # Fetch Twitter posts and filter for rumors
+        try:
+            twitter_resp = req.get(f'{base_url}/drops/twitter', timeout=10)
+            if twitter_resp.status_code == 200:
+                twitter_data = twitter_resp.json()
+                posts = twitter_data.get('posts', [])
+                
+                for post in posts:
+                    title_lower = (post.get('title', '') or '').lower()
+                    if any(keyword in title_lower for keyword in rumor_keywords):
+                        all_rumors.append({
+                            'title': post.get('title', ''),
+                            'url': post.get('url', ''),
+                            'source': post.get('source', 'Twitter'),
+                            'date': int(time.time()),
+                            'type': 'twitter',
+                            'score': post.get('score', 0)
+                        })
+        except:
+            pass
+        
+        # Sort by score (most engagement first)
+        all_rumors.sort(key=lambda x: x.get('score', 0), reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'source': 'Rumors & Speculation',
+            'rumors': all_rumors[:20],  # Limit to top 20
+            'total': len(all_rumors)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e), 'rumors': []}), 500
+
+
+@app.route('/drops/all', methods=['GET'])
+def get_all_drop_intel():
+    """
+    Aggregate drop intel from all sources.
+    Combines Reddit + PokeBeach + Twitter + Instagram + TikTok into a unified feed.
+    """
+    try:
+        import requests as req
+        
+        base_url = f'http://127.0.0.1:{os.environ.get("PORT", 5001)}'
+        
         intel = {
             'reddit': [],
             'pokebeach': [],
+            'twitter': [],
+            'instagram': [],
+            'tiktok': [],
             'combined': []
         }
         
         # Fetch Reddit
         try:
-            reddit_resp = req.get(f'http://127.0.0.1:{os.environ.get("PORT", 5001)}/drops/reddit', timeout=15)
+            reddit_resp = req.get(f'{base_url}/drops/reddit', timeout=15)
             if reddit_resp.status_code == 200:
                 reddit_data = reddit_resp.json()
                 intel['reddit'] = reddit_data.get('posts', [])
@@ -2617,10 +2947,37 @@ def get_all_drop_intel():
         
         # Fetch PokeBeach
         try:
-            pb_resp = req.get(f'http://127.0.0.1:{os.environ.get("PORT", 5001)}/drops/pokebeach', timeout=15)
+            pb_resp = req.get(f'{base_url}/drops/pokebeach', timeout=15)
             if pb_resp.status_code == 200:
                 pb_data = pb_resp.json()
                 intel['pokebeach'] = pb_data.get('news', [])
+        except:
+            pass
+        
+        # Fetch Twitter
+        try:
+            twitter_resp = req.get(f'{base_url}/drops/twitter', timeout=15)
+            if twitter_resp.status_code == 200:
+                twitter_data = twitter_resp.json()
+                intel['twitter'] = twitter_data.get('posts', [])
+        except:
+            pass
+        
+        # Fetch Instagram
+        try:
+            ig_resp = req.get(f'{base_url}/drops/instagram', timeout=15)
+            if ig_resp.status_code == 200:
+                ig_data = ig_resp.json()
+                intel['instagram'] = ig_data.get('posts', [])
+        except:
+            pass
+        
+        # Fetch TikTok
+        try:
+            tt_resp = req.get(f'{base_url}/drops/tiktok', timeout=15)
+            if tt_resp.status_code == 200:
+                tt_data = tt_resp.json()
+                intel['tiktok'] = tt_data.get('posts', [])
         except:
             pass
         
@@ -2648,13 +3005,45 @@ def get_all_drop_intel():
                 'set': news.get('set')
             })
         
+        for tweet in intel['twitter']:
+            intel['combined'].append({
+                'type': 'twitter',
+                'title': tweet.get('title'),
+                'url': tweet.get('url'),
+                'source': tweet.get('source'),
+                'platform': 'twitter',
+                'score': tweet.get('score', 50),
+                'retailers': tweet.get('retailers', [])
+            })
+        
+        for post in intel['instagram']:
+            intel['combined'].append({
+                'type': 'instagram',
+                'title': post.get('title'),
+                'url': post.get('url'),
+                'source': post.get('source'),
+                'platform': 'instagram',
+                'score': 30
+            })
+        
+        for post in intel['tiktok']:
+            intel['combined'].append({
+                'type': 'tiktok',
+                'title': post.get('title'),
+                'url': post.get('url'),
+                'source': post.get('source'),
+                'platform': 'tiktok',
+                'score': 25
+            })
+        
         # Sort combined by score/relevance
         intel['combined'].sort(key=lambda x: x.get('score', 0), reverse=True)
         
         return jsonify({
             'success': True,
             'intel': intel,
-            'total': len(intel['combined'])
+            'total': len(intel['combined']),
+            'sources': ['Reddit', 'PokeBeach', 'X (Twitter)', 'Instagram', 'TikTok']
         })
         
     except Exception as e:
