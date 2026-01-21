@@ -162,7 +162,7 @@
         }
 
         /* Navigation */
-        nav {
+        .desktop-nav {
             display: flex;
             gap: 0.375rem;
             margin-bottom: 2rem;
@@ -170,6 +170,10 @@
             background: var(--bg-card);
             border-radius: var(--radius);
             border: 1px solid var(--border);
+        }
+        
+        .mobile-nav {
+            display: none;
         }
 
         .nav-btn {
@@ -447,58 +451,70 @@
         @media (max-width: 768px) {
             .app {
                 padding: 1rem;
-                padding-top: 5rem;
+                padding-top: 4.5rem;
             }
             
             header {
                 flex-direction: column;
                 gap: 0.75rem;
                 text-align: center;
-                margin-bottom: 1.25rem;
+                margin-bottom: 1rem;
             }
             
             .logo {
                 font-size: 1.375rem;
             }
             
-            nav {
+            /* Hide desktop nav on mobile */
+            .desktop-nav {
+                display: none;
+            }
+            
+            /* Show mobile dropdown nav */
+            .mobile-nav {
                 position: fixed;
                 top: 0;
                 left: 0;
                 right: 0;
+                display: block;
                 background: var(--bg-card);
-                border: none;
                 border-bottom: 1px solid var(--border);
-                border-radius: 0;
-                margin: 0;
-                padding: 0.5rem;
-                padding-top: calc(0.5rem + env(safe-area-inset-top));
+                padding: 0.75rem 1rem;
+                padding-top: calc(0.75rem + env(safe-area-inset-top));
                 z-index: 1000;
-                display: flex;
-                justify-content: space-around;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                gap: 0.25rem;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+                box-shadow: 0 4px 24px rgba(0,0,0,0.3);
                 backdrop-filter: blur(20px);
                 -webkit-backdrop-filter: blur(20px);
             }
             
-            .nav-btn {
-                padding: 0.5rem 0.5rem;
-                font-size: 0.75rem;
-                flex-direction: column;
-                display: flex;
-                align-items: center;
-                gap: 0.25rem;
-                min-width: 48px;
+            .mobile-nav select {
+                width: 100%;
+                padding: 0.875rem 1rem;
+                font-size: 1rem;
+                font-weight: 500;
+                background: var(--bg-card-elevated);
+                border: 1px solid var(--border);
                 border-radius: var(--radius-sm);
-                white-space: nowrap;
+                color: var(--text);
+                cursor: pointer;
+                appearance: none;
+                -webkit-appearance: none;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 0.75rem center;
+                background-size: 1.25rem;
+                padding-right: 2.5rem;
             }
             
-            .nav-btn.active {
-                background: var(--accent-muted);
-                color: var(--accent);
+            .mobile-nav select:focus {
+                outline: none;
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-muted);
+            }
+            
+            /* Hide desktop nav buttons completely */
+            .nav-btn {
+                display: none;
             }
             
             h1 {
@@ -596,13 +612,12 @@
         @media (max-width: 480px) {
             .app {
                 padding: 0.75rem;
-                padding-top: 4.5rem;
+                padding-top: 4.25rem;
             }
             
-            .nav-btn {
-                font-size: 0.6875rem;
-                padding: 0.4rem 0.35rem;
-                min-width: 42px;
+            .mobile-nav select {
+                padding: 0.75rem 1rem;
+                font-size: 0.9375rem;
             }
             
             .card-grid {
@@ -646,10 +661,9 @@
         }
         
         @media (max-width: 375px) {
-            .nav-btn {
-                font-size: 0.625rem;
-                min-width: 36px;
-                padding: 0.35rem 0.25rem;
+            .mobile-nav select {
+                padding: 0.625rem 0.875rem;
+                font-size: 0.875rem;
             }
             
             header h1, .logo {
@@ -1315,7 +1329,8 @@
             </div>
         </header>
 
-        <nav>
+        <!-- Desktop Navigation -->
+        <nav class="desktop-nav">
             <button class="nav-btn active" data-section="search">📅 Drops</button>
             <button class="nav-btn" data-section="stock">🗺️ Stock</button>
             <button class="nav-btn" data-section="card">🎴 Cards</button>
@@ -1326,6 +1341,21 @@
             <button class="nav-btn" data-section="analytics">Analytics</button>
             <button class="nav-btn" data-section="settings">Settings</button>
         </nav>
+        
+        <!-- Mobile Navigation Dropdown -->
+        <div class="mobile-nav">
+            <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
+                <option value="search">📅 Upcoming Drops</option>
+                <option value="stock">🗺️ Stock Map</option>
+                <option value="card">🎴 Card Lookup</option>
+                <option value="assistant">🤖 AI Assistant</option>
+                <option value="portfolio">💼 Portfolio</option>
+                <option value="grade">⭐ AI Grading</option>
+                <option value="flip">💰 Flip Calculator</option>
+                <option value="analytics">📊 Analytics</option>
+                <option value="settings">⚙️ Settings</option>
+            </select>
+        </div>
 
         <!-- Upcoming Drops Section -->
         <section id="search" class="active">
@@ -2083,8 +2113,20 @@
         function switchSection(name) {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-            document.querySelector(`[data-section="${name}"]`).classList.add('active');
-            document.getElementById(name).classList.add('active');
+            document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
+            document.getElementById(name)?.classList.add('active');
+            
+            // Sync mobile dropdown
+            const mobileSelect = document.getElementById('mobileNavSelect');
+            if (mobileSelect) mobileSelect.value = name;
+        }
+        
+        function switchSectionMobile(name) {
+            // Switch section and sync desktop nav
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+            document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
+            document.getElementById(name)?.classList.add('active');
         }
 
         // API with caching
