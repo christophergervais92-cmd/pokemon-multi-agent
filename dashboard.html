@@ -3969,18 +3969,43 @@
         
         function generatePricePoints(currentPrice, days, volatility) {
             const points = [];
-            let price = currentPrice * (1 - volatility * (Math.random() * 0.5 + 0.5));
+            
+            // Start price: generally cards appreciate, so start lower
+            const trendUp = Math.random() > 0.3; // 70% chance of uptrend
+            const startMultiplier = trendUp ? (0.6 + Math.random() * 0.3) : (1.1 + Math.random() * 0.3);
+            let price = currentPrice * startMultiplier;
+            
+            // Create smooth price movement with realistic patterns
+            const dailyVolatility = volatility / days * 2;
+            let trend = trendUp ? 0.001 : -0.001; // Slight trend direction
             
             for (let i = days; i >= 0; i--) {
-                const change = (Math.random() - 0.48) * volatility * currentPrice * 0.05;
-                price = Math.max(price + change, currentPrice * 0.1);
+                // Smooth random walk with mean reversion
+                const noise = (Math.random() - 0.5) * 2 * dailyVolatility * currentPrice;
+                const meanReversion = (currentPrice - price) * 0.01; // Pull toward current
+                
+                // Occasional jumps (releases, market events)
+                const jump = Math.random() < 0.02 ? (Math.random() - 0.5) * currentPrice * 0.1 : 0;
+                
+                price += trend * currentPrice + noise + meanReversion + jump;
+                price = Math.max(price, currentPrice * 0.2); // Floor at 20% of current
+                price = Math.min(price, currentPrice * 3); // Cap at 3x current
+                
                 points.push({
                     date: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
-                    price: price
+                    price: Math.round(price * 100) / 100
                 });
             }
             
-            // Ensure last point is close to current price
+            // Smooth approach to current price in last 5 days
+            const smoothDays = Math.min(5, points.length - 1);
+            for (let i = 0; i < smoothDays; i++) {
+                const idx = points.length - smoothDays + i;
+                const weight = (i + 1) / smoothDays;
+                points[idx].price = Math.round((points[idx].price * (1 - weight) + currentPrice * weight) * 100) / 100;
+            }
+            
+            // Ensure last point IS the current price
             points[points.length - 1].price = currentPrice;
             
             return points;
@@ -3993,6 +4018,9 @@
             });
             drawPriceChart();
         }
+        
+        // Store chart context for hover
+        let chartContext = { data: [], xScale: null, yScale: null, padding: null, width: 0, height: 0, isUp: true };
         
         function drawPriceChart() {
             const canvas = document.getElementById('priceChart');
@@ -4008,7 +4036,7 @@
             
             const width = canvas.width;
             const height = canvas.height;
-            const padding = { top: 10, right: 10, bottom: 25, left: 50 };
+            const padding = { top: 20, right: 15, bottom: 25, left: 55 };
             
             // Clear
             ctx.clearRect(0, 0, width, height);
@@ -4021,11 +4049,14 @@
             // Scale functions
             const xScale = (i) => padding.left + (i / (data.length - 1)) * (width - padding.left - padding.right);
             const yScale = (p) => height - padding.bottom - ((p - minPrice) / (maxPrice - minPrice)) * (height - padding.top - padding.bottom);
+            const isUp = data[data.length - 1].price >= data[0].price;
+            
+            // Store for hover
+            chartContext = { data, xScale, yScale, padding, width, height, isUp, minPrice, maxPrice };
             
             // Draw gradient fill
             const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
-            const isUp = data[data.length - 1].price >= data[0].price;
-            gradient.addColorStop(0, isUp ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)');
+            gradient.addColorStop(0, isUp ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)');
             gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
             
             ctx.beginPath();
@@ -4043,34 +4074,41 @@
                 else ctx.lineTo(xScale(i), yScale(d.price));
             });
             ctx.strokeStyle = isUp ? '#22c55e' : '#ef4444';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             ctx.stroke();
             
             // Draw current price dot
             const lastPoint = data[data.length - 1];
             ctx.beginPath();
-            ctx.arc(xScale(data.length - 1), yScale(lastPoint.price), 5, 0, Math.PI * 2);
+            ctx.arc(xScale(data.length - 1), yScale(lastPoint.price), 6, 0, Math.PI * 2);
             ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
             ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
             
             // Y-axis labels
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#666';
-            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.font = '11px Space Mono, monospace';
             ctx.textAlign = 'right';
             
             const ySteps = 4;
             for (let i = 0; i <= ySteps; i++) {
                 const price = minPrice + (maxPrice - minPrice) * (i / ySteps);
                 const y = yScale(price);
-                ctx.fillText('$' + price.toFixed(0), padding.left - 5, y + 3);
+                ctx.fillText('$' + formatPrice(price), padding.left - 8, y + 4);
                 
                 // Grid line
-                ctx.strokeStyle = 'rgba(128, 128, 128, 0.1)';
+                ctx.strokeStyle = 'rgba(128, 128, 128, 0.15)';
                 ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
                 ctx.beginPath();
                 ctx.moveTo(padding.left, y);
                 ctx.lineTo(width - padding.right, y);
                 ctx.stroke();
+                ctx.setLineDash([]);
             }
             
             // X-axis labels
@@ -4093,6 +4131,179 @@
                 <div>H: $${high}</div>
                 <div>L: $${low}</div>
             `;
+            
+            // Setup hover events (once)
+            if (!canvas.hasAttribute('data-hover-setup')) {
+                canvas.setAttribute('data-hover-setup', 'true');
+                setupChartHover(canvas);
+            }
+        }
+        
+        function setupChartHover(canvas) {
+            // Create tooltip element
+            let tooltip = document.getElementById('chartTooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'chartTooltip';
+                tooltip.style.cssText = `
+                    position: fixed;
+                    background: var(--surface);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    font-size: 12px;
+                    font-family: 'Space Mono', monospace;
+                    pointer-events: none;
+                    z-index: 1000;
+                    display: none;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                `;
+                document.body.appendChild(tooltip);
+            }
+            
+            let hoverLine = null;
+            let hoverDot = null;
+            
+            canvas.addEventListener('mousemove', (e) => {
+                const { data, xScale, yScale, padding, width, height, isUp } = chartContext;
+                if (!data.length || !xScale) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Check if in chart area
+                if (x < padding.left || x > width - padding.right) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                
+                // Find closest data point
+                const chartWidth = width - padding.left - padding.right;
+                const ratio = (x - padding.left) / chartWidth;
+                const index = Math.round(ratio * (data.length - 1));
+                const clampedIndex = Math.max(0, Math.min(data.length - 1, index));
+                
+                const point = data[clampedIndex];
+                const pointX = xScale(clampedIndex);
+                const pointY = yScale(point.price);
+                
+                // Update tooltip
+                const dateStr = point.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                tooltip.innerHTML = `
+                    <div style="color: var(--text-muted); font-size: 10px; margin-bottom: 4px;">${dateStr}</div>
+                    <div style="color: ${isUp ? 'var(--green)' : 'var(--red)'}; font-weight: 600; font-size: 14px;">$${point.price.toFixed(2)}</div>
+                `;
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY - 40) + 'px';
+                
+                // Redraw chart with hover indicator
+                drawPriceChartWithHover(clampedIndex);
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+                drawPriceChart(); // Redraw without hover
+            });
+        }
+        
+        function drawPriceChartWithHover(hoverIndex) {
+            const canvas = document.getElementById('priceChart');
+            const ctx = canvas.getContext('2d');
+            const { data, xScale, yScale, padding, width, height, isUp, minPrice, maxPrice } = chartContext;
+            
+            if (!data.length) return;
+            
+            // Clear
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw gradient fill
+            const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+            gradient.addColorStop(0, isUp ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            ctx.beginPath();
+            ctx.moveTo(xScale(0), height - padding.bottom);
+            data.forEach((d, i) => ctx.lineTo(xScale(i), yScale(d.price)));
+            ctx.lineTo(xScale(data.length - 1), height - padding.bottom);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Draw line
+            ctx.beginPath();
+            data.forEach((d, i) => {
+                if (i === 0) ctx.moveTo(xScale(i), yScale(d.price));
+                else ctx.lineTo(xScale(i), yScale(d.price));
+            });
+            ctx.strokeStyle = isUp ? '#22c55e' : '#ef4444';
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            // Draw hover vertical line
+            const hoverX = xScale(hoverIndex);
+            ctx.strokeStyle = 'rgba(128, 128, 128, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(hoverX, padding.top);
+            ctx.lineTo(hoverX, height - padding.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw hover dot
+            const hoverY = yScale(data[hoverIndex].price);
+            ctx.beginPath();
+            ctx.arc(hoverX, hoverY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw current price dot (smaller when not hovered)
+            if (hoverIndex !== data.length - 1) {
+                ctx.beginPath();
+                ctx.arc(xScale(data.length - 1), yScale(data[data.length - 1].price), 5, 0, Math.PI * 2);
+                ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Y-axis labels
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#666';
+            ctx.font = '11px Space Mono, monospace';
+            ctx.textAlign = 'right';
+            
+            const ySteps = 4;
+            for (let i = 0; i <= ySteps; i++) {
+                const price = minPrice + (maxPrice - minPrice) * (i / ySteps);
+                const y = yScale(price);
+                ctx.fillText('$' + formatPrice(price), padding.left - 8, y + 4);
+                
+                // Grid line
+                ctx.strokeStyle = 'rgba(128, 128, 128, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // X-axis labels
+            ctx.textAlign = 'center';
+            const dates = [data[0].date, data[Math.floor(data.length / 2)].date, data[data.length - 1].date];
+            dates.forEach((d, i) => {
+                const x = xScale(i === 0 ? 0 : i === 1 ? Math.floor(data.length / 2) : data.length - 1);
+                ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, height - 5);
+            });
         }
         
         // =============================================================================
