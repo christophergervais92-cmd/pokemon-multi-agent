@@ -1503,7 +1503,6 @@
                         <h2 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; color: white;">Find Card Vending Machines</h2>
                         <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Locate Pokemon card vending machines near you</p>
                     </div>
-                    <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; text-decoration: none;">View Full Map</a>
                 </div>
                 
                 <div class="search-bar" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
@@ -1513,18 +1512,32 @@
                 
                 <div id="vendingResults" style="margin-top: 1.5rem; display: none;"></div>
             </div>
-            
+
+            <!-- Embedded PokeVend Map -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">Interactive Map</h2>
+                <div style="position: relative; width: 100%; height: 500px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);">
+                    <iframe
+                        src="https://www.pokevend.us/pokemon-vending-machine-map"
+                        style="width: 100%; height: 100%; border: none;"
+                        title="Pokemon Vending Machine Map"
+                        allowfullscreen>
+                    </iframe>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;">
+                    Interactive map powered by PokeVend.us
+                </p>
+            </div>
+
             <div class="card" style="margin-top: 1.5rem;">
                 <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">About Pokemon Vending Machines</h2>
                 <p style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.75rem;">
-                    Pokemon card vending machines are automated kiosks located in retail stores across the United States. 
-                    These machines dispense Pokemon Trading Card Game products including booster packs, Elite Trainer Boxes, 
+                    Pokemon card vending machines are automated kiosks located in retail stores across the United States.
+                    These machines dispense Pokemon Trading Card Game products including booster packs, Elite Trainer Boxes,
                     and other sealed products.
                 </p>
                 <p style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6;">
-                    <strong>Data Source:</strong> Locations are sourced from <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: var(--accent);">PokeVend.us</a>, 
-                    the most comprehensive database of Pokemon vending machine locations. Click "View Full Map" to see 
-                    the complete interactive map with real-time updates.
+                    Use the interactive map above to browse all vending machine locations, or search by ZIP code above to find nearby machines.
                 </p>
             </div>
             
@@ -3511,13 +3524,8 @@
                     <div style="background: rgba(255,255,255,0.15); padding: 2rem; border-radius: 8px; text-align: center; color: white;">
                         <div style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">No vending machines found near ${zip}</div>
                         <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 1rem;">
-                            Try a different ZIP code or check the full map for more locations.
+                            Try a different ZIP code or browse the interactive map below for more locations.
                         </div>
-                        <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" 
-                           class="btn btn-sm" 
-                           style="background: white; color: #3466af; text-decoration: none; display: inline-block; padding: 0.5rem 1rem; border-radius: 6px;">
-                           View Full Map
-                        </a>
                     </div>
                 `;
             }
