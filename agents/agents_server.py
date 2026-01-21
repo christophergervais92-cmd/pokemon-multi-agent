@@ -2412,6 +2412,255 @@ def payment_status():
     return jsonify(result)
 
 
+# =============================================================================
+# LIVE DROP INTEL - Reddit & PokeBeach Integration
+# =============================================================================
+
+import re
+import xml.etree.ElementTree as ET
+
+# Reddit API (no auth needed for public subreddits)
+REDDIT_USER_AGENT = 'PokeAgent/1.0 (Pokemon TCG Drop Tracker)'
+
+@app.route('/drops/reddit', methods=['GET'])
+def get_reddit_drops():
+    """
+    Fetch drop intel from Reddit.
+    Scrapes r/PokemonTCG and r/PokeInvesting for restock/drop posts.
+    """
+    try:
+        import requests as req
+        
+        subreddits = ['PokemonTCG', 'PokeInvesting', 'pokemoncardcollectors']
+        keywords = ['restock', 'drop', 'in stock', 'available', 'found', 'wave', 'release', 'preorder', 'pre-order']
+        
+        all_posts = []
+        
+        for subreddit in subreddits:
+            try:
+                url = f'https://www.reddit.com/r/{subreddit}/new.json?limit=50'
+                headers = {'User-Agent': REDDIT_USER_AGENT}
+                
+                resp = req.get(url, headers=headers, timeout=10)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    posts = data.get('data', {}).get('children', [])
+                    
+                    for post in posts:
+                        p = post.get('data', {})
+                        title = p.get('title', '').lower()
+                        
+                        # Filter for relevant posts
+                        if any(kw in title for kw in keywords):
+                            # Extract retailer mentions
+                            retailers = []
+                            retailer_keywords = {
+                                'target': 'Target',
+                                'walmart': 'Walmart', 
+                                'bestbuy': 'Best Buy',
+                                'best buy': 'Best Buy',
+                                'gamestop': 'GameStop',
+                                'pokemon center': 'Pokemon Center',
+                                'costco': 'Costco',
+                                'amazon': 'Amazon',
+                                'barnes': 'Barnes & Noble'
+                            }
+                            for kw, name in retailer_keywords.items():
+                                if kw in title:
+                                    retailers.append(name)
+                            
+                            # Extract product types
+                            products = []
+                            product_keywords = ['etb', 'booster', 'box', 'bundle', 'tin', 'blister', 'collection']
+                            for pk in product_keywords:
+                                if pk in title:
+                                    products.append(pk.upper() if pk == 'etb' else pk.title())
+                            
+                            all_posts.append({
+                                'title': p.get('title', ''),
+                                'subreddit': subreddit,
+                                'url': f"https://reddit.com{p.get('permalink', '')}",
+                                'score': p.get('score', 0),
+                                'comments': p.get('num_comments', 0),
+                                'created': p.get('created_utc', 0),
+                                'author': p.get('author', ''),
+                                'retailers': retailers,
+                                'products': products,
+                                'flair': p.get('link_flair_text', ''),
+                                'source': f'r/{subreddit}'
+                            })
+            except Exception as e:
+                print(f"Error fetching r/{subreddit}: {e}")
+                continue
+        
+        # Sort by score (most upvoted = most reliable)
+        all_posts.sort(key=lambda x: x['score'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'posts': all_posts[:30],  # Top 30 posts
+            'count': len(all_posts),
+            'subreddits': subreddits
+        })
+        
+    except ImportError:
+        return jsonify({'error': 'requests library not available'}), 503
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/drops/pokebeach', methods=['GET'])
+def get_pokebeach_news():
+    """
+    Fetch news from PokeBeach RSS feed.
+    Great source for official Pokemon TCG announcements.
+    """
+    try:
+        import requests as req
+        
+        # PokeBeach RSS feed
+        rss_url = 'https://www.pokebeach.com/feed'
+        headers = {'User-Agent': REDDIT_USER_AGENT}
+        
+        resp = req.get(rss_url, headers=headers, timeout=10)
+        
+        if resp.status_code != 200:
+            return jsonify({'error': 'Failed to fetch PokeBeach RSS'}), 503
+        
+        # Parse RSS XML
+        root = ET.fromstring(resp.content)
+        
+        news_items = []
+        keywords = ['tcg', 'card', 'set', 'release', 'product', 'collection', 'expansion', 'promo', 'reprint']
+        
+        for item in root.findall('.//item'):
+            title = item.find('title')
+            link = item.find('link')
+            pub_date = item.find('pubDate')
+            description = item.find('description')
+            
+            title_text = title.text if title is not None else ''
+            
+            # Filter for TCG-related news
+            if any(kw in title_text.lower() for kw in keywords):
+                # Try to extract set name
+                set_patterns = [
+                    r'(Prismatic Evolutions?)',
+                    r'(Surging Sparks?)',
+                    r'(Stellar Crown)',
+                    r'(Shrouded Fable)',
+                    r'(Twilight Masquerade)',
+                    r'(Journey Together)',
+                    r'(Destined Rivals)',
+                    r'(Scarlet & Violet)',
+                    r'(Paldea Evolved)',
+                    r'(Obsidian Flames)',
+                    r'(151)',
+                    r'(Paradox Rift)',
+                    r'(Temporal Forces)',
+                ]
+                
+                set_name = None
+                for pattern in set_patterns:
+                    match = re.search(pattern, title_text, re.IGNORECASE)
+                    if match:
+                        set_name = match.group(1)
+                        break
+                
+                news_items.append({
+                    'title': title_text,
+                    'url': link.text if link is not None else '',
+                    'date': pub_date.text if pub_date is not None else '',
+                    'description': (description.text[:200] + '...') if description is not None and description.text else '',
+                    'set': set_name,
+                    'source': 'PokeBeach'
+                })
+        
+        return jsonify({
+            'success': True,
+            'news': news_items[:20],  # Latest 20 articles
+            'count': len(news_items)
+        })
+        
+    except ImportError:
+        return jsonify({'error': 'requests library not available'}), 503
+    except ET.ParseError as e:
+        return jsonify({'error': f'Failed to parse RSS: {e}'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/drops/all', methods=['GET'])
+def get_all_drop_intel():
+    """
+    Aggregate drop intel from all sources.
+    Combines Reddit + PokeBeach into a unified feed.
+    """
+    try:
+        import requests as req
+        
+        intel = {
+            'reddit': [],
+            'pokebeach': [],
+            'combined': []
+        }
+        
+        # Fetch Reddit
+        try:
+            reddit_resp = req.get(f'http://127.0.0.1:{os.environ.get("PORT", 5001)}/drops/reddit', timeout=15)
+            if reddit_resp.status_code == 200:
+                reddit_data = reddit_resp.json()
+                intel['reddit'] = reddit_data.get('posts', [])
+        except:
+            pass
+        
+        # Fetch PokeBeach
+        try:
+            pb_resp = req.get(f'http://127.0.0.1:{os.environ.get("PORT", 5001)}/drops/pokebeach', timeout=15)
+            if pb_resp.status_code == 200:
+                pb_data = pb_resp.json()
+                intel['pokebeach'] = pb_data.get('news', [])
+        except:
+            pass
+        
+        # Combine and sort by date
+        for post in intel['reddit']:
+            intel['combined'].append({
+                'type': 'reddit',
+                'title': post.get('title'),
+                'url': post.get('url'),
+                'source': post.get('source'),
+                'score': post.get('score', 0),
+                'timestamp': post.get('created', 0),
+                'retailers': post.get('retailers', []),
+                'products': post.get('products', [])
+            })
+        
+        for news in intel['pokebeach']:
+            intel['combined'].append({
+                'type': 'news',
+                'title': news.get('title'),
+                'url': news.get('url'),
+                'source': 'PokeBeach',
+                'score': 100,  # News gets high score
+                'date': news.get('date'),
+                'set': news.get('set')
+            })
+        
+        # Sort combined by score/relevance
+        intel['combined'].sort(key=lambda x: x.get('score', 0), reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'intel': intel,
+            'total': len(intel['combined'])
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == "__main__":
     print("🎴 LO TCG Multi-Agent Server Starting...")
     print("📡 Endpoints available at http://127.0.0.1:5001")
