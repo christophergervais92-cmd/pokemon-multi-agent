@@ -3483,36 +3483,29 @@
         function getSealedProductImage(name) {
             const n = (name || '').toLowerCase();
             
-            // Use Pokemon TCG API logos (reliable on mobile)
-            const images = {
-                'destined rivals': 'https://images.pokemontcg.io/sv8/logo.png',
-                'prismatic': 'https://images.pokemontcg.io/sv8a/logo.png',
-                'surging sparks': 'https://images.pokemontcg.io/sv7/logo.png',
-                'stellar crown': 'https://images.pokemontcg.io/sv7/logo.png',
-                'shrouded fable': 'https://images.pokemontcg.io/sv6pt5/logo.png',
-                'twilight masquerade': 'https://images.pokemontcg.io/sv6/logo.png',
-                'temporal forces': 'https://images.pokemontcg.io/sv5/logo.png',
-                'paldean fates': 'https://images.pokemontcg.io/sv4pt5/logo.png',
-                'paradox rift': 'https://images.pokemontcg.io/sv4/logo.png',
-                '151': 'https://images.pokemontcg.io/sv3pt5/logo.png',
-                'obsidian flames': 'https://images.pokemontcg.io/sv3/logo.png',
-                'paldea evolved': 'https://images.pokemontcg.io/sv2/logo.png',
-                'scarlet violet': 'https://images.pokemontcg.io/sv1/logo.png',
-                'crown zenith': 'https://images.pokemontcg.io/swsh12pt5/logo.png',
-                'silver tempest': 'https://images.pokemontcg.io/swsh12/logo.png',
-                'lost origin': 'https://images.pokemontcg.io/swsh11/logo.png',
-                'evolving skies': 'https://images.pokemontcg.io/swsh7/logo.png',
-                'brilliant stars': 'https://images.pokemontcg.io/swsh9/logo.png',
-                'fusion strike': 'https://images.pokemontcg.io/swsh8/logo.png',
-                'mega evolution': 'https://images.pokemontcg.io/xy2/logo.png',
-            };
+            // Check specific set names (most specific first)
+            if (n.includes('destined rivals')) return 'https://images.pokemontcg.io/sv1/logo.png';
+            if (n.includes('prismatic evolution')) return 'https://images.pokemontcg.io/sv8pt5/logo.png';
+            if (n.includes('surging spark')) return 'https://images.pokemontcg.io/sv8/logo.png';
+            if (n.includes('stellar crown')) return 'https://images.pokemontcg.io/sv7/logo.png';
+            if (n.includes('shrouded fable')) return 'https://images.pokemontcg.io/sv6pt5/logo.png';
+            if (n.includes('twilight masquerade')) return 'https://images.pokemontcg.io/sv6/logo.png';
+            if (n.includes('temporal force')) return 'https://images.pokemontcg.io/sv5/logo.png';
+            if (n.includes('paldean fates')) return 'https://images.pokemontcg.io/sv4pt5/logo.png';
+            if (n.includes('paradox rift')) return 'https://images.pokemontcg.io/sv4/logo.png';
+            if (n.includes('151')) return 'https://images.pokemontcg.io/sv3pt5/logo.png';
+            if (n.includes('obsidian flame')) return 'https://images.pokemontcg.io/sv3/logo.png';
+            if (n.includes('paldea evolved')) return 'https://images.pokemontcg.io/sv2/logo.png';
+            if (n.includes('scarlet') && n.includes('violet')) return 'https://images.pokemontcg.io/sv1/logo.png';
+            if (n.includes('crown zenith')) return 'https://images.pokemontcg.io/swsh12pt5/logo.png';
+            if (n.includes('silver tempest')) return 'https://images.pokemontcg.io/swsh12/logo.png';
+            if (n.includes('lost origin')) return 'https://images.pokemontcg.io/swsh11/logo.png';
+            if (n.includes('evolving sk')) return 'https://images.pokemontcg.io/swsh7/logo.png';
+            if (n.includes('brilliant star')) return 'https://images.pokemontcg.io/swsh9/logo.png';
+            if (n.includes('fusion strike')) return 'https://images.pokemontcg.io/swsh8/logo.png';
             
-            for (const [key, url] of Object.entries(images)) {
-                if (n.includes(key)) return url;
-            }
-            
-            // Default - use a generic Pokemon TCG logo
-            return 'https://images.pokemontcg.io/sv8/logo.png';
+            // Default
+            return 'https://images.pokemontcg.io/sv1/logo.png';
         }
         
         // Estimate price based on product type
@@ -3608,23 +3601,24 @@
             const q = query.toLowerCase();
             const products = [];
             
-            // Sealed product images (Pokemon TCG API logos - reliable on mobile)
+            // Sealed product images (Pokemon TCG API logos - CORRECT IDs)
             const PRODUCT_IMAGES = {
-                'destined rivals': 'https://images.pokemontcg.io/sv8/logo.png',
-                'prismatic': 'https://images.pokemontcg.io/sv8a/logo.png',
-                'surging sparks': 'https://images.pokemontcg.io/sv7/logo.png',
+                'destined rivals': 'https://images.pokemontcg.io/sv1/logo.png',
+                'prismatic evolution': 'https://images.pokemontcg.io/sv8pt5/logo.png',
+                'surging spark': 'https://images.pokemontcg.io/sv8/logo.png',
                 'stellar crown': 'https://images.pokemontcg.io/sv7/logo.png',
                 'shrouded fable': 'https://images.pokemontcg.io/sv6pt5/logo.png',
                 'twilight masquerade': 'https://images.pokemontcg.io/sv6/logo.png',
-                'temporal forces': 'https://images.pokemontcg.io/sv5/logo.png',
+                'temporal force': 'https://images.pokemontcg.io/sv5/logo.png',
                 'paldean fates': 'https://images.pokemontcg.io/sv4pt5/logo.png',
                 'paradox rift': 'https://images.pokemontcg.io/sv4/logo.png',
                 '151': 'https://images.pokemontcg.io/sv3pt5/logo.png',
-                'obsidian flames': 'https://images.pokemontcg.io/sv3/logo.png',
+                'obsidian flame': 'https://images.pokemontcg.io/sv3/logo.png',
+                'paldea evolved': 'https://images.pokemontcg.io/sv2/logo.png',
                 'crown zenith': 'https://images.pokemontcg.io/swsh12pt5/logo.png',
-                'evolving skies': 'https://images.pokemontcg.io/swsh7/logo.png',
-                'booster pack': 'https://images.pokemontcg.io/sv8/logo.png',
-                'default': 'https://images.pokemontcg.io/sv8/logo.png'
+                'evolving sk': 'https://images.pokemontcg.io/swsh7/logo.png',
+                'brilliant star': 'https://images.pokemontcg.io/swsh9/logo.png',
+                'default': 'https://images.pokemontcg.io/sv1/logo.png'
             };
             
             function getProductImg(name) {
@@ -4666,35 +4660,76 @@
         function getProductImage(productName) {
             const nameLower = (productName || '').toLowerCase();
             
-            // Use Pokemon TCG API images (reliable on mobile)
-            // Map set names to their logo URLs from Pokemon TCG API
-            const SET_LOGO_IMAGES = {
-                'destined rivals': 'https://images.pokemontcg.io/sv8/logo.png',
-                'prismatic evolutions': 'https://images.pokemontcg.io/sv8a/logo.png',
-                'surging sparks': 'https://images.pokemontcg.io/sv7/logo.png',
-                'stellar crown': 'https://images.pokemontcg.io/sv7/logo.png',
-                'shrouded fable': 'https://images.pokemontcg.io/sv6pt5/logo.png',
-                'twilight masquerade': 'https://images.pokemontcg.io/sv6/logo.png',
-                'temporal forces': 'https://images.pokemontcg.io/sv5/logo.png',
-                'paldean fates': 'https://images.pokemontcg.io/sv4pt5/logo.png',
-                'paradox rift': 'https://images.pokemontcg.io/sv4/logo.png',
-                '151': 'https://images.pokemontcg.io/sv3pt5/logo.png',
-                'obsidian flames': 'https://images.pokemontcg.io/sv3/logo.png',
-                'paldea evolved': 'https://images.pokemontcg.io/sv2/logo.png',
-                'scarlet & violet': 'https://images.pokemontcg.io/sv1/logo.png',
-                'crown zenith': 'https://images.pokemontcg.io/swsh12pt5/logo.png',
-                'silver tempest': 'https://images.pokemontcg.io/swsh12/logo.png',
-                'lost origin': 'https://images.pokemontcg.io/swsh11/logo.png',
-                'brilliant stars': 'https://images.pokemontcg.io/swsh9/logo.png',
-                'fusion strike': 'https://images.pokemontcg.io/swsh8/logo.png',
-                'evolving skies': 'https://images.pokemontcg.io/swsh7/logo.png',
-            };
+            // CORRECT Pokemon TCG API Set IDs (verified)
+            // sv8pt5 = Prismatic Evolutions (special set)
+            // sv8 = Surging Sparks
+            // sv7 = Stellar Crown
+            // sv6pt5 = Shrouded Fable
+            // sv6 = Twilight Masquerade
+            // sv5 = Temporal Forces
+            // sv4pt5 = Paldean Fates
+            // sv4 = Paradox Rift
+            // sv3pt5 = 151
+            // sv3 = Obsidian Flames
             
-            // Find matching set logo
-            for (const [setName, logoUrl] of Object.entries(SET_LOGO_IMAGES)) {
-                if (nameLower.includes(setName)) {
-                    return logoUrl;
-                }
+            // Check specific product names (most specific first)
+            if (nameLower.includes('destined rivals')) {
+                // Destined Rivals is upcoming - use Scarlet & Violet base logo as placeholder
+                return 'https://images.pokemontcg.io/sv1/logo.png';
+            }
+            if (nameLower.includes('prismatic evolution')) {
+                return 'https://images.pokemontcg.io/sv8pt5/logo.png';
+            }
+            if (nameLower.includes('surging spark')) {
+                return 'https://images.pokemontcg.io/sv8/logo.png';
+            }
+            if (nameLower.includes('stellar crown')) {
+                return 'https://images.pokemontcg.io/sv7/logo.png';
+            }
+            if (nameLower.includes('shrouded fable')) {
+                return 'https://images.pokemontcg.io/sv6pt5/logo.png';
+            }
+            if (nameLower.includes('twilight masquerade')) {
+                return 'https://images.pokemontcg.io/sv6/logo.png';
+            }
+            if (nameLower.includes('temporal force')) {
+                return 'https://images.pokemontcg.io/sv5/logo.png';
+            }
+            if (nameLower.includes('paldean fates')) {
+                return 'https://images.pokemontcg.io/sv4pt5/logo.png';
+            }
+            if (nameLower.includes('paradox rift')) {
+                return 'https://images.pokemontcg.io/sv4/logo.png';
+            }
+            if (nameLower.includes('151')) {
+                return 'https://images.pokemontcg.io/sv3pt5/logo.png';
+            }
+            if (nameLower.includes('obsidian flame')) {
+                return 'https://images.pokemontcg.io/sv3/logo.png';
+            }
+            if (nameLower.includes('paldea evolved')) {
+                return 'https://images.pokemontcg.io/sv2/logo.png';
+            }
+            if (nameLower.includes('scarlet') && nameLower.includes('violet')) {
+                return 'https://images.pokemontcg.io/sv1/logo.png';
+            }
+            if (nameLower.includes('crown zenith')) {
+                return 'https://images.pokemontcg.io/swsh12pt5/logo.png';
+            }
+            if (nameLower.includes('silver tempest')) {
+                return 'https://images.pokemontcg.io/swsh12/logo.png';
+            }
+            if (nameLower.includes('lost origin')) {
+                return 'https://images.pokemontcg.io/swsh11/logo.png';
+            }
+            if (nameLower.includes('brilliant star')) {
+                return 'https://images.pokemontcg.io/swsh9/logo.png';
+            }
+            if (nameLower.includes('fusion strike')) {
+                return 'https://images.pokemontcg.io/swsh8/logo.png';
+            }
+            if (nameLower.includes('evolving sk')) {
+                return 'https://images.pokemontcg.io/swsh7/logo.png';
             }
             
             // Try SET_NAME_TO_ID mapping for other sets
@@ -4704,8 +4739,8 @@
                 }
             }
             
-            // Default Pokemon TCG logo (always loads on mobile)
-            return 'https://images.pokemontcg.io/sv8/logo.png';
+            // Default - generic Pokemon TCG logo
+            return 'https://images.pokemontcg.io/sv1/logo.png';
         }
         
         function getSetInfo(productName) {
