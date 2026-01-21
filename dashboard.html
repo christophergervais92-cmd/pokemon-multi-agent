@@ -1503,23 +1503,26 @@
                         <!-- Price Chart -->
                         <h2 style="margin-top: 1.5rem;">Price History</h2>
                         <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; flex-wrap: wrap;">
-                            <select id="gradeSelect" onchange="setChartGrade(this.value)" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 0.8rem; font-weight: 500; min-width: 100px;">
-                                <option value="raw">Raw</option>
+                            <select id="gradeSelect" onchange="setChartGrade(this.value)" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 0.8rem; font-weight: 500; min-width: 120px;">
+                                <option value="raw">Raw (Ungraded)</option>
                                 <optgroup label="PSA">
-                                    <option value="PSA 10">PSA 10</option>
-                                    <option value="PSA 9">PSA 9</option>
-                                    <option value="PSA 8">PSA 8</option>
-                                    <option value="PSA 7">PSA 7</option>
+                                    <option value="PSA 10">PSA 10 Gem Mint</option>
+                                    <option value="PSA 9">PSA 9 Mint</option>
+                                    <option value="PSA 8">PSA 8 NM-MT</option>
+                                    <option value="PSA 7">PSA 7 NM</option>
                                 </optgroup>
                                 <optgroup label="CGC">
-                                    <option value="CGC 10">CGC 10</option>
-                                    <option value="CGC 9.5">CGC 9.5</option>
-                                    <option value="CGC 9">CGC 9</option>
+                                    <option value="CGC 10">CGC 10 Pristine</option>
+                                    <option value="CGC 9.5">CGC 9.5 Gem Mint</option>
+                                    <option value="CGC 9">CGC 9 Mint</option>
+                                    <option value="CGC 8.5">CGC 8.5 NM-MT+</option>
                                 </optgroup>
-                                <optgroup label="BGS">
-                                    <option value="BGS 10">BGS 10</option>
-                                    <option value="BGS 9.5">BGS 9.5</option>
-                                    <option value="BGS 9">BGS 9</option>
+                                <optgroup label="BGS / Beckett">
+                                    <option value="BGS 10 Black">BGS 10 Black Label</option>
+                                    <option value="BGS 10">BGS 10 Pristine</option>
+                                    <option value="BGS 9.5">BGS 9.5 Gem Mint</option>
+                                    <option value="BGS 9">BGS 9 Mint</option>
+                                    <option value="BGS 8.5">BGS 8.5 NM-MT+</option>
                                 </optgroup>
                             </select>
                             <div style="display: flex; gap: 0.25rem;">
@@ -3875,37 +3878,45 @@
             // Realistic multipliers based on modern market (Jan 2026)
             const gradeMultipliers = isVintage ? {
                 // Vintage cards (pre-2015) - higher premiums
-                'PSA 10': { mult: 15, range: [12, 20] },
-                'PSA 9': { mult: 4, range: [3, 5] },
-                'PSA 8': { mult: 2, range: [1.5, 2.5] },
-                'CGC 10': { mult: 10, range: [8, 14] },
-                'CGC 9.5': { mult: 5, range: [4, 7] },
-                'BGS 10': { mult: 25, range: [18, 35] },
-                'BGS 9.5': { mult: 6, range: [5, 8] },
+                'PSA 10': { mult: 15, range: [12, 20], label: 'PSA 10 Gem Mint' },
+                'PSA 9': { mult: 4, range: [3, 5], label: 'PSA 9 Mint' },
+                'PSA 8': { mult: 2, range: [1.5, 2.5], label: 'PSA 8 NM-MT' },
+                'CGC 10': { mult: 10, range: [8, 14], label: 'CGC 10 Pristine' },
+                'CGC 9.5': { mult: 5, range: [4, 7], label: 'CGC 9.5 Gem Mint' },
+                'BGS 10 Black': { mult: 50, range: [35, 80], label: 'BGS 10 Black Label' },
+                'BGS 10': { mult: 25, range: [18, 35], label: 'BGS 10 Pristine' },
+                'BGS 9.5': { mult: 6, range: [5, 8], label: 'BGS 9.5 Gem Mint' },
             } : {
                 // Modern cards (2015+) - lower, realistic premiums
-                'PSA 10': { mult: 2.5, range: [2.0, 3.5] },
-                'PSA 9': { mult: 1.5, range: [1.3, 1.8] },
-                'PSA 8': { mult: 1.2, range: [1.1, 1.4] },
-                'CGC 10': { mult: 2.0, range: [1.7, 2.5] },
-                'CGC 9.5': { mult: 1.7, range: [1.4, 2.0] },
-                'BGS 10': { mult: 3.5, range: [2.8, 4.5] },
-                'BGS 9.5': { mult: 2.0, range: [1.7, 2.5] },
+                'PSA 10': { mult: 2.5, range: [2.0, 3.5], label: 'PSA 10 Gem Mint' },
+                'PSA 9': { mult: 1.5, range: [1.3, 1.8], label: 'PSA 9 Mint' },
+                'PSA 8': { mult: 1.2, range: [1.1, 1.4], label: 'PSA 8 NM-MT' },
+                'CGC 10': { mult: 2.0, range: [1.7, 2.5], label: 'CGC 10 Pristine' },
+                'CGC 9.5': { mult: 1.7, range: [1.4, 2.0], label: 'CGC 9.5 Gem Mint' },
+                'BGS 10 Black': { mult: 6.0, range: [4.5, 8.0], label: 'BGS 10 Black Label' },
+                'BGS 10': { mult: 3.5, range: [2.8, 4.5], label: 'BGS 10 Pristine' },
+                'BGS 9.5': { mult: 2.0, range: [1.7, 2.5], label: 'BGS 9.5 Gem Mint' },
             };
             
-            // Store prices for chart (global variable)
+            // Store ALL grade prices for chart (global variable)
             allGradePrices = {
                 'raw': basePrice,
+                // PSA
                 'PSA 10': basePrice * gradeMultipliers['PSA 10'].mult,
                 'PSA 9': basePrice * gradeMultipliers['PSA 9'].mult,
                 'PSA 8': basePrice * gradeMultipliers['PSA 8'].mult,
-                'PSA 7': basePrice * 1.0,
+                'PSA 7': basePrice * (isVintage ? 1.5 : 1.0),
+                // CGC
                 'CGC 10': basePrice * gradeMultipliers['CGC 10'].mult,
                 'CGC 9.5': basePrice * gradeMultipliers['CGC 9.5'].mult,
-                'CGC 9': basePrice * 1.3,
+                'CGC 9': basePrice * (isVintage ? 3.5 : 1.3),
+                'CGC 8.5': basePrice * (isVintage ? 2.5 : 1.15),
+                // BGS / Beckett
+                'BGS 10 Black': basePrice * gradeMultipliers['BGS 10 Black'].mult,
                 'BGS 10': basePrice * gradeMultipliers['BGS 10'].mult,
                 'BGS 9.5': basePrice * gradeMultipliers['BGS 9.5'].mult,
-                'BGS 9': basePrice * 1.4,
+                'BGS 9': basePrice * (isVintage ? 4.0 : 1.4),
+                'BGS 8.5': basePrice * (isVintage ? 2.8 : 1.2),
             };
             
             priceHtml += `
@@ -3914,14 +3925,30 @@
                 </div>
             `;
             
-            for (const [grade, data] of Object.entries(gradeMultipliers)) {
+            // Display in organized order: PSA, CGC, BGS
+            const displayOrder = [
+                'PSA 10', 'PSA 9', 'PSA 8',
+                'CGC 10', 'CGC 9.5',
+                'BGS 10 Black', 'BGS 10', 'BGS 9.5'
+            ];
+            
+            for (const grade of displayOrder) {
+                const data = gradeMultipliers[grade];
+                if (!data) continue;
+                
                 const price = basePrice * data.mult;
                 const lowPrice = basePrice * data.range[0];
                 const highPrice = basePrice * data.range[1];
+                
+                // Highlight BGS Black Label specially
+                const isBlackLabel = grade === 'BGS 10 Black';
+                const cellStyle = isBlackLabel ? 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid gold;' : '';
+                const labelStyle = isBlackLabel ? 'color: gold; font-weight: 600;' : '';
+                
                 priceHtml += `
-                    <div class="price-cell">
-                        <div class="price-label">${grade}</div>
-                        <div class="price-value">~$${formatPrice(price)}</div>
+                    <div class="price-cell" style="${cellStyle}">
+                        <div class="price-label" style="${labelStyle}">${data.label || grade}</div>
+                        <div class="price-value" ${isBlackLabel ? 'style="color: gold;"' : ''}>~$${formatPrice(price)}</div>
                         <div style="font-size: 0.5rem; color: var(--text-muted);">
                             $${formatPrice(lowPrice)} - $${formatPrice(highPrice)}
                         </div>

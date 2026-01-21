@@ -64,21 +64,26 @@ CACHE_TTL_SECONDS = 300  # 5 minute cache for price data
 # These are realistic multipliers for MODERN cards (2020+)
 GRADE_MULTIPLIERS = {
     # PSA multipliers - Modern cards typically 2-3x for PSA 10
-    "PSA 10": {"low": 1.8, "mid": 2.5, "high": 4.0},   # Gem Mint
-    "PSA 9": {"low": 1.2, "mid": 1.5, "high": 2.0},    # Mint
-    "PSA 8": {"low": 1.0, "mid": 1.2, "high": 1.5},    # Near Mint-Mint
-    "PSA 7": {"low": 0.85, "mid": 1.0, "high": 1.2},   # Near Mint
+    "PSA 10": {"low": 1.8, "mid": 2.5, "high": 4.0, "label": "Gem Mint"},
+    "PSA 9": {"low": 1.2, "mid": 1.5, "high": 2.0, "label": "Mint"},
+    "PSA 8": {"low": 1.0, "mid": 1.2, "high": 1.5, "label": "NM-MT"},
+    "PSA 7": {"low": 0.85, "mid": 1.0, "high": 1.2, "label": "NM"},
+    "PSA 6": {"low": 0.7, "mid": 0.85, "high": 1.0, "label": "EX-MT"},
     
     # CGC multipliers (~75-85% of PSA)
-    "CGC 10": {"low": 1.5, "mid": 2.0, "high": 3.2},   # Perfect
-    "CGC 9.5": {"low": 1.3, "mid": 1.7, "high": 2.2},  # Gem Mint
-    "CGC 9": {"low": 1.1, "mid": 1.3, "high": 1.6},    # Mint
+    "CGC 10": {"low": 1.5, "mid": 2.0, "high": 3.2, "label": "Pristine"},
+    "CGC 9.5": {"low": 1.3, "mid": 1.7, "high": 2.2, "label": "Gem Mint"},
+    "CGC 9": {"low": 1.1, "mid": 1.3, "high": 1.6, "label": "Mint"},
+    "CGC 8.5": {"low": 1.0, "mid": 1.15, "high": 1.4, "label": "NM-MT+"},
+    "CGC 8": {"low": 0.9, "mid": 1.05, "high": 1.25, "label": "NM-MT"},
     
-    # BGS/Beckett multipliers
-    "BGS 10": {"low": 2.5, "mid": 3.5, "high": 5.0},   # Pristine (rare)
-    "BGS 10 Black": {"low": 4.0, "mid": 6.0, "high": 10.0},  # Black Label
-    "BGS 9.5": {"low": 1.5, "mid": 2.0, "high": 2.8},  # Gem Mint
-    "BGS 9": {"low": 1.1, "mid": 1.4, "high": 1.8},    # Mint
+    # BGS/Beckett multipliers - Full scale
+    "BGS 10 Black": {"low": 4.0, "mid": 6.0, "high": 10.0, "label": "Black Label (Quad 10s)"},
+    "BGS 10": {"low": 2.5, "mid": 3.5, "high": 5.0, "label": "Pristine"},
+    "BGS 9.5": {"low": 1.5, "mid": 2.0, "high": 2.8, "label": "Gem Mint"},
+    "BGS 9": {"low": 1.1, "mid": 1.4, "high": 1.8, "label": "Mint"},
+    "BGS 8.5": {"low": 1.0, "mid": 1.2, "high": 1.5, "label": "NM-MT+"},
+    "BGS 8": {"low": 0.9, "mid": 1.1, "high": 1.3, "label": "NM-MT"},
 }
 
 # Popular cards with known price data (from recent eBay sold - Jan 2026)
