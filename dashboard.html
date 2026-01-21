@@ -2270,12 +2270,71 @@
         }
         
         let API = getDefaultAPI();
-        let settings = JSON.parse(localStorage.getItem('settings') || '{}');
+        let settings = optimizedLocalStorageGet('settings', {});
         let cache = new Map();
         const CACHE_TTL = 15000; // 15 second cache for faster updates
         const CACHE_TTL_LONG = 300000; // 5 min cache for static data (sets, card info)
         let liveConnection = null;
         let pendingRequests = new Map(); // Dedupe in-flight requests
+        
+        // =============================================================================
+        // OPTIMIZED LOCALSTORAGE - Batch writes to reduce I/O
+        // =============================================================================
+        let localStorageQueue = new Map();
+        let localStorageTimeout = null;
+        const LS_BATCH_DELAY = 50; // Batch writes every 50ms
+        
+        function optimizedLocalStorageSet(key, value) {
+            // Serialize if needed
+            const str = typeof value === 'string' ? value : JSON.stringify(value);
+            
+            // Queue for batch write (overwrites previous queued value for same key)
+            localStorageQueue.set(key, str);
+            
+            // Clear existing timeout
+            if (localStorageTimeout) clearTimeout(localStorageTimeout);
+            
+            // Batch write after delay
+            localStorageTimeout = setTimeout(() => {
+                localStorageQueue.forEach((value, key) => {
+                    try {
+                        localStorage.setItem(key, value);
+                    } catch (e) {
+                        // Quota exceeded - clear old cache data
+                        if (e.name === 'QuotaExceededError') {
+                            console.warn('localStorage quota exceeded, clearing old cache');
+                            Object.keys(localStorage).forEach(k => {
+                                if (k.startsWith('cache_') || k.startsWith('temp_') || k === 'api') {
+                                    localStorage.removeItem(k);
+                                }
+                            });
+                            // Retry
+                            try {
+                                localStorage.setItem(key, value);
+                            } catch (e2) {
+                                console.error('Failed to save to localStorage:', key, e2);
+                            }
+                        }
+                    }
+                });
+                localStorageQueue.clear();
+            }, LS_BATCH_DELAY);
+        }
+        
+        function optimizedLocalStorageGet(key, defaultValue = null) {
+            try {
+                const value = localStorage.getItem(key);
+                if (value === null) return defaultValue;
+                // Try to parse as JSON, fallback to string
+                try {
+                    return JSON.parse(value);
+                } catch {
+                    return value;
+                }
+            } catch (e) {
+                return defaultValue;
+            }
+        }
         
         // =============================================================================
         // AUTHENTICATION SYSTEM
@@ -2448,7 +2507,7 @@
                     }
                     if (data.settings) {
                         settings = { ...settings, ...data.settings };
-                        localStorage.setItem('settings', JSON.stringify(settings));
+                        optimizedLocalStorageSet('settings', settings);
                         loadSettings();
                     }
                     if (data.watchlist) {
@@ -2506,11 +2565,11 @@
         // Export data to file
         function exportUserData() {
             const data = {
-                portfolio: JSON.parse(localStorage.getItem('portfolio') || '[]'),
-                settings: JSON.parse(localStorage.getItem('settings') || '{}'),
-                watchlist: JSON.parse(localStorage.getItem('watchlist') || '[]'),
-                autoBuyRules: JSON.parse(localStorage.getItem('autoBuyRules') || '[]'),
-                purchaseHistory: JSON.parse(localStorage.getItem('purchaseHistory') || '[]'),
+                portfolio: optimizedLocalStorageGet('portfolio', []),
+                settings: optimizedLocalStorageGet('settings', {}),
+                watchlist: optimizedLocalStorageGet('watchlist', []),
+                autoBuyRules: optimizedLocalStorageGet('autoBuyRules', []),
+                purchaseHistory: optimizedLocalStorageGet('purchaseHistory', []),
                 exportDate: new Date().toISOString(),
                 version: '1.0'
             };
@@ -2533,13 +2592,13 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     
-                    if (data.portfolio) localStorage.setItem('portfolio', JSON.stringify(data.portfolio));
+                    if (data.portfolio) optimizedLocalStorageSet('portfolio', data.portfolio);
                     if (data.settings) {
                         settings = { ...settings, ...data.settings };
-                        localStorage.setItem('settings', JSON.stringify(settings));
+                        optimizedLocalStorageSet('settings', settings);
                     }
-                    if (data.watchlist) localStorage.setItem('watchlist', JSON.stringify(data.watchlist));
-                    if (data.autoBuyRules) localStorage.setItem('autoBuyRules', JSON.stringify(data.autoBuyRules));
+                    if (data.watchlist) optimizedLocalStorageSet('watchlist', data.watchlist);
+                    if (data.autoBuyRules) optimizedLocalStorageSet('autoBuyRules', data.autoBuyRules);
                     if (data.purchaseHistory) localStorage.setItem('purchaseHistory', JSON.stringify(data.purchaseHistory));
                     
                     // Sync to server if logged in
@@ -6341,7 +6400,7 @@
             const toggle = document.getElementById('toggle' + name.charAt(0).toUpperCase() + name.slice(1));
             toggle.classList.toggle('active');
             settings[name] = toggle.classList.contains('active');
-            localStorage.setItem('settings', JSON.stringify(settings));
+            optimizedLocalStorageSet('settings', settings);
         }
 
         async function toggleScanner() {
@@ -6357,13 +6416,13 @@
             }
             
             settings.scanner = !active;
-            localStorage.setItem('settings', JSON.stringify(settings));
+            optimizedLocalStorageSet('settings', settings);
         }
 
         function saveZip() {
             settings.zip = document.getElementById('settingsZip').value;
             document.getElementById('stockZip').value = settings.zip;
-            localStorage.setItem('settings', JSON.stringify(settings));
+            optimizedLocalStorageSet('settings', settings);
             alert('ZIP code saved');
         }
 
@@ -6377,7 +6436,7 @@
                 zip: document.getElementById('settingsZipShip').value,
                 phone: document.getElementById('settingsPhone').value,
             };
-            localStorage.setItem('settings', JSON.stringify(settings));
+            optimizedLocalStorageSet('settings', settings);
             alert('✓ Address saved');
         }
 
@@ -6410,7 +6469,7 @@
             };
             
             settings.stripePayment = demoCard;
-            localStorage.setItem('settings', JSON.stringify(settings));
+            optimizedLocalStorageSet('settings', settings);
             
             updatePaymentDisplay();
             showNotification('Card connected via Stripe', 'success');
@@ -6419,7 +6478,7 @@
         function disconnectStripe() {
             if (confirm('Remove this card from your account?')) {
                 delete settings.stripePayment;
-                localStorage.setItem('settings', JSON.stringify(settings));
+                optimizedLocalStorageSet('settings', settings);
                 updatePaymentDisplay();
                 showNotification('Stripe card removed', 'success');
             }
@@ -6435,7 +6494,7 @@
                     connectedAt: new Date().toISOString()
                 };
                 
-                localStorage.setItem('settings', JSON.stringify(settings));
+                optimizedLocalStorageSet('settings', settings);
                 updatePaymentDisplay();
                 showNotification('PayPal connected', 'success');
             }
@@ -6444,7 +6503,7 @@
         function disconnectPaypal() {
             if (confirm('Disconnect PayPal from your account?')) {
                 delete settings.paypalPayment;
-                localStorage.setItem('settings', JSON.stringify(settings));
+                optimizedLocalStorageSet('settings', settings);
                 updatePaymentDisplay();
                 showNotification('PayPal disconnected', 'success');
             }
@@ -6968,7 +7027,7 @@
         
         // Save portfolio and sync to server
         function savePortfolio() {
-            localStorage.setItem('portfolio', JSON.stringify(portfolio));
+            optimizedLocalStorageSet('portfolio', portfolio);
             if (sessionToken) syncToServer('portfolio', portfolio);
         }
         
@@ -7381,7 +7440,7 @@
                 const data = await res.json();
                 settings.api = url;
                 API = url;
-                localStorage.setItem('settings', JSON.stringify(settings));
+                optimizedLocalStorageSet('settings', settings);
                 alert('✓ Connected to ' + (data.name || 'API'));
             } catch (e) {
                 alert('✗ Connection failed: ' + e.message);
