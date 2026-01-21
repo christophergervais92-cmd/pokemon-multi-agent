@@ -1387,6 +1387,7 @@
         <nav class="desktop-nav">
             <button class="nav-btn active" data-section="search">Drops</button>
             <button class="nav-btn" data-section="stock">Stock</button>
+            <button class="nav-btn" data-section="vending">Vending</button>
             <button class="nav-btn" data-section="card">Cards</button>
             <button class="nav-btn" data-section="assistant">AI Assistant</button>
             <button class="nav-btn" data-section="portfolio">Portfolio</button>
@@ -1401,6 +1402,7 @@
             <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
                 <option value="search">Upcoming Drops</option>
                 <option value="stock">Stock Map</option>
+                <option value="vending">Vending Machines</option>
                 <option value="card">Card Lookup</option>
                 <option value="assistant">AI Assistant</option>
                 <option value="portfolio">Portfolio</option>
@@ -1463,21 +1465,6 @@
                 <button class="btn btn-sm retailer-btn" data-retailer="Costco" onclick="filterRetailer('Costco')" style="background: #e31837; color: white;">Costco</button>
                 <button class="btn btn-sm retailer-btn" data-retailer="Barnes & Noble" onclick="filterRetailer('Barnes & Noble')" style="background: #2d5a27; color: white;">B&N</button>
             </div>
-            
-            <!-- Pokemon Vending Machine Locator -->
-            <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #3466af 0%, #ffcb05 100%); color: white;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                    <div>
-                        <h2 style="margin: 0 0 0.25rem 0; font-size: 1rem; color: white;">Pokemon Vending Machines</h2>
-                        <p style="margin: 0; font-size: 0.75rem; opacity: 0.9;">Find card vending machines near you</p>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-sm" onclick="findVendingMachines()" style="background: white; color: #3466af;">Find Nearby</button>
-                        <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; text-decoration: none;">View Full Map</a>
-                    </div>
-                </div>
-                <div id="vendingResults" style="margin-top: 1rem; display: none;"></div>
-            </div>
 
             <div class="card grid grid-4" style="margin-bottom: 1.5rem;">
                 <div class="stat">
@@ -1503,6 +1490,42 @@
                     <div class="empty-icon"></div>
                     <div>Enter your ZIP code to find nearby stock</div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Pokemon Vending Machines Section -->
+        <section id="vending">
+            <h1>Pokemon Vending Machines</h1>
+            
+            <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #3466af 0%, #ffcb05 100%); color: white;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <h2 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; color: white;">Find Card Vending Machines</h2>
+                        <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Locate Pokemon card vending machines near you</p>
+                    </div>
+                    <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; text-decoration: none;">View Full Map</a>
+                </div>
+                
+                <div class="search-bar" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
+                    <input type="text" id="vendingZip" placeholder="Enter ZIP Code" style="flex: 1; background: white; color: #333;">
+                    <button class="btn" onclick="findVendingMachines()" style="background: white; color: #3466af;">Find Nearby</button>
+                </div>
+                
+                <div id="vendingResults" style="margin-top: 1.5rem; display: none;"></div>
+            </div>
+            
+            <div class="card" style="margin-top: 1.5rem;">
+                <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">About Pokemon Vending Machines</h2>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.75rem;">
+                    Pokemon card vending machines are automated kiosks located in retail stores across the United States. 
+                    These machines dispense Pokemon Trading Card Game products including booster packs, Elite Trainer Boxes, 
+                    and other sealed products.
+                </p>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6;">
+                    <strong>Data Source:</strong> Locations are sourced from <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: var(--accent);">PokeVend.us</a>, 
+                    the most comprehensive database of Pokemon vending machine locations. Click "View Full Map" to see 
+                    the complete interactive map with real-time updates.
+                </p>
             </div>
         </section>
 
@@ -2643,6 +2666,16 @@
             // Sync mobile dropdown
             const mobileSelect = document.getElementById('mobileNavSelect');
             if (mobileSelect) mobileSelect.value = name;
+            
+            // Auto-fill zip code for vending section
+            if (name === 'vending') {
+                setTimeout(() => {
+                    const vendingZip = document.getElementById('vendingZip');
+                    if (vendingZip && !vendingZip.value) {
+                        vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
+                    }
+                }, 100);
+            }
         }
         
         function switchSectionMobile(name) {
@@ -2651,6 +2684,16 @@
             document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
             document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
             document.getElementById(name)?.classList.add('active');
+            
+            // Auto-fill zip code for vending section
+            if (name === 'vending') {
+                setTimeout(() => {
+                    const vendingZip = document.getElementById('vendingZip');
+                    if (vendingZip && !vendingZip.value) {
+                        vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
+                    }
+                }, 100);
+            }
         }
 
         // API with caching
@@ -3397,8 +3440,20 @@
         ];
         
         function findVendingMachines() {
-            const zip = document.getElementById('stockZip').value || settings.zip || '90210';
+            const zipInput = document.getElementById('vendingZip');
+            const zip = zipInput?.value || document.getElementById('stockZip')?.value || settings.zip || '90210';
             const resultsDiv = document.getElementById('vendingResults');
+            
+            if (!zip || zip.length < 5) {
+                resultsDiv.innerHTML = `
+                    <div style="background: rgba(255,255,255,0.15); padding: 1rem; border-radius: 8px; text-align: center; color: white;">
+                        <div style="font-size: 0.875rem;">Please enter a valid 5-digit ZIP code</div>
+                    </div>
+                `;
+                resultsDiv.style.display = 'block';
+                return;
+            }
+            
             resultsDiv.style.display = 'block';
             
             // Find machines in the same zip code area (first 3 digits)
@@ -3415,31 +3470,44 @@
             
             if (nearbyMachines.length > 0) {
                 resultsDiv.innerHTML = `
-                    <div style="font-size: 0.8rem; margin-bottom: 0.5rem; font-weight: 600;">
-                        ${nearbyMachines.length} vending machine${nearbyMachines.length > 1 ? 's' : ''} found near ${zip}
+                    <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <div style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600; color: white;">
+                            ${nearbyMachines.length} vending machine${nearbyMachines.length > 1 ? 's' : ''} found near ${zip}
+                        </div>
+                        <div style="font-size: 0.75rem; opacity: 0.9; color: white;">
+                            Showing up to 5 nearest locations
+                        </div>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                         ${nearbyMachines.slice(0, 5).map(m => `
-                            <div style="background: rgba(255,255,255,0.15); padding: 0.5rem; border-radius: 6px; font-size: 0.75rem;">
-                                <div style="font-weight: 600;">${m.name}</div>
-                                <div style="opacity: 0.9;">${m.address}</div>
+                            <div style="background: rgba(255,255,255,0.15); padding: 1rem; border-radius: 8px; color: white;">
+                                <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;">${m.name}</div>
+                                <div style="opacity: 0.9; font-size: 0.85rem; margin-bottom: 0.75rem;">${m.address}</div>
                                 <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address)}" 
                                    target="_blank" rel="noopener" 
-                                   style="color: #ffcb05; text-decoration: none; font-size: 0.7rem;">
-                                   Get Directions
+                                   class="btn btn-sm" 
+                                   style="background: white; color: #3466af; text-decoration: none; display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500;">
+                                   Get Directions →
                                 </a>
                             </div>
                         `).join('')}
                     </div>
-                    <div style="margin-top: 0.75rem; font-size: 0.7rem; opacity: 0.8;">
-                        Data sourced from <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: #ffcb05;">PokeVend.us</a>
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.75rem; opacity: 0.8; color: white;">
+                        Data sourced from <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: #ffcb05; text-decoration: underline;">PokeVend.us</a>
                     </div>
                 `;
             } else {
                 resultsDiv.innerHTML = `
-                    <div style="font-size: 0.8rem; text-align: center; padding: 1rem;">
-                        No vending machines found near ${zip}.<br>
-                        <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: #ffcb05;">Check the full map</a> for more locations.
+                    <div style="background: rgba(255,255,255,0.15); padding: 2rem; border-radius: 8px; text-align: center; color: white;">
+                        <div style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">No vending machines found near ${zip}</div>
+                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 1rem;">
+                            Try a different ZIP code or check the full map for more locations.
+                        </div>
+                        <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" 
+                           class="btn btn-sm" 
+                           style="background: white; color: #3466af; text-decoration: none; display: inline-block; padding: 0.5rem 1rem; border-radius: 6px;">
+                           View Full Map
+                        </a>
                     </div>
                 `;
             }
