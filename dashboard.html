@@ -5581,18 +5581,39 @@
                 return;
             }
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Calculating...</div>';
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Fetching card data & calculating ROI...</div>';
             
+            // Fetch flip calculation AND card image in parallel
             let endpoint = `/flip/${encodeURIComponent(card)}?company=${company}`;
             if (price) endpoint += `&price=${price}`;
             
-            const data = await api(endpoint, { timeout: 5000 });
+            const [flipData, cardData, priceData] = await Promise.all([
+                api(endpoint, { timeout: 5000 }),
+                fetchCardFromTCG(card),  // Get card image
+                api(`/prices/card/${encodeURIComponent(card)}`, { timeout: 5000 }).catch(() => null)  // Get real prices
+            ]);
             
-            if (!data.error) {
-                flipCache.set(cacheKey, data);
+            // Enhance flip data with card image
+            if (cardData?.images?.small) {
+                flipData.card_image = cardData.images.small;
+                flipData.card_set = cardData.set?.name || '';
+                flipData.card_number = cardData.number || '';
+                flipData.card_rarity = cardData.rarity || '';
             }
             
-            renderFlipResults(data);
+            // Use real prices if available (more accurate than estimates)
+            if (priceData?.raw?.price && !price) {
+                flipData.real_raw_price = priceData.raw.price;
+            }
+            if (priceData?.graded) {
+                flipData.real_graded_prices = priceData.graded;
+            }
+            
+            if (!flipData.error) {
+                flipCache.set(cacheKey, flipData);
+            }
+            
+            renderFlipResults(flipData);
         }
         
         function renderFlipResults(data) {
@@ -5605,35 +5626,86 @@
             
             const roi = data.expected_roi || 0;
             const roiClass = roi > 50 ? 'green' : roi > 0 ? '' : 'red';
+            const hasRealPrices = data.real_graded_prices && Object.keys(data.real_graded_prices).length > 0;
+            
+            // Update scenarios with real prices if available
+            let scenarios = data.scenarios || [];
+            if (hasRealPrices) {
+                scenarios = scenarios.map(s => {
+                    const realPrice = data.real_graded_prices[s.grade]?.price;
+                    if (realPrice) {
+                        const profit = realPrice - data.total_cost;
+                        const newRoi = (profit / data.total_cost) * 100;
+                        return {
+                            ...s,
+                            graded_value: realPrice,
+                            profit: Math.round(profit * 100) / 100,
+                            roi_percent: Math.round(newRoi * 10) / 10,
+                            is_real_price: true
+                        };
+                    }
+                    return s;
+                });
+            }
             
             results.innerHTML = `
-                <div class="card grid grid-4" style="margin-bottom: 1rem;">
-                    <div class="stat">
-                        <div class="stat-value">$${data.raw_price || 0}</div>
-                        <div class="stat-label">Raw Price</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value">$${data.total_cost || 0}</div>
-                        <div class="stat-label">Total Cost</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value ${roiClass}">$${data.expected_profit || 0}</div>
-                        <div class="stat-label">Expected Profit</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value ${roiClass}">${roi}%</div>
-                        <div class="stat-label">Expected ROI</div>
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 1.5rem; align-items: flex-start;">
+                        <!-- Card Image Preview -->
+                        ${data.card_image ? `
+                            <div style="flex-shrink: 0;">
+                                <img src="${data.card_image}" alt="${data.card_name}" 
+                                    style="width: 120px; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                                <div style="text-align: center; margin-top: 0.5rem;">
+                                    <div style="font-size: 0.625rem; color: var(--text-muted);">${data.card_set || ''}</div>
+                                    ${data.card_rarity ? `<div style="font-size: 0.5rem; color: var(--accent);">${data.card_rarity}</div>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Stats Grid -->
+                        <div style="flex: 1;">
+                            <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">${data.card_name || 'Card Analysis'}</h2>
+                            <div class="grid grid-2" style="gap: 0.75rem;">
+                                <div class="stat" style="padding: 0.5rem;">
+                                    <div class="stat-value" style="font-size: 1.25rem;">$${data.raw_price || 0}</div>
+                                    <div class="stat-label">Raw Price</div>
+                                </div>
+                                <div class="stat" style="padding: 0.5rem;">
+                                    <div class="stat-value" style="font-size: 1.25rem;">$${data.total_cost || 0}</div>
+                                    <div class="stat-label">Total Cost</div>
+                                </div>
+                                <div class="stat" style="padding: 0.5rem;">
+                                    <div class="stat-value ${roiClass}" style="font-size: 1.25rem;">$${data.expected_profit || 0}</div>
+                                    <div class="stat-label">Expected Profit</div>
+                                </div>
+                                <div class="stat" style="padding: 0.5rem;">
+                                    <div class="stat-value ${roiClass}" style="font-size: 1.25rem;">${roi}%</div>
+                                    <div class="stat-label">Expected ROI</div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                ${data.grading_company} ${data.grading_tier} ($${data.grading_cost}) + Shipping ($${data.shipping_cost})
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="card">
-                    <h2>Grade Scenarios</h2>
-                    ${(data.scenarios || []).map(s => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <h2 style="margin: 0;">Grade Scenarios</h2>
+                        ${hasRealPrices ? '<span style="font-size: 0.625rem; background: var(--green); color: white; padding: 0.125rem 0.375rem; border-radius: 4px;">REAL PRICES</span>' : '<span style="font-size: 0.625rem; background: var(--gold); color: black; padding: 0.125rem 0.375rem; border-radius: 4px;">ESTIMATED</span>'}
+                    </div>
+                    ${scenarios.map(s => `
                         <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
-                            <span>${s.emoji || ''} ${s.grade}</span>
+                            <span>
+                                ${s.emoji || ''} ${s.grade}
+                                ${s.is_real_price ? '<span style="font-size: 0.5rem; color: var(--green);">✓</span>' : ''}
+                            </span>
                             <span style="font-family: 'Space Mono', monospace;">
                                 $${s.graded_value} → 
                                 <span class="${s.profit >= 0 ? 'green' : 'red'}">${s.profit >= 0 ? '+' : ''}$${s.profit}</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">(${s.roi_percent}%)</span>
                             </span>
                         </div>
                     `).join('')}
