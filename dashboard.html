@@ -183,20 +183,20 @@
             font-family: inherit;
             font-size: 1rem;
             font-weight: 500;
-            color: var(--text-muted);
+            color: #ffffff;
             cursor: pointer;
             border-radius: var(--radius-sm);
             transition: all 0.2s ease;
         }
 
         .nav-btn:hover { 
-            color: var(--text-secondary);
+            color: #ffffff;
             background: var(--bg-hover);
         }
         
         .nav-btn.active {
-            color: var(--text);
-            background: var(--bg-hover);
+            color: #ffffff;
+            background: var(--accent);
             box-shadow: var(--shadow-sm);
         }
 
@@ -491,15 +491,15 @@
                 width: 100%;
                 padding: 0.875rem 1rem;
                 font-size: 1rem;
-                font-weight: 500;
+                font-weight: 600;
                 background: var(--bg-card-elevated);
                 border: 1px solid var(--border);
                 border-radius: var(--radius-sm);
-                color: var(--text);
+                color: #ffffff;
                 cursor: pointer;
                 appearance: none;
                 -webkit-appearance: none;
-                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E");
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E");
                 background-repeat: no-repeat;
                 background-position: right 0.75rem center;
                 background-size: 1.25rem;
@@ -1343,7 +1343,7 @@
         <!-- Desktop Navigation -->
         <nav class="desktop-nav">
             <button class="nav-btn active" data-section="search">Drops</button>
-            <button class="nav-btn" data-section="stock">🗺️ Stock</button>
+            <button class="nav-btn" data-section="stock">Stock</button>
             <button class="nav-btn" data-section="card">Cards</button>
             <button class="nav-btn" data-section="assistant">AI Assistant</button>
             <button class="nav-btn" data-section="portfolio">Portfolio</button>
@@ -1357,10 +1357,10 @@
         <div class="mobile-nav">
             <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
                 <option value="search">Upcoming Drops</option>
-                <option value="stock">🗺️ Stock Map</option>
+                <option value="stock">Stock Map</option>
                 <option value="card">Card Lookup</option>
-                <option value="assistant">🤖 AI Assistant</option>
-                <option value="portfolio">💼 Portfolio</option>
+                <option value="assistant">AI Assistant</option>
+                <option value="portfolio">Portfolio</option>
                 <option value="grade">AI Grading</option>
                 <option value="flip">Flip Calculator</option>
                 <option value="analytics">Analytics</option>
@@ -1449,7 +1449,7 @@
 
             <div id="stockResults">
                 <div class="empty">
-                    <div class="empty-icon">🗺️</div>
+                    <div class="empty-icon"></div>
                     <div>Enter your ZIP code to find nearby stock</div>
                 </div>
             </div>
@@ -1570,7 +1570,7 @@
             <div class="card" style="height: 500px; display: flex; flex-direction: column;">
                 <div id="chatMessages" style="flex: 1; overflow-y: auto; padding: 1rem; background: var(--bg); border-radius: 8px; margin-bottom: 1rem;">
                     <div class="chat-message assistant">
-                        <div class="chat-avatar">🤖</div>
+                        <div class="chat-avatar"></div>
                         <div class="chat-content">
                             <div class="chat-text">
                                 Hi! I'm your TCG assistant. I can help you:
@@ -2971,7 +2971,7 @@
                                 <a href="https://www.google.com/maps/search/${encodeURIComponent(s.full_address || s.address)}" 
                                    target="_blank" 
                                    class="btn btn-outline btn-sm">
-                                    🗺️ Get Directions
+                                    Get Directions
                                 </a>
                             </div>
                         ` : ''}
@@ -4794,7 +4794,7 @@
             const msg = document.createElement('div');
             msg.className = `chat-message ${role}`;
             msg.innerHTML = `
-                <div class="chat-avatar">${role === 'user' ? '👤' : '🤖'}</div>
+                <div class="chat-avatar">${role === 'user' ? '' : ''}</div>
                 <div class="chat-content">
                     <div class="chat-text">${text}</div>
                     ${actions.length ? `
@@ -4911,10 +4911,10 @@
             if (lower.includes('stock') || lower.includes('near') || lower.includes('local')) {
                 const zip = settings.zip || settings.address?.zip || '90210';
                 return {
-                    text: `🗺️ Checking stock near <strong>${zip}</strong>...<br><br>
+                    text: `Checking stock near <strong>${zip}</strong>...<br><br>
                         I'll search all major retailers for Pokemon TCG products.`,
                     actions: [
-                        { label: '🗺️ View Stock Map', action: `switchSection('stock'); document.getElementById('stockZip').value='${zip}'; findStock()` },
+                        { label: 'View Stock Map', action: `switchSection('stock'); document.getElementById('stockZip').value='${zip}'; findStock()` },
                     ]
                 };
             }
@@ -5259,7 +5259,7 @@
                         <div>
                             <div style="font-weight: 500;">${p.product}</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                ${p.retailer} • ${date} ${p.fromRule ? '• 🤖 Auto-buy rule' : ''}
+                                ${p.retailer} • ${date} ${p.fromRule ? '• Auto-buy rule' : ''}
                             </div>
                         </div>
                         <div style="text-align: right;">
