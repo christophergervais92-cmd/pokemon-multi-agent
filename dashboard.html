@@ -175,6 +175,12 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.5); opacity: 0.1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
 
         .status-dot.offline { 
             background: var(--red); 
@@ -1448,15 +1454,19 @@
             
             <div class="card" style="margin-bottom: 1rem; background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg) 100%);">
                 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <div style="position: relative;">
+                        <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>
+                        <div style="position: absolute; top: -2px; left: -2px; width: 12px; height: 12px; background: #10b981; border-radius: 50%; opacity: 0.3; animation: pulse-ring 2s infinite;"></div>
+                    </div>
                     <div>
                         <h2 style="margin: 0; font-size: 0.875rem;">Live Drop Intel</h2>
-                        <div style="font-size: 0.625rem; color: var(--text-muted);">Live from Reddit, PokeBeach, X, Instagram & TikTok</div>
+                        <div style="font-size: 0.625rem; color: var(--text-muted);">Live from PokeBeach, X, Instagram & TikTok</div>
                     </div>
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
                     Last updated: <span id="dropUpdateTime">Just now</span>
                 </div>
-                <!-- Live Intel from Reddit & PokeBeach -->
+                <!-- Live Intel from PokeBeach, X, Instagram & TikTok -->
                 <div id="liveIntel" style="max-height: 300px; overflow-y: auto;">
                     <div style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 1rem;">Loading live intel...</div>
                 </div>
@@ -3184,7 +3194,6 @@
         }
         
         let currentDropFilter = 'all';
-        let liveRedditPosts = [];
         let livePokeBeachNews = [];
         let liveTwitterPosts = [];
         let liveInstagramPosts = [];
@@ -3200,18 +3209,6 @@
         }
         
         async function loadLiveIntel() {
-            // Fetch Reddit intel
-            try {
-                const redditRes = await fetch(`${API}/drops/reddit`);
-                if (redditRes.ok) {
-                    const data = await redditRes.json();
-                    liveRedditPosts = data.posts || [];
-                    console.log('Reddit intel loaded:', liveRedditPosts.length, 'posts');
-                }
-            } catch (e) {
-                console.log('Reddit fetch skipped:', e.message);
-            }
-            
             // Fetch PokeBeach news
             try {
                 const pbRes = await fetch(`${API}/drops/pokebeach`);
@@ -3266,7 +3263,6 @@
         
         function getPlatformColor(type) {
             const colors = {
-                'reddit': '#ff4500',
                 'news': '#1a73e8',
                 'twitter': '#1DA1F2',
                 'instagram': '#E4405F',
@@ -3277,7 +3273,6 @@
         
         function getPlatformIcon(type) {
             const icons = {
-                'reddit': 'R',
                 'news': 'N',
                 'twitter': 'X',
                 'instagram': 'IG',
@@ -3291,19 +3286,6 @@
             if (!container) return;
             
             const allIntel = [];
-            
-            // Add Reddit posts
-            for (const post of liveRedditPosts.slice(0, 8)) {
-                allIntel.push({
-                    type: 'reddit',
-                    title: post.title,
-                    url: post.url,
-                    source: post.source,
-                    score: post.score,
-                    retailers: post.retailers || [],
-                    time: new Date(post.created * 1000)
-                });
-            }
             
             // Add PokeBeach news
             for (const news of livePokeBeachNews.slice(0, 4)) {
