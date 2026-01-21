@@ -2187,12 +2187,12 @@ def stripe_create_setup_intent():
         auth_header = request.headers.get('Authorization', '')
         if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
             token = auth_header[7:]
-            session = get_session(token)
-            if session:
-                # Create or get Stripe customer for this user
-                user = get_user_by_id(session['user_id'])
-                if user and user.get('stripe_customer_id'):
-                    customer_id = user['stripe_customer_id']
+            user = validate_session(token)
+            if user:
+                # Check if user has a Stripe customer ID stored
+                user_data = get_all_user_data(user['user_id']) or {}
+                if user_data.get('stripe_customer_id'):
+                    customer_id = user_data['stripe_customer_id']
         
         # Create SetupIntent
         intent_params = {
@@ -2257,20 +2257,17 @@ def stripe_confirm_setup():
         auth_header = request.headers.get('Authorization', '')
         if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
             token = auth_header[7:]
-            session = get_session(token)
-            if session:
-                user = get_user_by_id(session['user_id'])
-                if user:
-                    current_data = user.get('user_data', {})
-                    current_data['stripe_payment'] = {
-                        'provider': 'stripe',
-                        'last4': card_info['last4'],
-                        'brand': card_info['brand'],
-                        'expMonth': card_info['exp_month'],
-                        'expYear': card_info['exp_year'],
-                        'connectedAt': datetime.now().isoformat()
-                    }
-                    update_user_data(session['user_id'], current_data)
+            user = validate_session(token)
+            if user:
+                stripe_payment = {
+                    'provider': 'stripe',
+                    'last4': card_info['last4'],
+                    'brand': card_info['brand'],
+                    'expMonth': card_info['exp_month'],
+                    'expYear': card_info['exp_year'],
+                    'connectedAt': datetime.now().isoformat()
+                }
+                save_user_data(user['user_id'], 'stripe_payment', stripe_payment)
         
         return jsonify({
             'success': True,
@@ -2370,13 +2367,9 @@ def paypal_confirm():
     auth_header = request.headers.get('Authorization', '')
     if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
         token = auth_header[7:]
-        session = get_session(token)
-        if session:
-            user = get_user_by_id(session['user_id'])
-            if user:
-                current_data = user.get('user_data', {})
-                current_data['paypal_payment'] = paypal_info
-                update_user_data(session['user_id'], current_data)
+        user = validate_session(token)
+        if user:
+            save_user_data(user['user_id'], 'paypal_payment', paypal_info)
     
     return jsonify({
         'success': True,
@@ -2402,18 +2395,18 @@ def payment_status():
     auth_header = request.headers.get('Authorization', '')
     if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
         token = auth_header[7:]
-        session = get_session(token)
-        if session:
-            user = get_user_by_id(session['user_id'])
-            if user:
-                data = user.get('user_data', {})
-                result['stripe_connected'] = bool(data.get('stripe_payment'))
-                result['paypal_connected'] = bool(data.get('paypal_payment'))
-                if data.get('stripe_payment'):
-                    result['stripe_last4'] = data['stripe_payment'].get('last4')
-                    result['stripe_brand'] = data['stripe_payment'].get('brand')
-                if data.get('paypal_payment'):
-                    result['paypal_email'] = data['paypal_payment'].get('email')
+        user = validate_session(token)
+        if user:
+            data = get_all_user_data(user['user_id']) or {}
+            stripe_payment = data.get('stripe_payment')
+            paypal_payment = data.get('paypal_payment')
+            result['stripe_connected'] = bool(stripe_payment)
+            result['paypal_connected'] = bool(paypal_payment)
+            if stripe_payment:
+                result['stripe_last4'] = stripe_payment.get('last4')
+                result['stripe_brand'] = stripe_payment.get('brand')
+            if paypal_payment:
+                result['paypal_email'] = paypal_payment.get('email')
     
     return jsonify(result)
 
