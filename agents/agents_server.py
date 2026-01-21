@@ -7,6 +7,7 @@ Each retailer scanner and the processing agents have their own endpoint.
 Includes Server-Sent Events (SSE) for real-time live notifications.
 """
 import json
+import os
 import subprocess
 import threading
 import time
