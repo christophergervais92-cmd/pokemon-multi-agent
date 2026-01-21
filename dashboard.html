@@ -2998,67 +2998,67 @@
         // Card lookup cache for instant repeats
         const cardLookupCache = new Map();
         
-        // Card Lookup with Image - Optimized with parallel fetching
+        // Card Lookup - Shows grid of all matches, detail view when single card selected
+        let allCardResults = [];
+        let selectedCard = null;
+        
         async function lookupCard() {
             const name = document.getElementById('cardName').value?.trim();
-            if (!name || name.length < 2) return;
-            
-            const results = document.getElementById('cardResults');
-            
-            // Check cache first for instant results
-            if (cardLookupCache.has(name.toLowerCase())) {
-                displayCardResults(cardLookupCache.get(name.toLowerCase()));
+            if (!name || name.length < 2) {
+                document.getElementById('cardResults').innerHTML = '';
                 return;
             }
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Looking up card...</div>';
+            const results = document.getElementById('cardResults');
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching cards...</div>';
             
-            // Fetch BOTH in parallel for speed
-            const [priceData, tcgData] = await Promise.all([
-                api(`/prices/card/${encodeURIComponent(name)}`).catch(() => ({})),
-                fetchCardFromTCG(name)
-            ]);
+            // Fetch all matching cards from Pokemon TCG API
+            const cards = await fetchAllCardsFromTCG(name);
+            allCardResults = cards;
             
-            const cardInfo = tcgData;
-            const cardImage = cardInfo?.images?.large || cardInfo?.images?.small;
+            if (cards.length === 0) {
+                results.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div>No cards found for "${name}"</div></div>';
+                return;
+            }
             
-            // Cache the result
-            const resultData = { priceData, cardInfo, cardImage, name };
-            cardLookupCache.set(name.toLowerCase(), resultData);
+            // If only 1 result, show detailed view immediately
+            if (cards.length === 1) {
+                selectCardForDetail(cards[0]);
+                return;
+            }
             
-            displayCardResults(resultData);
+            // Show grid of all matching cards
+            displayCardGrid(cards, name);
         }
         
-        // Cached TCG API fetch - no timeout
-        const tcgCardCache = new Map();
-        async function fetchCardFromTCG(name) {
+        // Fetch ALL matching cards from Pokemon TCG API
+        const tcgSearchCache = new Map();
+        async function fetchAllCardsFromTCG(name) {
             const cacheKey = name.toLowerCase();
-            if (tcgCardCache.has(cacheKey)) return tcgCardCache.get(cacheKey);
+            if (tcgSearchCache.has(cacheKey)) return tcgSearchCache.get(cacheKey);
             
-            // Clean search name
             const searchName = name.replace(/[^\w\s]/g, '').trim();
             
             try {
-                // Fetch without timeout - let it complete naturally
+                // Fetch up to 50 cards matching the search
                 let tcgRes = await fetch(
-                    `https://api.pokemontcg.io/v2/cards?q=name:"${searchName}"&pageSize=10&orderBy=-set.releaseDate`,
+                    `https://api.pokemontcg.io/v2/cards?q=name:"${searchName}*"&pageSize=50&orderBy=-set.releaseDate,-tcgplayer.prices.holofoil.market`,
                     { headers: { 'Accept': 'application/json' } }
                 );
                 
                 let tcgData = await tcgRes.json();
                 
-                // If no results, try partial match
+                // If no results with quotes, try without
                 if (!tcgData.data?.length) {
-                    console.log('No exact match, trying partial...');
                     const partialRes = await fetch(
-                        `https://api.pokemontcg.io/v2/cards?q=name:${searchName}*&pageSize=10&orderBy=-set.releaseDate`,
+                        `https://api.pokemontcg.io/v2/cards?q=name:${searchName}*&pageSize=50&orderBy=-set.releaseDate`,
                         { headers: { 'Accept': 'application/json' } }
                     );
                     tcgData = await partialRes.json();
                 }
                 
                 if (tcgData.data?.length > 0) {
-                    // Sort by rarity (best first) then by price (highest first)
+                    // Sort by value (highest price first), then by rarity
                     const rarityOrder = {
                         'Special Illustration Rare': 0, 'Illustration Rare': 1, 'Secret Rare': 2,
                         'Hyper Rare': 3, 'Ultra Rare': 4, 'Double Rare': 5, 'Rare Holo VMAX': 6,
@@ -3066,23 +3066,76 @@
                     };
                     
                     const cards = tcgData.data.sort((a, b) => {
+                        // Sort by price first (highest first)
+                        const priceA = a.tcgplayer?.prices?.holofoil?.market || a.tcgplayer?.prices?.normal?.market || 0;
+                        const priceB = b.tcgplayer?.prices?.holofoil?.market || b.tcgplayer?.prices?.normal?.market || 0;
+                        if (priceB !== priceA) return priceB - priceA;
+                        
+                        // Then by rarity
                         const rarityA = rarityOrder[a.rarity] ?? 5;
                         const rarityB = rarityOrder[b.rarity] ?? 5;
                         return rarityA - rarityB;
                     });
                     
-                    const bestCard = cards[0];
-                    console.log('Found card:', bestCard.name, bestCard.set?.name, bestCard.images?.small);
-                    tcgCardCache.set(cacheKey, bestCard);
-                    return bestCard;
+                    tcgSearchCache.set(cacheKey, cards);
+                    return cards;
                 }
             } catch (e) {
                 console.log('TCG API error:', e.message);
             }
             
-            // Fallback: return null, will show placeholder
-            console.log('No card found for:', name);
-            return null;
+            return [];
+        }
+        
+        // Display grid of all matching cards
+        function displayCardGrid(cards, query) {
+            const results = document.getElementById('cardResults');
+            
+            results.innerHTML = `
+                <h2 style="margin-bottom: 1rem;">SEARCH RESULTS <span style="color: var(--text-muted);">(${cards.length} RESULTS)</span></h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem;">
+                    ${cards.map((card, i) => {
+                        const price = card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market || card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+                        return `
+                            <div class="card-grid-item" onclick="selectCardForDetail(allCardResults[${i}])" style="cursor: pointer;">
+                                <img src="${card.images?.small || ''}" 
+                                     alt="${card.name}"
+                                     style="width: 100%; height: 160px; object-fit: contain;"
+                                     loading="lazy"
+                                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22160%22><rect fill=%22%23171717%22 width=%22120%22 height=%22160%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22>🎴</text></svg>'">
+                                <div class="card-title">${card.name}</div>
+                                <div class="card-set">${card.set?.name || ''}</div>
+                                <div class="card-price">${price > 0 ? '$' + price.toFixed(2) : ''}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+        
+        // Select a single card to show detailed view
+        async function selectCardForDetail(card) {
+            selectedCard = card;
+            const results = document.getElementById('cardResults');
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Loading card details...</div>';
+            
+            // Fetch price data from backend
+            const priceData = await api(`/prices/card/${encodeURIComponent(card.name)}`).catch(() => ({}));
+            
+            // Display detailed view
+            displayCardResults({
+                priceData,
+                cardInfo: card,
+                cardImage: card.images?.large || card.images?.small,
+                name: card.name
+            });
+        }
+        
+        // Legacy single card fetch (for compatibility)
+        const tcgCardCache = new Map();
+        async function fetchCardFromTCG(name) {
+            const cards = await fetchAllCardsFromTCG(name);
+            return cards[0] || null;
         }
         
         function displayCardResults({ priceData, cardInfo, cardImage, name }) {
@@ -3103,7 +3156,15 @@
             // Generate a search-based image fallback URL
             const fallbackImg = `https://images.pokemontcg.io/base1/4.png`; // Classic Charizard as placeholder
             
+            // Back button if we came from grid view
+            const backButton = allCardResults.length > 1 ? `
+                <button onclick="displayCardGrid(allCardResults, '${name}')" class="btn btn-outline" style="margin-bottom: 1rem;">
+                    ← Back to All Results (${allCardResults.length} cards)
+                </button>
+            ` : '';
+            
             results.innerHTML = `
+                ${backButton}
                 <div class="card card-result">
                     <div style="text-align: center; max-width: 200px;">
                         <img src="${imageUrl || fallbackImg}" 
