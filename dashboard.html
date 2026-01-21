@@ -1393,7 +1393,6 @@
             <button class="nav-btn" data-section="grade">Grading</button>
             <button class="nav-btn" data-section="flip">Flip Calc</button>
             <button class="nav-btn" data-section="analytics">Analytics</button>
-            <button class="nav-btn" data-section="gameboy">Game Boy</button>
             <button class="nav-btn" data-section="settings">Settings</button>
         </nav>
         
@@ -1408,7 +1407,6 @@
                 <option value="grade">AI Grading</option>
                 <option value="flip">Flip Calculator</option>
                 <option value="analytics">Analytics</option>
-                <option value="gameboy">Game Boy</option>
                 <option value="settings">Settings</option>
             </select>
         </div>
@@ -1978,73 +1976,6 @@
                     Simulates stock checks across all retailers and compares against your verified data.
                 </p>
                 <div id="backtestOutput" style="margin-top: 1rem;"></div>
-            </div>
-        </section>
-
-        <!-- Game Boy Emulator Section -->
-        <section id="gameboy">
-            <h1>Game Boy Emulator</h1>
-            
-            <div class="card" style="text-align: center;">
-                <div id="emulator-container" style="
-                    width: 100%;
-                    max-width: 500px;
-                    margin: 0 auto;
-                    aspect-ratio: 160/144;
-                    background: linear-gradient(145deg, #1a1a2e 0%, #0f0f1a 100%);
-                    border-radius: 12px;
-                    border: 3px solid #2a2a4a;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    position: relative;
-                    overflow: hidden;
-                ">
-                    <div id="emulator-placeholder" style="text-align: center; padding: 2rem;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🎮</div>
-                        <h3 style="margin-bottom: 0.5rem; color: var(--text);">Load a Game ROM</h3>
-                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
-                            Upload your legally obtained Pokemon ROM file
-                        </p>
-                        <label class="btn btn-accent" style="cursor: pointer; display: inline-block;">
-                            Select ROM File (.gb, .gbc)
-                            <input type="file" id="romFile" accept=".gb,.gbc,.zip" style="display: none;">
-                        </label>
-                    </div>
-                    <canvas id="emulator-screen" style="display: none; width: 100%; height: 100%; image-rendering: pixelated;"></canvas>
-                </div>
-                
-                <div id="emulator-controls" style="display: none; margin-top: 1.5rem;">
-                    <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
-                        <button class="btn btn-sm" onclick="emulatorPause()">Pause</button>
-                        <button class="btn btn-sm" onclick="emulatorResume()">Resume</button>
-                        <button class="btn btn-sm" onclick="emulatorReset()">Reset</button>
-                        <button class="btn btn-sm" onclick="emulatorSaveState()">Save State</button>
-                        <button class="btn btn-sm" onclick="emulatorLoadState()">Load State</button>
-                        <button class="btn btn-sm" onclick="toggleFullscreen()">Fullscreen</button>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg); border-radius: 8px;">
-                    <h4 style="margin-bottom: 0.75rem;">Controls</h4>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
-                        <div><kbd>Arrow Keys</kbd> D-Pad</div>
-                        <div><kbd>Z</kbd> A Button</div>
-                        <div><kbd>X</kbd> B Button</div>
-                        <div><kbd>Enter</kbd> Start</div>
-                        <div><kbd>Shift</kbd> Select</div>
-                        <div><kbd>Space</kbd> Fast Forward</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card" style="margin-top: 1rem;">
-                <h2>Legal Notice</h2>
-                <p style="color: var(--text-muted); font-size: 0.875rem; line-height: 1.6;">
-                    This emulator requires you to provide your own ROM files. Pokemon ROMs are copyrighted by Nintendo.
-                    Only use ROM files that you have legally obtained from cartridges you own. Distribution of ROM files is illegal.
-                </p>
             </div>
         </section>
 
@@ -6469,112 +6400,6 @@
                     </div>
                 </div>
             `;
-        }
-        
-        // ===== GAME BOY EMULATOR =====
-        let emulator = null;
-        let emulatorRunning = false;
-        let emulatorROM = null;
-        
-        // Load EmulatorJS when ROM is selected
-        document.getElementById('romFile')?.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            const container = document.getElementById('emulator-container');
-            const placeholder = document.getElementById('emulator-placeholder');
-            const controls = document.getElementById('emulator-controls');
-            
-            // Show loading state
-            placeholder.innerHTML = `
-                <div class="spinner" style="margin-bottom: 1rem;"></div>
-                <p style="color: var(--text-muted);">Loading ${file.name}...</p>
-            `;
-            
-            try {
-                // Create EmulatorJS container
-                container.innerHTML = `<div id="game" style="width: 100%; height: 100%;"></div>`;
-                
-                // Configure EmulatorJS
-                window.EJS_player = '#game';
-                window.EJS_core = file.name.toLowerCase().endsWith('.gbc') ? 'gambatte' : 'gambatte';
-                window.EJS_gameUrl = URL.createObjectURL(file);
-                window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-                window.EJS_startOnLoaded = true;
-                window.EJS_DEBUG_XX = false;
-                window.EJS_disableDatabaseRecovery = true;
-                window.EJS_backgroundBlur = true;
-                window.EJS_backgroundColor = '#0f0f1a';
-                window.EJS_color = '#8b5cf6';
-                
-                // Load EmulatorJS script
-                const script = document.createElement('script');
-                script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-                script.onload = () => {
-                    controls.style.display = 'block';
-                    emulatorRunning = true;
-                    console.log('Emulator loaded successfully');
-                };
-                script.onerror = () => {
-                    container.innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--red);">
-                            <div style="font-size: 2rem; margin-bottom: 1rem;">Error</div>
-                            <p>Failed to load emulator. Try refreshing the page.</p>
-                        </div>
-                    `;
-                };
-                document.body.appendChild(script);
-                
-            } catch (err) {
-                console.error('Emulator error:', err);
-                placeholder.innerHTML = `
-                    <div style="color: var(--red);">
-                        <div style="font-size: 2rem; margin-bottom: 1rem;">Error</div>
-                        <p>${err.message}</p>
-                    </div>
-                `;
-            }
-        });
-        
-        function emulatorPause() {
-            if (window.EJS_emulator) {
-                window.EJS_emulator.pause();
-            }
-        }
-        
-        function emulatorResume() {
-            if (window.EJS_emulator) {
-                window.EJS_emulator.play();
-            }
-        }
-        
-        function emulatorReset() {
-            if (window.EJS_emulator) {
-                window.EJS_emulator.restart();
-            }
-        }
-        
-        function emulatorSaveState() {
-            if (window.EJS_emulator) {
-                window.EJS_emulator.gameManager.quickSave();
-                showNotification('State saved!', 'success');
-            }
-        }
-        
-        function emulatorLoadState() {
-            if (window.EJS_emulator) {
-                window.EJS_emulator.gameManager.quickLoad();
-                showNotification('State loaded!', 'success');
-            }
-        }
-        
-        function toggleFullscreen() {
-            const container = document.getElementById('emulator-container');
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                container.requestFullscreen();
-            }
         }
     </script>
 </body>
