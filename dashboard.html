@@ -4560,20 +4560,77 @@
         function getProductImage(productName) {
             const nameLower = (productName || '').toLowerCase();
             
-            // Try to match set name
+            // Actual sealed product images (Amazon product photos)
+            const SEALED_PRODUCT_IMAGES = {
+                // Destined Rivals (upcoming - use generic Pokemon box)
+                'destined rivals etb': 'https://m.media-amazon.com/images/I/81jvP9FMKFL._AC_SL1500_.jpg',
+                'destined rivals elite trainer': 'https://m.media-amazon.com/images/I/81jvP9FMKFL._AC_SL1500_.jpg',
+                'destined rivals booster box': 'https://m.media-amazon.com/images/I/71TmMS4k7TL._AC_SL1200_.jpg',
+                'destined rivals booster pack': 'https://m.media-amazon.com/images/I/61KYV3E8URL._AC_SL1000_.jpg',
+                'destined rivals blister': 'https://m.media-amazon.com/images/I/71iLyL2DSVL._AC_SL1200_.jpg',
+                
+                // Prismatic Evolutions
+                'prismatic evolutions etb': 'https://m.media-amazon.com/images/I/81qNWKKhOcL._AC_SL1500_.jpg',
+                'prismatic evolutions elite trainer': 'https://m.media-amazon.com/images/I/81qNWKKhOcL._AC_SL1500_.jpg',
+                'prismatic evolutions booster': 'https://m.media-amazon.com/images/I/71GqJop2yOL._AC_SL1200_.jpg',
+                'prismatic booster': 'https://m.media-amazon.com/images/I/71GqJop2yOL._AC_SL1200_.jpg',
+                
+                // Surging Sparks
+                'surging sparks etb': 'https://m.media-amazon.com/images/I/81Rl4JPLWWL._AC_SL1500_.jpg',
+                'surging sparks elite trainer': 'https://m.media-amazon.com/images/I/81Rl4JPLWWL._AC_SL1500_.jpg',
+                'surging sparks booster box': 'https://m.media-amazon.com/images/I/71A0cG4bLzL._AC_SL1200_.jpg',
+                'surging sparks booster pack': 'https://m.media-amazon.com/images/I/61e+sHhUVKL._AC_SL1000_.jpg',
+                
+                // Paldean Fates
+                'paldean fates etb': 'https://m.media-amazon.com/images/I/71FJyqdUURL._AC_SL1200_.jpg',
+                'paldean fates elite trainer': 'https://m.media-amazon.com/images/I/71FJyqdUURL._AC_SL1200_.jpg',
+                'paldean fates booster': 'https://m.media-amazon.com/images/I/61qqDKu9yWL._AC_SL1000_.jpg',
+                
+                // 151
+                '151 etb': 'https://m.media-amazon.com/images/I/71KX0B4EzVL._AC_SL1200_.jpg',
+                '151 elite trainer': 'https://m.media-amazon.com/images/I/71KX0B4EzVL._AC_SL1200_.jpg',
+                '151 booster': 'https://m.media-amazon.com/images/I/71Zt9p2fPwL._AC_SL1200_.jpg',
+                
+                // Crown Zenith
+                'crown zenith etb': 'https://m.media-amazon.com/images/I/81Ot1zyAp2L._AC_SL1500_.jpg',
+                'crown zenith elite trainer': 'https://m.media-amazon.com/images/I/81Ot1zyAp2L._AC_SL1500_.jpg',
+                
+                // Generic product types (fallback)
+                'elite trainer box': 'https://m.media-amazon.com/images/I/81jvP9FMKFL._AC_SL1500_.jpg',
+                'booster box': 'https://m.media-amazon.com/images/I/71TmMS4k7TL._AC_SL1200_.jpg',
+                'booster pack': 'https://m.media-amazon.com/images/I/61KYV3E8URL._AC_SL1000_.jpg',
+                'blister': 'https://m.media-amazon.com/images/I/71iLyL2DSVL._AC_SL1200_.jpg',
+                '3-pack': 'https://m.media-amazon.com/images/I/71iLyL2DSVL._AC_SL1200_.jpg',
+                'collection box': 'https://m.media-amazon.com/images/I/81SLzFAy1WL._AC_SL1500_.jpg',
+            };
+            
+            // Check for specific product matches first
+            for (const [key, url] of Object.entries(SEALED_PRODUCT_IMAGES)) {
+                if (nameLower.includes(key)) {
+                    return url;
+                }
+            }
+            
+            // Try to match just set name for ETB default
             for (const [setName, setId] of Object.entries(SET_NAME_TO_ID)) {
                 if (nameLower.includes(setName)) {
+                    // If it's an ETB, booster box, or booster pack - use generic product image
+                    if (nameLower.includes('etb') || nameLower.includes('elite trainer')) {
+                        return SEALED_PRODUCT_IMAGES['elite trainer box'];
+                    }
+                    if (nameLower.includes('booster box')) {
+                        return SEALED_PRODUCT_IMAGES['booster box'];
+                    }
+                    if (nameLower.includes('booster pack') || nameLower.includes('booster') && !nameLower.includes('box')) {
+                        return SEALED_PRODUCT_IMAGES['booster pack'];
+                    }
+                    // Otherwise return the set logo
                     return SET_IMAGES[setId]?.logo || `https://images.pokemontcg.io/${setId}/logo.png`;
                 }
             }
             
-            // Check for product type keywords with generic images
-            if (nameLower.includes('ultra premium') || nameLower.includes('upc')) {
-                return 'https://assets.pokemon.com/assets/cms2/img/trading-card-game/series/series12/series12_pokemon_logo.png';
-            }
-            
-            // Default Pokemon TCG logo
-            return 'https://assets.pokemon.com/assets/cms2/img/trading-card-game/series/series12/series12_pokemon_logo.png';
+            // Default Pokemon TCG product image
+            return 'https://m.media-amazon.com/images/I/81jvP9FMKFL._AC_SL1500_.jpg';
         }
         
         function getSetInfo(productName) {
