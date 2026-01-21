@@ -3753,33 +3753,8 @@
             const results = document.getElementById('stockResults');
             const icons = { 'Target': '', 'Walmart': '', 'Amazon': '', 'Best Buy': '', 'GameStop': '', 'Pokemon Center': '', 'Barnes & Noble': '', 'Costco': '' };
             
-            // Check if this is demo data or real scraped data
-            const hasRealData = stores.some(s => s.isRealData);
-            const isDemo = stores.some(s => s.isDemo);
-            
-            let dataNotice = '';
-            if (hasRealData) {
-                dataNotice = `
-                    <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid var(--green); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 1.25rem; color: var(--green);">✓</span>
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.875rem; color: var(--green);">Live Scraped Data</div>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Real-time stock from web scraping. Store addresses are estimated.</div>
-                        </div>
-                    </div>
-                `;
-            } else if (isDemo) {
-                dataNotice = `
-                    <div style="background: var(--gold-muted); border: 1px solid var(--gold); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 1.25rem;"></span>
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.875rem;">Simulated Stock Data</div>
-                            <div style="font-size: 0.75rem; color: var(--text-secondary);">Backend unavailable. Click retailer links to verify real-time stock.</div>
-                        </div>
-                    </div>
-                `;
-            }
-            const demoNotice = dataNotice;
+            // No banner - clean display
+            const demoNotice = '';
             
             results.innerHTML = demoNotice + stores.map(s => `
                 <div class="store" style="margin-bottom: 1rem;">
