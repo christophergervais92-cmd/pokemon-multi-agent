@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <!-- Pokemon-style font -->
     <style>
         @font-face {
@@ -368,6 +371,26 @@
             transform: translateY(-4px);
             box-shadow: var(--shadow);
             border-color: var(--accent);
+        }
+        
+        /* Vending machine list items */
+        .vending-item {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .vending-item:hover {
+            background: var(--bg-hover) !important;
+            transform: translateX(4px);
+        }
+        
+        /* Leaflet map customizations */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px !important;
+        }
+        
+        .leaflet-popup-content {
+            margin: 12px !important;
         }
         
         .card-grid-item img {
@@ -1497,64 +1520,37 @@
         <section id="vending">
             <h1>Pokemon Vending Machines</h1>
             
-            <!-- Interactive Map -->
-            <div class="card" style="margin-bottom: 1.5rem; padding: 0; overflow: hidden;">
-                <div style="background: linear-gradient(135deg, #3466af 0%, #ffcb05 100%); color: white; padding: 1rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                        <div>
-                            <h2 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; color: white;">Interactive Vending Machine Map</h2>
-                            <p style="margin: 0; font-size: 0.875rem; opacity: 0.9;">Search, zoom, and explore Pokemon card vending machines nationwide</p>
-                        </div>
-                        <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; text-decoration: none;">Open in New Tab</a>
+            <!-- Search Bar -->
+            <div class="card" style="margin-bottom: 1rem; background: linear-gradient(135deg, #3466af 0%, #ffcb05 100%); color: white;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div>
+                        <h2 style="margin: 0; font-size: 1rem; color: white;">Find Vending Machines Near You</h2>
+                    </div>
+                    <div class="search-bar" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); flex: 1; min-width: 200px;">
+                        <input type="text" id="vendingZip" placeholder="Enter ZIP Code" style="flex: 1; background: white; color: #333;">
+                        <button class="btn" onclick="searchVendingMap()" style="background: white; color: #3466af;">Search</button>
                     </div>
                 </div>
-                
-                <!-- Embedded PokeVend Map -->
-                <div style="position: relative; width: 100%; height: 600px; background: var(--bg);">
-                    <iframe 
-                        src="https://www.pokevend.us/pokemon-vending-machine-map" 
-                        style="width: 100%; height: 100%; border: none;"
-                        title="PokeVend Pokemon Vending Machine Map"
-                        loading="lazy"
-                        allowfullscreen>
-                    </iframe>
-                </div>
             </div>
             
-            <!-- Quick Search Tool -->
-            <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(52, 102, 175, 0.1) 0%, rgba(255, 203, 5, 0.1) 100%);">
-                <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">Find Nearby Locations</h2>
-                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                    Use the interactive map above to search by ZIP code, or enter your ZIP below for a quick list of nearby locations.
-                </p>
-                
-                <div class="search-bar" style="margin-bottom: 1rem;">
-                    <input type="text" id="vendingZip" placeholder="Enter ZIP Code" style="flex: 1;">
-                    <button class="btn" onclick="findVendingMachines()">Find Nearby</button>
-                </div>
-                
-                <div id="vendingResults" style="display: none;"></div>
+            <!-- Interactive Map -->
+            <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1rem;">
+                <div id="vendingMap" style="height: 450px; width: 100%; border-radius: 8px;"></div>
             </div>
             
-            <div class="card">
-                <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">About Pokemon Vending Machines</h2>
-                <p style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.75rem;">
-                    Pokemon card vending machines are automated kiosks located in retail stores across the United States. 
-                    These machines dispense Pokemon Trading Card Game products including booster packs, Elite Trainer Boxes, 
-                    and other sealed products.
-                </p>
-                <p style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6;">
-                    <strong>Data Source:</strong> All location data is provided by <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: var(--accent);">PokeVend.us</a>, 
-                    the most comprehensive and up-to-date database of Pokemon vending machine locations.
-                </p>
-            </div>
+            <!-- Machine List -->
+            <div id="vendingResults" style="display: none;"></div>
             
             <!-- PokeVend Credit -->
-            <div style="text-align: center; margin-top: 2rem; padding: 1rem; border-top: 1px solid var(--border);">
+            <div style="text-align: center; margin-top: 1.5rem; padding: 1rem; border-top: 1px solid var(--border);">
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
                     Vending machine location data provided by 
                     <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: none; font-weight: 500;">
                         PokeVend.us
+                    </a>
+                    <span style="margin-left: 0.5rem;">|</span>
+                    <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: none; font-weight: 500; margin-left: 0.5rem;">
+                        View on PokeVend
                     </a>
                 </p>
             </div>
@@ -2698,13 +2694,15 @@
             const mobileSelect = document.getElementById('mobileNavSelect');
             if (mobileSelect) mobileSelect.value = name;
             
-            // Auto-fill zip code for vending section
+            // Initialize vending map when switching to vending section
             if (name === 'vending') {
                 setTimeout(() => {
                     const vendingZip = document.getElementById('vendingZip');
                     if (vendingZip && !vendingZip.value) {
                         vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
                     }
+                    initVendingMap();
+                    if (vendingMap) vendingMap.invalidateSize();
                 }, 100);
             }
         }
@@ -2716,13 +2714,15 @@
             document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
             document.getElementById(name)?.classList.add('active');
             
-            // Auto-fill zip code for vending section
+            // Initialize vending map when switching to vending section
             if (name === 'vending') {
                 setTimeout(() => {
                     const vendingZip = document.getElementById('vendingZip');
                     if (vendingZip && !vendingZip.value) {
                         vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
                     }
+                    initVendingMap();
+                    if (vendingMap) vendingMap.invalidateSize();
                 }, 100);
             }
         }
@@ -3470,73 +3470,174 @@
             { id: 46, name: 'Target', address: '8120 Renaissance Pkwy, Durham, NC 27713', zip: '27713', lat: 35.9234, lng: -78.9456, type: 'Retail' },
         ];
         
-        function findVendingMachines() {
+        // Vending Map Variables
+        let vendingMap = null;
+        let vendingMarkers = [];
+        
+        // Custom Pokemon-themed marker icon
+        const pokemonIcon = L.divIcon({
+            className: 'pokemon-marker',
+            html: `<div style="
+                width: 32px; height: 32px; 
+                background: linear-gradient(135deg, #ffcb05 0%, #3466af 100%); 
+                border-radius: 50% 50% 50% 0; 
+                transform: rotate(-45deg); 
+                border: 3px solid white; 
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                display: flex; align-items: center; justify-content: center;
+            "><div style="
+                transform: rotate(45deg); 
+                font-size: 14px; 
+                font-weight: bold;
+            ">V</div></div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+        
+        function initVendingMap() {
+            if (vendingMap) return; // Already initialized
+            
+            const mapContainer = document.getElementById('vendingMap');
+            if (!mapContainer) return;
+            
+            // Initialize map centered on US
+            vendingMap = L.map('vendingMap').setView([39.8283, -98.5795], 4);
+            
+            // Add dark-themed map tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(vendingMap);
+            
+            // Add all vending machine markers
+            VENDING_MACHINES.forEach(machine => {
+                const marker = L.marker([machine.lat, machine.lng], { icon: pokemonIcon })
+                    .addTo(vendingMap)
+                    .bindPopup(`
+                        <div style="font-family: 'Outfit', sans-serif; min-width: 200px;">
+                            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #333;">${machine.name}</div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${machine.address}</div>
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(machine.address)}" 
+                               target="_blank" rel="noopener"
+                               style="display: inline-block; padding: 6px 12px; background: #3466af; color: white; 
+                                      border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: 500;">
+                               Get Directions
+                            </a>
+                        </div>
+                    `);
+                vendingMarkers.push({ marker, machine });
+            });
+            
+            // Add machine count indicator
+            const countDiv = L.control({ position: 'topright' });
+            countDiv.onAdd = function() {
+                const div = L.DomUtil.create('div', 'machine-count');
+                div.innerHTML = `
+                    <div style="background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 12px;">
+                        <strong>${VENDING_MACHINES.length}</strong> vending machines
+                    </div>
+                `;
+                return div;
+            };
+            countDiv.addTo(vendingMap);
+        }
+        
+        function searchVendingMap() {
             const zipInput = document.getElementById('vendingZip');
-            const zip = zipInput?.value || document.getElementById('stockZip')?.value || settings.zip || '90210';
+            const zip = zipInput?.value || settings.zip || '90210';
             const resultsDiv = document.getElementById('vendingResults');
             
             if (!zip || zip.length < 5) {
-                resultsDiv.innerHTML = `
-                    <div style="background: var(--bg-hover); padding: 1rem; border-radius: 8px; text-align: center; border: 1px solid var(--border);">
-                        <div style="font-size: 0.875rem; color: var(--text-secondary);">Please enter a valid 5-digit ZIP code</div>
-                    </div>
-                `;
-                resultsDiv.style.display = 'block';
+                alert('Please enter a valid 5-digit ZIP code');
                 return;
             }
-            
-            resultsDiv.style.display = 'block';
             
             // Find machines in the same zip code area (first 3 digits)
             const zipPrefix = zip.substring(0, 3);
             let nearbyMachines = VENDING_MACHINES.filter(m => m.zip.startsWith(zipPrefix));
             
-            // If none found, get closest ones based on state from zip
+            // If none found in that prefix, expand search
             if (nearbyMachines.length === 0) {
-                // Get 5 random machines as "nearest"
-                nearbyMachines = [...VENDING_MACHINES]
-                    .sort(() => Math.random() - 0.5)
-                    .slice(0, 5);
+                // Try first 2 digits
+                const zipPrefix2 = zip.substring(0, 2);
+                nearbyMachines = VENDING_MACHINES.filter(m => m.zip.startsWith(zipPrefix2));
             }
             
-            if (nearbyMachines.length > 0) {
+            // If still none, show all with message
+            if (nearbyMachines.length === 0) {
+                resultsDiv.style.display = 'block';
                 resultsDiv.innerHTML = `
-                    <div style="background: linear-gradient(135deg, #3466af 0%, #ffcb05 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; color: white;">
-                        <div style="font-size: 1rem; margin-bottom: 0.25rem; font-weight: 600;">
-                            ${nearbyMachines.length} vending machine${nearbyMachines.length > 1 ? 's' : ''} found near ${zip}
-                        </div>
-                        <div style="font-size: 0.75rem; opacity: 0.9;">
-                            Showing up to 5 nearest locations
+                    <div class="card" style="background: var(--bg-card); margin-top: 1rem;">
+                        <div style="text-align: center; padding: 1rem;">
+                            <div style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text);">No vending machines found near ${zip}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Showing all ${VENDING_MACHINES.length} locations on map</div>
                         </div>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        ${nearbyMachines.slice(0, 5).map(m => `
-                            <div style="background: var(--bg-card); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text);">${m.name}</div>
-                                <div style="font-size: 0.85rem; margin-bottom: 0.75rem; color: var(--text-secondary);">${m.address}</div>
+                `;
+                // Zoom out to show all
+                if (vendingMap) {
+                    vendingMap.setView([39.8283, -98.5795], 4);
+                }
+                return;
+            }
+            
+            // Center map on found machines
+            if (vendingMap && nearbyMachines.length > 0) {
+                const bounds = L.latLngBounds(nearbyMachines.map(m => [m.lat, m.lng]));
+                vendingMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
+                
+                // Open popup for first result
+                const firstMachine = nearbyMachines[0];
+                vendingMarkers.find(vm => vm.machine.id === firstMachine.id)?.marker.openPopup();
+            }
+            
+            // Show results list
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <div class="card" style="background: var(--bg-card); margin-top: 1rem;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text);">
+                        ${nearbyMachines.length} vending machine${nearbyMachines.length > 1 ? 's' : ''} near ${zip}
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        ${nearbyMachines.map(m => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg); border-radius: 6px; gap: 0.75rem;" onclick="focusVendingMarker(${m.id})" class="vending-item">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 500; font-size: 0.85rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.name}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.address}</div>
+                                </div>
                                 <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.address)}" 
                                    target="_blank" rel="noopener" 
-                                   class="btn btn-sm" 
-                                   style="background: var(--accent); color: white; text-decoration: none; display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500;">
-                                   Get Directions →
+                                   class="btn btn-sm"
+                                   onclick="event.stopPropagation()"
+                                   style="white-space: nowrap; font-size: 0.7rem;">
+                                   Directions
                                 </a>
                             </div>
                         `).join('')}
                     </div>
-                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
-                        Data sourced from <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: underline;">PokeVend.us</a>
-                    </div>
-                `;
-            } else {
-                resultsDiv.innerHTML = `
-                    <div style="background: var(--bg-card); padding: 2rem; border-radius: 8px; text-align: center; border: 1px solid var(--border);">
-                        <div style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">No vending machines found near ${zip}</div>
-                        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                            Try a different ZIP code or use the interactive map above.
-                        </div>
-                    </div>
-                `;
+                </div>
+            `;
+        }
+        
+        function focusVendingMarker(machineId) {
+            const vm = vendingMarkers.find(v => v.machine.id === machineId);
+            if (vm && vendingMap) {
+                vendingMap.setView([vm.machine.lat, vm.machine.lng], 14);
+                vm.marker.openPopup();
             }
+        }
+        
+        // Initialize map when switching to vending section
+        function initVendingOnSwitch() {
+            setTimeout(() => {
+                initVendingMap();
+                // Fix map display issue when container was hidden
+                if (vendingMap) {
+                    vendingMap.invalidateSize();
+                }
+            }, 100);
         }
         
         function filterRetailer(retailer) {
