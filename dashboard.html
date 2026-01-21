@@ -393,17 +393,7 @@
             margin: 12px !important;
         }
         
-        
-
-        /* Ensure the embedded vending map always has height */
-        #vendingMap {
-            height: 420px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.22);
-            background: rgba(255,255,255,0.08);
-        }
-.card-grid-item img {
+        .card-grid-item img {
             width: 100%;
             height: 140px;
             object-fit: contain;
@@ -1460,7 +1450,7 @@
                 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
                     <div>
                         <h2 style="margin: 0; font-size: 0.875rem;">Live Drop Intel</h2>
-                        <div style="font-size: 0.625rem; color: var(--text-muted);">Live from Reddit & PokeBeach</div>
+                        <div style="font-size: 0.625rem; color: var(--text-muted);">Live from Reddit, PokeBeach, X, Instagram & TikTok</div>
                     </div>
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
@@ -3196,13 +3186,16 @@
         let currentDropFilter = 'all';
         let liveRedditPosts = [];
         let livePokeBeachNews = [];
+        let liveTwitterPosts = [];
+        let liveInstagramPosts = [];
+        let liveTikTokPosts = [];
         
         function initDrops() {
             document.getElementById('dropUpdateTime').textContent = new Date().toLocaleTimeString();
             renderUpcomingDrops();
             // Load set logos from Pokemon TCG API
             loadDropSetLogos();
-            // Load live intel from Reddit & PokeBeach
+            // Load live intel from all sources
             loadLiveIntel();
         }
         
@@ -3231,8 +3224,66 @@
                 console.log('PokeBeach fetch skipped:', e.message);
             }
             
+            // Fetch Twitter/X intel
+            try {
+                const twitterRes = await fetch(`${API}/drops/twitter`);
+                if (twitterRes.ok) {
+                    const data = await twitterRes.json();
+                    liveTwitterPosts = data.posts || [];
+                    console.log('Twitter intel loaded:', liveTwitterPosts.length, 'posts');
+                }
+            } catch (e) {
+                console.log('Twitter fetch skipped:', e.message);
+            }
+            
+            // Fetch Instagram intel
+            try {
+                const igRes = await fetch(`${API}/drops/instagram`);
+                if (igRes.ok) {
+                    const data = await igRes.json();
+                    liveInstagramPosts = data.posts || [];
+                    console.log('Instagram intel loaded:', liveInstagramPosts.length, 'accounts');
+                }
+            } catch (e) {
+                console.log('Instagram fetch skipped:', e.message);
+            }
+            
+            // Fetch TikTok intel
+            try {
+                const ttRes = await fetch(`${API}/drops/tiktok`);
+                if (ttRes.ok) {
+                    const data = await ttRes.json();
+                    liveTikTokPosts = data.posts || [];
+                    console.log('TikTok intel loaded:', liveTikTokPosts.length, 'accounts');
+                }
+            } catch (e) {
+                console.log('TikTok fetch skipped:', e.message);
+            }
+            
             // Render live intel section
             renderLiveIntel();
+        }
+        
+        function getPlatformColor(type) {
+            const colors = {
+                'reddit': '#ff4500',
+                'news': '#1a73e8',
+                'twitter': '#1DA1F2',
+                'instagram': '#E4405F',
+                'tiktok': '#000000'
+            };
+            return colors[type] || '#666';
+        }
+        
+        function getPlatformIcon(type) {
+            const icons = {
+                'reddit': 'R',
+                'news': 'N',
+                'twitter': 'X',
+                'instagram': 'IG',
+                'tiktok': 'TT'
+            };
+            return icons[type] || '•';
         }
         
         function renderLiveIntel() {
@@ -3242,7 +3293,7 @@
             const allIntel = [];
             
             // Add Reddit posts
-            for (const post of liveRedditPosts.slice(0, 10)) {
+            for (const post of liveRedditPosts.slice(0, 8)) {
                 allIntel.push({
                     type: 'reddit',
                     title: post.title,
@@ -3255,16 +3306,54 @@
             }
             
             // Add PokeBeach news
-            for (const news of livePokeBeachNews.slice(0, 5)) {
+            for (const news of livePokeBeachNews.slice(0, 4)) {
                 allIntel.push({
                     type: 'news',
                     title: news.title,
                     url: news.url,
                     source: 'PokeBeach',
                     set: news.set,
+                    score: 100,
                     time: new Date(news.date)
                 });
             }
+            
+            // Add Twitter posts
+            for (const tweet of liveTwitterPosts.slice(0, 4)) {
+                allIntel.push({
+                    type: 'twitter',
+                    title: tweet.title,
+                    url: tweet.url,
+                    source: tweet.source,
+                    score: tweet.score || 50,
+                    retailers: tweet.retailers || []
+                });
+            }
+            
+            // Add Instagram accounts
+            for (const ig of liveInstagramPosts.slice(0, 3)) {
+                allIntel.push({
+                    type: 'instagram',
+                    title: ig.title,
+                    url: ig.url,
+                    source: ig.source,
+                    score: 30
+                });
+            }
+            
+            // Add TikTok accounts
+            for (const tt of liveTikTokPosts.slice(0, 3)) {
+                allIntel.push({
+                    type: 'tiktok',
+                    title: tt.title,
+                    url: tt.url,
+                    source: tt.source,
+                    score: 25
+                });
+            }
+            
+            // Sort by score
+            allIntel.sort((a, b) => (b.score || 0) - (a.score || 0));
             
             if (allIntel.length === 0) {
                 container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 1rem;">Loading live intel...</div>';
@@ -3278,8 +3367,11 @@
                             <div style="font-size: 0.75rem; font-weight: 500; color: var(--text); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
                                 ${item.title}
                             </div>
-                            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; flex-wrap: wrap;">
-                                <span style="font-size: 0.625rem; color: ${item.type === 'reddit' ? '#ff4500' : '#1a73e8'}; font-weight: 600;">
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; flex-wrap: wrap; align-items: center;">
+                                <span style="font-size: 0.5rem; background: ${getPlatformColor(item.type)}; color: white; padding: 0.125rem 0.375rem; border-radius: 3px; font-weight: 600;">
+                                    ${getPlatformIcon(item.type)}
+                                </span>
+                                <span style="font-size: 0.625rem; color: ${getPlatformColor(item.type)}; font-weight: 600;">
                                     ${item.source}
                                 </span>
                                 ${item.retailers?.length ? item.retailers.map(r => `
