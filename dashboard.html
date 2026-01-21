@@ -1656,30 +1656,70 @@
 
             <div class="card">
                 <h2>Add to Portfolio</h2>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 0.5rem; align-items: end;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
                     <div>
-                        <label style="font-size: 0.625rem; color: var(--text-muted);">Item Name</label>
-                        <input type="text" id="portfolioName" placeholder="e.g., Charizard VMAX PSA 10">
+                        <label style="font-size: 0.625rem; color: var(--text-muted);">Card/Product Name</label>
+                        <input type="text" id="portfolioName" placeholder="e.g., Charizard VMAX" oninput="lookupPortfolioPrice()">
                     </div>
                     <div>
-                        <label style="font-size: 0.625rem; color: var(--text-muted);">Type</label>
-                        <select id="portfolioType">
-                            <option value="card">Card (Raw)</option>
-                            <option value="psa">PSA Slab</option>
-                            <option value="cgc">CGC Slab</option>
-                            <option value="bgs">BGS Slab</option>
+                        <label style="font-size: 0.625rem; color: var(--text-muted);">Grade Type</label>
+                        <select id="portfolioType" onchange="lookupPortfolioPrice()">
+                            <option value="card">Raw (Ungraded)</option>
+                            <option value="psa10">PSA 10</option>
+                            <option value="psa9">PSA 9</option>
+                            <option value="psa8">PSA 8</option>
+                            <option value="cgc10">CGC 10</option>
+                            <option value="cgc95">CGC 9.5</option>
+                            <option value="bgs10">BGS 10</option>
+                            <option value="bgs95">BGS 9.5</option>
                             <option value="sealed">Sealed Product</option>
                         </select>
                     </div>
                     <div>
-                        <label style="font-size: 0.625rem; color: var(--text-muted);">Purchase $</label>
-                        <input type="number" id="portfolioCost" placeholder="Cost">
+                        <label style="font-size: 0.625rem; color: var(--text-muted);">Card Type</label>
+                        <select id="portfolioCardType">
+                            <option value="">-- Select --</option>
+                            <option value="Pokemon">Pokemon</option>
+                            <option value="Trainer">Trainer</option>
+                            <option value="Energy">Energy</option>
+                            <optgroup label="Pokemon Types">
+                                <option value="Fire">Fire</option>
+                                <option value="Water">Water</option>
+                                <option value="Grass">Grass</option>
+                                <option value="Lightning">Lightning</option>
+                                <option value="Psychic">Psychic</option>
+                                <option value="Fighting">Fighting</option>
+                                <option value="Darkness">Darkness</option>
+                                <option value="Metal">Metal</option>
+                                <option value="Dragon">Dragon</option>
+                                <option value="Colorless">Colorless</option>
+                                <option value="Fairy">Fairy</option>
+                            </optgroup>
+                            <optgroup label="Products">
+                                <option value="ETB">Elite Trainer Box</option>
+                                <option value="Booster Box">Booster Box</option>
+                                <option value="Booster Pack">Booster Pack</option>
+                                <option value="Collection Box">Collection Box</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 0.75rem; align-items: end;">
+                    <div>
+                        <label style="font-size: 0.625rem; color: var(--text-muted);">Your Cost ($)</label>
+                        <input type="number" id="portfolioCost" placeholder="What you paid" step="0.01">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.625rem; color: var(--text-muted);">Current Market Price</label>
+                        <div id="portfolioMarketPrice" style="padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem; color: var(--accent);">
+                            -- Enter name --
+                        </div>
                     </div>
                     <div>
                         <label style="font-size: 0.625rem; color: var(--text-muted);">Quantity</label>
-                        <input type="number" id="portfolioQty" placeholder="Qty" value="1">
+                        <input type="number" id="portfolioQty" placeholder="Qty" value="1" min="1">
                     </div>
-                    <button class="btn" onclick="addToPortfolio()">Add</button>
+                    <button class="btn" onclick="addToPortfolio()">Add to Collection</button>
                 </div>
             </div>
 
@@ -5043,9 +5083,82 @@
         // PORTFOLIO TRACKER
         // =============================================================================
         
-        function addToPortfolio() {
+        let portfolioLookupTimeout = null;
+        let lastPortfolioLookup = { name: '', price: 0 };
+        
+        // Auto-lookup price when typing card name
+        const lookupPortfolioPrice = debounce(async function() {
             const name = document.getElementById('portfolioName').value.trim();
             const type = document.getElementById('portfolioType').value;
+            const priceDiv = document.getElementById('portfolioMarketPrice');
+            
+            if (!name || name.length < 2) {
+                priceDiv.textContent = '-- Enter name --';
+                priceDiv.style.color = 'var(--text-muted)';
+                return;
+            }
+            
+            priceDiv.textContent = 'Looking up...';
+            priceDiv.style.color = 'var(--text-muted)';
+            
+            try {
+                // Fetch price from Pokemon TCG API
+                const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=1`);
+                const data = await res.json();
+                
+                if (data.data?.length) {
+                    const card = data.data[0];
+                    const prices = card.tcgplayer?.prices || {};
+                    const rawPrice = prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0;
+                    
+                    // Calculate graded price based on type
+                    let finalPrice = rawPrice;
+                    const gradeMultipliers = {
+                        'card': 1,
+                        'psa10': 2.5,
+                        'psa9': 1.5,
+                        'psa8': 1.2,
+                        'cgc10': 2.0,
+                        'cgc95': 1.7,
+                        'bgs10': 3.5,
+                        'bgs95': 2.0,
+                        'sealed': 1,
+                    };
+                    
+                    finalPrice = rawPrice * (gradeMultipliers[type] || 1);
+                    
+                    if (finalPrice > 0) {
+                        priceDiv.textContent = `$${finalPrice.toFixed(2)}`;
+                        priceDiv.style.color = 'var(--accent)';
+                        lastPortfolioLookup = { name, price: finalPrice, rawPrice, cardType: card.types?.[0] || card.supertype };
+                        
+                        // Auto-fill card type if found
+                        const cardTypeSelect = document.getElementById('portfolioCardType');
+                        if (card.types?.[0] && cardTypeSelect) {
+                            const typeOption = Array.from(cardTypeSelect.options).find(o => o.value === card.types[0]);
+                            if (typeOption) cardTypeSelect.value = card.types[0];
+                        } else if (card.supertype && cardTypeSelect) {
+                            const typeOption = Array.from(cardTypeSelect.options).find(o => o.value === card.supertype);
+                            if (typeOption) cardTypeSelect.value = card.supertype;
+                        }
+                    } else {
+                        priceDiv.textContent = 'No price data';
+                        priceDiv.style.color = 'var(--text-muted)';
+                    }
+                } else {
+                    priceDiv.textContent = 'Not found';
+                    priceDiv.style.color = 'var(--text-muted)';
+                }
+            } catch (e) {
+                priceDiv.textContent = 'Lookup failed';
+                priceDiv.style.color = 'var(--red)';
+            }
+        }, 500);
+        
+        async function addToPortfolio() {
+            const name = document.getElementById('portfolioName').value.trim();
+            const type = document.getElementById('portfolioType').value;
+            const cardType = document.getElementById('portfolioCardType').value;
             const cost = parseFloat(document.getElementById('portfolioCost').value) || 0;
             const qty = parseInt(document.getElementById('portfolioQty').value) || 1;
             
@@ -5054,22 +5167,34 @@
                 return;
             }
             
+            // Get the current market price (from lookup or cost)
+            let currentValue = cost;
+            if (lastPortfolioLookup.name.toLowerCase() === name.toLowerCase() && lastPortfolioLookup.price > 0) {
+                currentValue = lastPortfolioLookup.price;
+            }
+            
             const item = {
                 id: Date.now(),
                 name,
                 type,
+                cardType,
                 cost,
                 qty,
-                currentValue: cost, // Will be updated when prices refresh
+                currentValue,
                 added: new Date().toISOString(),
             };
             
             portfolio.push(item);
             localStorage.setItem('portfolio', JSON.stringify(portfolio));
             
+            // Reset form
             document.getElementById('portfolioName').value = '';
             document.getElementById('portfolioCost').value = '';
             document.getElementById('portfolioQty').value = '1';
+            document.getElementById('portfolioCardType').value = '';
+            document.getElementById('portfolioMarketPrice').textContent = '-- Enter name --';
+            document.getElementById('portfolioMarketPrice').style.color = 'var(--text-muted)';
+            lastPortfolioLookup = { name: '', price: 0 };
             
             renderPortfolio();
         }
@@ -5103,9 +5228,13 @@
             
             const typeLabels = {
                 'card': 'Raw',
-                'psa': 'PSA',
-                'cgc': '🥇 CGC',
-                'bgs': 'BGS',
+                'psa10': 'PSA 10',
+                'psa9': 'PSA 9',
+                'psa8': 'PSA 8',
+                'cgc10': 'CGC 10',
+                'cgc95': 'CGC 9.5',
+                'bgs10': 'BGS 10',
+                'bgs95': 'BGS 9.5',
                 'sealed': 'Sealed',
             };
             
@@ -5116,23 +5245,30 @@
                 
                 return `
                     <div class="portfolio-item">
-                        <div>
+                        <div style="min-width: 180px;">
                             <div class="portfolio-item-name">${item.name}</div>
-                            <div class="portfolio-item-type">${typeLabels[item.type] || item.type} • Qty: ${item.qty}</div>
+                            <div class="portfolio-item-type">
+                                ${typeLabels[item.type] || item.type}
+                                ${item.cardType ? ` | ${item.cardType}` : ''}
+                                ${item.qty > 1 ? ` | x${item.qty}` : ''}
+                            </div>
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 0.625rem; color: var(--text-muted);">Cost</div>
                             <div class="portfolio-item-value">$${(item.cost * item.qty).toFixed(2)}</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 0.625rem; color: var(--text-muted);">Value</div>
-                            <div class="portfolio-item-value">$${value.toFixed(2)}</div>
+                            <div style="font-size: 0.625rem; color: var(--text-muted);">Market</div>
+                            <div class="portfolio-item-value" style="color: var(--accent);">$${value.toFixed(2)}</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 0.625rem; color: var(--text-muted);">Gain</div>
-                            <div class="portfolio-item-gain ${itemGain >= 0 ? 'green' : 'red'}">${itemGain >= 0 ? '+' : ''}$${itemGain.toFixed(2)}</div>
+                            <div style="font-size: 0.625rem; color: var(--text-muted);">P/L</div>
+                            <div class="portfolio-item-gain ${itemGain >= 0 ? 'green' : 'red'}">
+                                ${itemGain >= 0 ? '+' : ''}$${itemGain.toFixed(2)}
+                                <span style="font-size: 0.625rem; opacity: 0.8;">(${itemRoi >= 0 ? '+' : ''}${itemRoi.toFixed(0)}%)</span>
+                            </div>
                         </div>
-                        <button class="btn btn-outline btn-sm" onclick="removeFromPortfolio(${item.id})">✕</button>
+                        <button class="btn btn-outline btn-sm" onclick="removeFromPortfolio(${item.id})">X</button>
                     </div>
                 `;
             }).join('');
