@@ -3441,9 +3441,192 @@
         
         function generateAddress(zip, index) {
             const streets = ['Main St', 'Oak Ave', 'Commerce Blvd', 'Market St', 'Central Ave', 'Park Dr', 'Shopping Center Way'];
-            const cities = ['Los Angeles', 'New York', 'Chicago', 'Houston', 'Phoenix'];
             const num = 100 + Math.floor(Math.random() * 9900);
-            return `${num} ${streets[index % streets.length]}, ${cities[index % cities.length]}, ${zip}`;
+            
+            // Get city/state from zip code
+            const location = getLocationFromZip(zip);
+            return `${num} ${streets[index % streets.length]}, ${location.city}, ${location.state} ${zip}`;
+        }
+        
+        function getLocationFromZip(zip) {
+            // Comprehensive US zip code prefix mapping
+            const zipPrefix = zip.substring(0, 3);
+            const zipPrefixShort = zip.substring(0, 2);
+            
+            // California (900-961)
+            if (zip.startsWith('900') || zip.startsWith('901')) return { city: 'Los Angeles', state: 'CA' };
+            if (zip.startsWith('902') || zip.startsWith('903') || zip.startsWith('904') || zip.startsWith('905')) return { city: 'Inglewood', state: 'CA' };
+            if (zip.startsWith('906') || zip.startsWith('907') || zip.startsWith('908')) return { city: 'Whittier', state: 'CA' };
+            if (zip.startsWith('910') || zip.startsWith('911')) return { city: 'Pasadena', state: 'CA' };
+            if (zip.startsWith('912') || zip.startsWith('913') || zip.startsWith('914')) return { city: 'Glendale', state: 'CA' };
+            if (zip.startsWith('915')) return { city: 'Burbank', state: 'CA' };
+            if (zip.startsWith('916') || zip.startsWith('917') || zip.startsWith('918')) return { city: 'Van Nuys', state: 'CA' };
+            if (zip.startsWith('919')) return { city: 'San Diego', state: 'CA' };
+            if (zip.startsWith('920') || zip.startsWith('921') || zip.startsWith('922')) return { city: 'San Diego', state: 'CA' };
+            if (zip.startsWith('923') || zip.startsWith('924') || zip.startsWith('925')) return { city: 'San Bernardino', state: 'CA' };
+            if (zip.startsWith('926') || zip.startsWith('927') || zip.startsWith('928')) return { city: 'Santa Ana', state: 'CA' };
+            if (zip.startsWith('930') || zip.startsWith('931') || zip.startsWith('932') || zip.startsWith('933')) return { city: 'Santa Barbara', state: 'CA' };
+            if (zip.startsWith('934') || zip.startsWith('935')) return { city: 'Santa Barbara', state: 'CA' };
+            if (zip.startsWith('936') || zip.startsWith('937') || zip.startsWith('938') || zip.startsWith('939')) return { city: 'Fresno', state: 'CA' };
+            if (zip.startsWith('940') || zip.startsWith('941')) return { city: 'San Francisco', state: 'CA' };
+            if (zip.startsWith('942') || zip.startsWith('943')) return { city: 'Sacramento', state: 'CA' };
+            if (zip.startsWith('944') || zip.startsWith('945')) return { city: 'Oakland', state: 'CA' };
+            if (zip.startsWith('946') || zip.startsWith('947') || zip.startsWith('948') || zip.startsWith('949')) return { city: 'Oakland', state: 'CA' };
+            if (zip.startsWith('950') || zip.startsWith('951')) return { city: 'San Jose', state: 'CA' };
+            if (zip.startsWith('952') || zip.startsWith('953') || zip.startsWith('954')) return { city: 'San Mateo', state: 'CA' };
+            if (zip.startsWith('955') || zip.startsWith('956') || zip.startsWith('957') || zip.startsWith('958') || zip.startsWith('959')) return { city: 'Sacramento', state: 'CA' };
+            if (zip.startsWith('960') || zip.startsWith('961')) return { city: 'Redding', state: 'CA' };
+            
+            // New York (100-149)
+            if (zip.startsWith('100') || zip.startsWith('101') || zip.startsWith('102')) return { city: 'New York', state: 'NY' };
+            if (zip.startsWith('103')) return { city: 'Staten Island', state: 'NY' };
+            if (zip.startsWith('104')) return { city: 'Bronx', state: 'NY' };
+            if (zip.startsWith('110') || zip.startsWith('111') || zip.startsWith('112') || zip.startsWith('113') || zip.startsWith('114')) return { city: 'Queens', state: 'NY' };
+            if (zip.startsWith('115') || zip.startsWith('116') || zip.startsWith('117') || zip.startsWith('118') || zip.startsWith('119')) return { city: 'Long Island', state: 'NY' };
+            if (zip.startsWith('120') || zip.startsWith('121') || zip.startsWith('122') || zip.startsWith('123')) return { city: 'Albany', state: 'NY' };
+            if (zip.startsWith('140') || zip.startsWith('141') || zip.startsWith('142') || zip.startsWith('143')) return { city: 'Buffalo', state: 'NY' };
+            if (zip.startsWith('144') || zip.startsWith('145') || zip.startsWith('146') || zip.startsWith('147') || zip.startsWith('148') || zip.startsWith('149')) return { city: 'Rochester', state: 'NY' };
+            
+            // Texas (750-799)
+            if (zip.startsWith('750') || zip.startsWith('751') || zip.startsWith('752') || zip.startsWith('753')) return { city: 'Dallas', state: 'TX' };
+            if (zip.startsWith('760') || zip.startsWith('761') || zip.startsWith('762')) return { city: 'Fort Worth', state: 'TX' };
+            if (zip.startsWith('770') || zip.startsWith('771') || zip.startsWith('772') || zip.startsWith('773') || zip.startsWith('774') || zip.startsWith('775')) return { city: 'Houston', state: 'TX' };
+            if (zip.startsWith('780') || zip.startsWith('781') || zip.startsWith('782')) return { city: 'San Antonio', state: 'TX' };
+            if (zip.startsWith('787') || zip.startsWith('788') || zip.startsWith('789')) return { city: 'Austin', state: 'TX' };
+            if (zip.startsWith('790') || zip.startsWith('791') || zip.startsWith('792') || zip.startsWith('793') || zip.startsWith('794')) return { city: 'Amarillo', state: 'TX' };
+            if (zip.startsWith('795') || zip.startsWith('796')) return { city: 'Lubbock', state: 'TX' };
+            if (zip.startsWith('797') || zip.startsWith('798') || zip.startsWith('799')) return { city: 'El Paso', state: 'TX' };
+            
+            // Florida (320-349)
+            if (zip.startsWith('320') || zip.startsWith('321')) return { city: 'Jacksonville', state: 'FL' };
+            if (zip.startsWith('322') || zip.startsWith('323') || zip.startsWith('324')) return { city: 'Tallahassee', state: 'FL' };
+            if (zip.startsWith('325') || zip.startsWith('326') || zip.startsWith('327') || zip.startsWith('328') || zip.startsWith('329')) return { city: 'Orlando', state: 'FL' };
+            if (zip.startsWith('330') || zip.startsWith('331') || zip.startsWith('332') || zip.startsWith('333') || zip.startsWith('334')) return { city: 'Miami', state: 'FL' };
+            if (zip.startsWith('335') || zip.startsWith('336') || zip.startsWith('337') || zip.startsWith('338')) return { city: 'Tampa', state: 'FL' };
+            if (zip.startsWith('339') || zip.startsWith('340') || zip.startsWith('341') || zip.startsWith('342')) return { city: 'Fort Myers', state: 'FL' };
+            
+            // Illinois (600-629)
+            if (zip.startsWith('606') || zip.startsWith('607') || zip.startsWith('608')) return { city: 'Chicago', state: 'IL' };
+            if (zip.startsWith('600') || zip.startsWith('601') || zip.startsWith('602') || zip.startsWith('603') || zip.startsWith('604') || zip.startsWith('605')) return { city: 'Chicago Suburbs', state: 'IL' };
+            if (zip.startsWith('609') || zip.startsWith('610') || zip.startsWith('611') || zip.startsWith('612') || zip.startsWith('613') || zip.startsWith('614') || zip.startsWith('615') || zip.startsWith('616')) return { city: 'Rockford', state: 'IL' };
+            if (zip.startsWith('617') || zip.startsWith('618') || zip.startsWith('619') || zip.startsWith('620')) return { city: 'Springfield', state: 'IL' };
+            
+            // Arizona (850-865)
+            if (zip.startsWith('850') || zip.startsWith('851') || zip.startsWith('852') || zip.startsWith('853')) return { city: 'Phoenix', state: 'AZ' };
+            if (zip.startsWith('854') || zip.startsWith('855')) return { city: 'Phoenix', state: 'AZ' };
+            if (zip.startsWith('856') || zip.startsWith('857')) return { city: 'Tucson', state: 'AZ' };
+            if (zip.startsWith('859') || zip.startsWith('860')) return { city: 'Flagstaff', state: 'AZ' };
+            if (zip.startsWith('863') || zip.startsWith('864') || zip.startsWith('865')) return { city: 'Mesa', state: 'AZ' };
+            
+            // Georgia (300-319)
+            if (zip.startsWith('300') || zip.startsWith('301') || zip.startsWith('302') || zip.startsWith('303') || zip.startsWith('304') || zip.startsWith('305') || zip.startsWith('306')) return { city: 'Atlanta', state: 'GA' };
+            if (zip.startsWith('307') || zip.startsWith('308')) return { city: 'Augusta', state: 'GA' };
+            if (zip.startsWith('310') || zip.startsWith('311') || zip.startsWith('312')) return { city: 'Macon', state: 'GA' };
+            if (zip.startsWith('313') || zip.startsWith('314') || zip.startsWith('315')) return { city: 'Savannah', state: 'GA' };
+            
+            // Pennsylvania (150-196)
+            if (zip.startsWith('150') || zip.startsWith('151') || zip.startsWith('152') || zip.startsWith('153') || zip.startsWith('154') || zip.startsWith('155') || zip.startsWith('156')) return { city: 'Pittsburgh', state: 'PA' };
+            if (zip.startsWith('190') || zip.startsWith('191')) return { city: 'Philadelphia', state: 'PA' };
+            if (zip.startsWith('170') || zip.startsWith('171') || zip.startsWith('172')) return { city: 'Harrisburg', state: 'PA' };
+            
+            // Ohio (430-459)
+            if (zip.startsWith('430') || zip.startsWith('431') || zip.startsWith('432') || zip.startsWith('433')) return { city: 'Columbus', state: 'OH' };
+            if (zip.startsWith('440') || zip.startsWith('441') || zip.startsWith('442') || zip.startsWith('443') || zip.startsWith('444') || zip.startsWith('445')) return { city: 'Cleveland', state: 'OH' };
+            if (zip.startsWith('450') || zip.startsWith('451') || zip.startsWith('452') || zip.startsWith('453') || zip.startsWith('454') || zip.startsWith('455') || zip.startsWith('456')) return { city: 'Cincinnati', state: 'OH' };
+            
+            // Washington (980-994)
+            if (zip.startsWith('980') || zip.startsWith('981')) return { city: 'Seattle', state: 'WA' };
+            if (zip.startsWith('982') || zip.startsWith('983') || zip.startsWith('984')) return { city: 'Tacoma', state: 'WA' };
+            if (zip.startsWith('985') || zip.startsWith('986')) return { city: 'Olympia', state: 'WA' };
+            if (zip.startsWith('990') || zip.startsWith('991') || zip.startsWith('992') || zip.startsWith('993') || zip.startsWith('994')) return { city: 'Spokane', state: 'WA' };
+            
+            // Nevada (889-898)
+            if (zip.startsWith('889') || zip.startsWith('890') || zip.startsWith('891')) return { city: 'Las Vegas', state: 'NV' };
+            if (zip.startsWith('893') || zip.startsWith('894') || zip.startsWith('895')) return { city: 'Reno', state: 'NV' };
+            
+            // Colorado (800-816)
+            if (zip.startsWith('800') || zip.startsWith('801') || zip.startsWith('802') || zip.startsWith('803') || zip.startsWith('804') || zip.startsWith('805')) return { city: 'Denver', state: 'CO' };
+            if (zip.startsWith('806') || zip.startsWith('807') || zip.startsWith('808') || zip.startsWith('809')) return { city: 'Colorado Springs', state: 'CO' };
+            if (zip.startsWith('810') || zip.startsWith('811') || zip.startsWith('812') || zip.startsWith('813') || zip.startsWith('814') || zip.startsWith('815') || zip.startsWith('816')) return { city: 'Boulder', state: 'CO' };
+            
+            // Massachusetts (010-027)
+            if (zip.startsWith('010') || zip.startsWith('011') || zip.startsWith('012') || zip.startsWith('013')) return { city: 'Springfield', state: 'MA' };
+            if (zip.startsWith('014') || zip.startsWith('015') || zip.startsWith('016')) return { city: 'Worcester', state: 'MA' };
+            if (zip.startsWith('017') || zip.startsWith('018') || zip.startsWith('019') || zip.startsWith('020') || zip.startsWith('021') || zip.startsWith('022') || zip.startsWith('023') || zip.startsWith('024')) return { city: 'Boston', state: 'MA' };
+            
+            // New Jersey (070-089)
+            if (zip.startsWith('070') || zip.startsWith('071') || zip.startsWith('072')) return { city: 'Newark', state: 'NJ' };
+            if (zip.startsWith('073') || zip.startsWith('074') || zip.startsWith('075') || zip.startsWith('076')) return { city: 'Paterson', state: 'NJ' };
+            if (zip.startsWith('077') || zip.startsWith('078') || zip.startsWith('079')) return { city: 'Red Bank', state: 'NJ' };
+            if (zip.startsWith('080') || zip.startsWith('081') || zip.startsWith('082') || zip.startsWith('083') || zip.startsWith('084') || zip.startsWith('085') || zip.startsWith('086') || zip.startsWith('087') || zip.startsWith('088')) return { city: 'Camden', state: 'NJ' };
+            
+            // Michigan (480-499)
+            if (zip.startsWith('480') || zip.startsWith('481') || zip.startsWith('482') || zip.startsWith('483') || zip.startsWith('484')) return { city: 'Detroit', state: 'MI' };
+            if (zip.startsWith('485') || zip.startsWith('486') || zip.startsWith('487') || zip.startsWith('488') || zip.startsWith('489')) return { city: 'Flint', state: 'MI' };
+            if (zip.startsWith('490') || zip.startsWith('491') || zip.startsWith('492') || zip.startsWith('493') || zip.startsWith('494')) return { city: 'Kalamazoo', state: 'MI' };
+            if (zip.startsWith('495') || zip.startsWith('496') || zip.startsWith('497') || zip.startsWith('498') || zip.startsWith('499')) return { city: 'Grand Rapids', state: 'MI' };
+            
+            // Oregon (970-979)
+            if (zip.startsWith('970') || zip.startsWith('971') || zip.startsWith('972')) return { city: 'Portland', state: 'OR' };
+            if (zip.startsWith('973') || zip.startsWith('974') || zip.startsWith('975')) return { city: 'Salem', state: 'OR' };
+            if (zip.startsWith('976') || zip.startsWith('977') || zip.startsWith('978') || zip.startsWith('979')) return { city: 'Eugene', state: 'OR' };
+            
+            // North Carolina (270-289)
+            if (zip.startsWith('270') || zip.startsWith('271') || zip.startsWith('272') || zip.startsWith('273') || zip.startsWith('274')) return { city: 'Greensboro', state: 'NC' };
+            if (zip.startsWith('275') || zip.startsWith('276') || zip.startsWith('277')) return { city: 'Raleigh', state: 'NC' };
+            if (zip.startsWith('280') || zip.startsWith('281') || zip.startsWith('282')) return { city: 'Charlotte', state: 'NC' };
+            
+            // Virginia (220-246)
+            if (zip.startsWith('220') || zip.startsWith('221') || zip.startsWith('222') || zip.startsWith('223')) return { city: 'Arlington', state: 'VA' };
+            if (zip.startsWith('224') || zip.startsWith('225') || zip.startsWith('226') || zip.startsWith('227') || zip.startsWith('228') || zip.startsWith('229')) return { city: 'Richmond', state: 'VA' };
+            if (zip.startsWith('230') || zip.startsWith('231') || zip.startsWith('232') || zip.startsWith('233') || zip.startsWith('234') || zip.startsWith('235') || zip.startsWith('236') || zip.startsWith('237') || zip.startsWith('238') || zip.startsWith('239')) return { city: 'Norfolk', state: 'VA' };
+            
+            // Maryland (206-219)
+            if (zip.startsWith('206') || zip.startsWith('207') || zip.startsWith('208') || zip.startsWith('209') || zip.startsWith('210') || zip.startsWith('211') || zip.startsWith('212')) return { city: 'Baltimore', state: 'MD' };
+            if (zip.startsWith('217') || zip.startsWith('218') || zip.startsWith('219')) return { city: 'Annapolis', state: 'MD' };
+            
+            // Tennessee (370-385)
+            if (zip.startsWith('370') || zip.startsWith('371') || zip.startsWith('372') || zip.startsWith('373') || zip.startsWith('374')) return { city: 'Nashville', state: 'TN' };
+            if (zip.startsWith('375') || zip.startsWith('376') || zip.startsWith('377')) return { city: 'Chattanooga', state: 'TN' };
+            if (zip.startsWith('378') || zip.startsWith('379')) return { city: 'Knoxville', state: 'TN' };
+            if (zip.startsWith('380') || zip.startsWith('381') || zip.startsWith('382') || zip.startsWith('383') || zip.startsWith('384') || zip.startsWith('385')) return { city: 'Memphis', state: 'TN' };
+            
+            // Minnesota (550-567)
+            if (zip.startsWith('550') || zip.startsWith('551') || zip.startsWith('552') || zip.startsWith('553') || zip.startsWith('554') || zip.startsWith('555')) return { city: 'Minneapolis', state: 'MN' };
+            if (zip.startsWith('559') || zip.startsWith('560') || zip.startsWith('561') || zip.startsWith('562')) return { city: 'Rochester', state: 'MN' };
+            if (zip.startsWith('563') || zip.startsWith('564') || zip.startsWith('565') || zip.startsWith('566') || zip.startsWith('567')) return { city: 'Duluth', state: 'MN' };
+            
+            // Wisconsin (530-549)
+            if (zip.startsWith('530') || zip.startsWith('531') || zip.startsWith('532') || zip.startsWith('533') || zip.startsWith('534')) return { city: 'Milwaukee', state: 'WI' };
+            if (zip.startsWith('535') || zip.startsWith('536') || zip.startsWith('537') || zip.startsWith('538') || zip.startsWith('539')) return { city: 'Madison', state: 'WI' };
+            if (zip.startsWith('540') || zip.startsWith('541') || zip.startsWith('542') || zip.startsWith('543') || zip.startsWith('544') || zip.startsWith('545') || zip.startsWith('546') || zip.startsWith('547') || zip.startsWith('548') || zip.startsWith('549')) return { city: 'Green Bay', state: 'WI' };
+            
+            // Indiana (460-479)
+            if (zip.startsWith('460') || zip.startsWith('461') || zip.startsWith('462')) return { city: 'Indianapolis', state: 'IN' };
+            if (zip.startsWith('463') || zip.startsWith('464') || zip.startsWith('465') || zip.startsWith('466') || zip.startsWith('467') || zip.startsWith('468') || zip.startsWith('469')) return { city: 'South Bend', state: 'IN' };
+            if (zip.startsWith('470') || zip.startsWith('471') || zip.startsWith('472') || zip.startsWith('473') || zip.startsWith('474') || zip.startsWith('475') || zip.startsWith('476') || zip.startsWith('477') || zip.startsWith('478') || zip.startsWith('479')) return { city: 'Fort Wayne', state: 'IN' };
+            
+            // Missouri (630-658)
+            if (zip.startsWith('630') || zip.startsWith('631') || zip.startsWith('632') || zip.startsWith('633') || zip.startsWith('634') || zip.startsWith('635') || zip.startsWith('636')) return { city: 'St. Louis', state: 'MO' };
+            if (zip.startsWith('640') || zip.startsWith('641') || zip.startsWith('642') || zip.startsWith('643') || zip.startsWith('644') || zip.startsWith('645') || zip.startsWith('646')) return { city: 'Kansas City', state: 'MO' };
+            if (zip.startsWith('650') || zip.startsWith('651') || zip.startsWith('652') || zip.startsWith('653') || zip.startsWith('654') || zip.startsWith('655') || zip.startsWith('656') || zip.startsWith('657') || zip.startsWith('658')) return { city: 'Springfield', state: 'MO' };
+            
+            // Default: derive state from first digit groupings
+            const firstDigit = zip.charAt(0);
+            const defaultLocations = {
+                '0': { city: 'Boston Area', state: 'MA' },      // New England
+                '1': { city: 'New York Area', state: 'NY' },    // NY, NJ, PA
+                '2': { city: 'Washington', state: 'DC' },       // DC, MD, VA, WV, NC, SC
+                '3': { city: 'Atlanta Area', state: 'GA' },     // Southeast
+                '4': { city: 'Detroit Area', state: 'MI' },     // Great Lakes
+                '5': { city: 'Minneapolis Area', state: 'MN' }, // Northern Plains
+                '6': { city: 'Chicago Area', state: 'IL' },     // Central
+                '7': { city: 'Dallas Area', state: 'TX' },      // South Central
+                '8': { city: 'Denver Area', state: 'CO' },      // Mountain
+                '9': { city: 'Los Angeles Area', state: 'CA' }  // Pacific
+            };
+            
+            return defaultLocations[firstDigit] || { city: 'Unknown City', state: 'US' };
         }
         
         function generatePhone() {
