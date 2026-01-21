@@ -2762,7 +2762,29 @@
         }
 
         // Init
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize IndexedDB first
+            try {
+                await initIndexedDB();
+                // Clean old entries on startup (once per day)
+                const lastClean = localStorage.getItem('lastIndexedDBClean');
+                if (!lastClean || Date.now() - parseInt(lastClean) > 24 * 60 * 60 * 1000) {
+                    await cleanIndexedDB();
+                    localStorage.setItem('lastIndexedDBClean', Date.now().toString());
+                }
+            } catch (e) {
+                console.warn('IndexedDB initialization failed:', e);
+            }
+            
+            // Register service worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
+                    console.log('Service worker registered:', reg.scope);
+                }).catch(e => {
+                    console.warn('Service worker registration failed:', e);
+                });
+            }
+            
             loadSettings();
             checkConnection();
             connectLive();
@@ -2817,6 +2839,17 @@
         
         // Fetch set images in parallel with better error handling
         async function fetchSetImages(setIds) {
+            // Load from IndexedDB first (faster than network)
+            await Promise.all(setIds.map(async setId => {
+                if (productImageCache[setId]) return;
+                const cached = await getImage(`set_${setId}`);
+                if (cached) {
+                    productImageCache[setId] = cached;
+                    return;
+                }
+            }));
+            
+            // Fetch missing images from network
             return Promise.all(setIds.map(async setId => {
                 if (productImageCache[setId]) return;
                 try {
@@ -2827,16 +2860,22 @@
                     
                     const data = await res.json();
                     if (data.data?.[0]?.images?.small) {
-                        productImageCache[setId] = data.data[0].images.small;
-                        console.log('Cached image for set:', setId, data.data[0].images.small);
+                        const imageUrl = data.data[0].images.small;
+                        productImageCache[setId] = imageUrl;
+                        await storeImage(`set_${setId}`, imageUrl); // Store in IndexedDB
+                        console.log('Cached image for set:', setId, imageUrl);
                     } else {
                         // Fallback to set logo
-                        productImageCache[setId] = SET_IMAGES[setId]?.logo || getProductImage(setId);
+                        const fallback = SET_IMAGES[setId]?.logo || getProductImage(setId);
+                        productImageCache[setId] = fallback;
+                        if (fallback) await storeImage(`set_${setId}`, fallback);
                     }
                 } catch (e) {
                     console.log('Failed to fetch set image:', setId, e.message);
                     // Use logo as fallback
-                    productImageCache[setId] = SET_IMAGES[setId]?.logo || null;
+                    const fallback = SET_IMAGES[setId]?.logo || null;
+                    productImageCache[setId] = fallback;
+                    if (fallback) await storeImage(`set_${setId}`, fallback);
                 }
             }));
         }
@@ -2904,11 +2943,21 @@
         async function api(endpoint, options = {}) {
             const key = endpoint + JSON.stringify(options);
             
-            // Check cache first
+            // Check memory cache first
             const cached = cache.get(key);
             const ttl = options.longCache ? CACHE_TTL_LONG : CACHE_TTL;
             if (cached && Date.now() - cached.time < ttl) {
                 return cached.data;
+            }
+            
+            // Check IndexedDB for large responses (cards, prices, etc.)
+            if (endpoint.includes('/cards') || endpoint.includes('/prices') || options.longCache) {
+                const dbCached = await getAPICache(key);
+                if (dbCached) {
+                    // Also update memory cache
+                    cache.set(key, { data: dbCached, time: Date.now() });
+                    return dbCached;
+                }
             }
             
             // Deduplicate in-flight requests
@@ -2940,6 +2989,12 @@
                     
                     const data = await res.json();
                     cache.set(key, { data, time: Date.now() });
+                    
+                    // Store large responses in IndexedDB
+                    if (endpoint.includes('/cards') || endpoint.includes('/prices') || options.longCache) {
+                        await storeAPICache(key, data, ttl);
+                    }
+                    
                     pendingRequests.delete(key);
                     return data;
                 } catch (e) {
@@ -4865,6 +4920,198 @@
         
         // Legacy single card fetch (for compatibility)
         const tcgCardCache = new Map();
+        
+        // =============================================================================
+        // INDEXEDDB - Large data storage for images, prices, card data
+        // =============================================================================
+        let db = null;
+        const DB_NAME = 'PokeAgentDB';
+        const DB_VERSION = 1;
+        
+        async function initIndexedDB() {
+            if (!('indexedDB' in window)) {
+                console.warn('IndexedDB not supported, using localStorage fallback');
+                return null;
+            }
+            
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    
+                    // Object stores
+                    if (!database.objectStoreNames.contains('images')) {
+                        database.createObjectStore('images', { keyPath: 'id' });
+                    }
+                    if (!database.objectStoreNames.contains('prices')) {
+                        const priceStore = database.createObjectStore('prices', { keyPath: 'id' });
+                        priceStore.createIndex('cardName', 'cardName', { unique: false });
+                        priceStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+                    if (!database.objectStoreNames.contains('cardData')) {
+                        const cardStore = database.createObjectStore('cardData', { keyPath: 'id' });
+                        cardStore.createIndex('name', 'name', { unique: false });
+                    }
+                    if (!database.objectStoreNames.contains('apiCache')) {
+                        database.createObjectStore('apiCache', { keyPath: 'key' });
+                    }
+                };
+            });
+        }
+        
+        async function storeImage(id, imageUrl) {
+            if (!db) return;
+            try {
+                const tx = db.transaction(['images'], 'readwrite');
+                await tx.objectStore('images').put({ id, imageUrl, timestamp: Date.now() });
+            } catch (e) {
+                console.warn('Failed to store image in IndexedDB:', e);
+            }
+        }
+        
+        async function getImage(id) {
+            if (!db) return null;
+            try {
+                const tx = db.transaction(['images'], 'readonly');
+                const result = await tx.objectStore('images').get(id);
+                return result ? result.imageUrl : null;
+            } catch (e) {
+                console.warn('Failed to get image from IndexedDB:', e);
+                return null;
+            }
+        }
+        
+        async function storePrice(cardId, cardName, grade, price, source) {
+            if (!db) return;
+            try {
+                const tx = db.transaction(['prices'], 'readwrite');
+                await tx.objectStore('prices').put({
+                    id: `${cardId}_${grade}`,
+                    cardId,
+                    cardName,
+                    grade,
+                    price,
+                    source,
+                    timestamp: Date.now()
+                });
+            } catch (e) {
+                console.warn('Failed to store price in IndexedDB:', e);
+            }
+        }
+        
+        async function getPrice(cardId, grade) {
+            if (!db) return null;
+            try {
+                const tx = db.transaction(['prices'], 'readonly');
+                const result = await tx.objectStore('prices').get(`${cardId}_${grade}`);
+                return result ? result.price : null;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        async function storeCardData(cardId, cardData) {
+            if (!db) return;
+            try {
+                const tx = db.transaction(['cardData'], 'readwrite');
+                await tx.objectStore('cardData').put({
+                    id: cardId,
+                    name: cardData.name,
+                    data: cardData,
+                    timestamp: Date.now()
+                });
+            } catch (e) {
+                console.warn('Failed to store card data in IndexedDB:', e);
+            }
+        }
+        
+        async function getCardData(cardId) {
+            if (!db) return null;
+            try {
+                const tx = db.transaction(['cardData'], 'readonly');
+                const result = await tx.objectStore('cardData').get(cardId);
+                return result ? result.data : null;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        async function storeAPICache(key, data, ttl = 300000) {
+            if (!db) return;
+            try {
+                const tx = db.transaction(['apiCache'], 'readwrite');
+                await tx.objectStore('apiCache').put({
+                    key,
+                    data,
+                    timestamp: Date.now(),
+                    ttl
+                });
+            } catch (e) {
+                console.warn('Failed to store API cache in IndexedDB:', e);
+            }
+        }
+        
+        async function getAPICache(key) {
+            if (!db) return null;
+            try {
+                const tx = db.transaction(['apiCache'], 'readonly');
+                const result = await tx.objectStore('apiCache').get(key);
+                if (!result) return null;
+                
+                // Check if expired
+                if (Date.now() - result.timestamp > result.ttl) {
+                    // Delete expired entry
+                    const deleteTx = db.transaction(['apiCache'], 'readwrite');
+                    deleteTx.objectStore('apiCache').delete(key);
+                    return null;
+                }
+                
+                return result.data;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        // Clean old entries (run periodically)
+        async function cleanIndexedDB() {
+            if (!db) return;
+            try {
+                const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 days
+                
+                // Clean prices older than 7 days
+                const priceTx = db.transaction(['prices'], 'readwrite');
+                const priceIndex = priceTx.objectStore('prices').index('timestamp');
+                const priceRange = IDBKeyRange.upperBound(cutoff);
+                const priceCursor = await priceIndex.openCursor(priceRange);
+                if (priceCursor) {
+                    await priceCursor.delete();
+                    while (priceCursor.continue()) {
+                        await priceCursor.delete();
+                    }
+                }
+                
+                // Clean API cache
+                const cacheTx = db.transaction(['apiCache'], 'readwrite');
+                const cacheStore = cacheTx.objectStore('apiCache');
+                const cacheCursor = await cacheStore.openCursor();
+                if (cacheCursor) {
+                    do {
+                        if (Date.now() - cacheCursor.value.timestamp > cacheCursor.value.ttl) {
+                            await cacheCursor.delete();
+                        }
+                    } while (cacheCursor.continue());
+                }
+            } catch (e) {
+                console.warn('Failed to clean IndexedDB:', e);
+            }
+        }
         async function fetchCardFromTCG(name) {
             const cards = await fetchAllCardsFromTCG(name);
             return cards[0] || null;
@@ -6323,9 +6570,16 @@
         const productImageCache = {};
         
         async function getProductImageWithCard(productName) {
-            // Check cache first
+            // Check memory cache first
             if (productImageCache[productName]) {
                 return productImageCache[productName];
+            }
+            
+            // Check IndexedDB
+            const cached = await getImage(`product_${productName}`);
+            if (cached) {
+                productImageCache[productName] = cached;
+                return cached;
             }
             
             const setInfo = getSetInfo(productName);
@@ -6336,7 +6590,9 @@
                 const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setInfo.id}&pageSize=1&orderBy=-tcgplayer.prices.holofoil.market`);
                 const data = await res.json();
                 if (data.data?.[0]?.images?.small) {
-                    productImageCache[productName] = data.data[0].images.small;
+                    const imageUrl = data.data[0].images.small;
+                    productImageCache[productName] = imageUrl;
+                    await storeImage(`product_${productName}`, imageUrl);
                     return data.data[0].images.small;
                 }
             } catch (e) {
