@@ -2149,6 +2149,275 @@ def auth_delete_data():
     return jsonify({'success': True, 'message': 'All user data has been deleted'})
 
 
+# =============================================================================
+# STRIPE & PAYPAL PAYMENT ENDPOINTS
+# =============================================================================
+
+# In production, set these environment variables
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
+PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
+PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')  # 'sandbox' or 'live'
+
+@app.route('/payments/stripe/create-setup-intent', methods=['POST'])
+def stripe_create_setup_intent():
+    """
+    Create a Stripe SetupIntent for saving card details securely.
+    
+    The SetupIntent allows you to collect card details without charging,
+    storing a PaymentMethod for future use.
+    
+    Returns:
+    - client_secret: Use with Stripe.js on frontend
+    """
+    if not STRIPE_SECRET_KEY:
+        return jsonify({
+            'error': 'Stripe not configured',
+            'demo_mode': True,
+            'message': 'Set STRIPE_SECRET_KEY for live payments'
+        }), 503
+    
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        
+        # Get user from session (optional - can work without auth)
+        customer_id = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
+            token = auth_header[7:]
+            session = get_session(token)
+            if session:
+                # Create or get Stripe customer for this user
+                user = get_user_by_id(session['user_id'])
+                if user and user.get('stripe_customer_id'):
+                    customer_id = user['stripe_customer_id']
+        
+        # Create SetupIntent
+        intent_params = {
+            'usage': 'off_session',  # Allow charging later
+            'automatic_payment_methods': {
+                'enabled': True,
+            },
+        }
+        if customer_id:
+            intent_params['customer'] = customer_id
+            
+        setup_intent = stripe.SetupIntent.create(**intent_params)
+        
+        return jsonify({
+            'client_secret': setup_intent.client_secret,
+            'setup_intent_id': setup_intent.id
+        })
+        
+    except ImportError:
+        return jsonify({
+            'error': 'Stripe library not installed',
+            'message': 'pip install stripe'
+        }), 503
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/payments/stripe/confirm-setup', methods=['POST'])
+def stripe_confirm_setup():
+    """
+    Confirm that a SetupIntent was successful and save payment method info.
+    
+    Body:
+    - setup_intent_id: The SetupIntent ID
+    - payment_method_id: The PaymentMethod ID
+    """
+    if not STRIPE_SECRET_KEY:
+        return jsonify({'error': 'Stripe not configured'}), 503
+    
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        
+        data = request.get_json() or {}
+        pm_id = data.get('payment_method_id')
+        
+        if not pm_id:
+            return jsonify({'error': 'payment_method_id required'}), 400
+        
+        # Retrieve PaymentMethod to get card details
+        pm = stripe.PaymentMethod.retrieve(pm_id)
+        
+        card_info = {
+            'payment_method_id': pm.id,
+            'brand': pm.card.brand if pm.card else 'card',
+            'last4': pm.card.last4 if pm.card else '****',
+            'exp_month': pm.card.exp_month if pm.card else None,
+            'exp_year': pm.card.exp_year if pm.card else None,
+        }
+        
+        # If user is authenticated, save to their profile
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
+            token = auth_header[7:]
+            session = get_session(token)
+            if session:
+                user = get_user_by_id(session['user_id'])
+                if user:
+                    current_data = user.get('user_data', {})
+                    current_data['stripe_payment'] = {
+                        'provider': 'stripe',
+                        'last4': card_info['last4'],
+                        'brand': card_info['brand'],
+                        'expMonth': card_info['exp_month'],
+                        'expYear': card_info['exp_year'],
+                        'connectedAt': datetime.now().isoformat()
+                    }
+                    update_user_data(session['user_id'], current_data)
+        
+        return jsonify({
+            'success': True,
+            'card': card_info
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/payments/paypal/create-order', methods=['POST'])
+def paypal_create_order():
+    """
+    Create a PayPal order for saving payment method.
+    
+    In production, use PayPal's Vault flow for saving payment methods.
+    """
+    if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
+        return jsonify({
+            'error': 'PayPal not configured',
+            'demo_mode': True,
+            'message': 'Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET'
+        }), 503
+    
+    try:
+        import requests as req
+        
+        # Get access token
+        base_url = 'https://api-m.sandbox.paypal.com' if PAYPAL_MODE == 'sandbox' else 'https://api-m.paypal.com'
+        
+        auth_response = req.post(
+            f'{base_url}/v1/oauth2/token',
+            data={'grant_type': 'client_credentials'},
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)
+        )
+        
+        if auth_response.status_code != 200:
+            return jsonify({'error': 'Failed to authenticate with PayPal'}), 500
+            
+        access_token = auth_response.json()['access_token']
+        
+        # Create vault setup token (for saving payment method without charging)
+        setup_response = req.post(
+            f'{base_url}/v3/vault/setup-tokens',
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'payment_source': {
+                    'paypal': {
+                        'experience_context': {
+                            'return_url': request.host_url + 'payments/paypal/callback',
+                            'cancel_url': request.host_url + 'payments/paypal/cancel'
+                        }
+                    }
+                }
+            }
+        )
+        
+        if setup_response.status_code in [200, 201]:
+            data = setup_response.json()
+            return jsonify({
+                'id': data.get('id'),
+                'links': data.get('links', [])
+            })
+        else:
+            return jsonify({'error': 'Failed to create PayPal setup'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/payments/paypal/confirm', methods=['POST'])
+def paypal_confirm():
+    """
+    Confirm PayPal connection and save payment method.
+    
+    Body:
+    - email: PayPal email (from OAuth)
+    - payer_id: PayPal Payer ID (optional)
+    """
+    data = request.get_json() or {}
+    email = data.get('email')
+    
+    if not email:
+        return jsonify({'error': 'email required'}), 400
+    
+    paypal_info = {
+        'provider': 'paypal',
+        'email': email,
+        'payer_id': data.get('payer_id'),
+        'connectedAt': datetime.now().isoformat()
+    }
+    
+    # If user is authenticated, save to their profile
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
+        token = auth_header[7:]
+        session = get_session(token)
+        if session:
+            user = get_user_by_id(session['user_id'])
+            if user:
+                current_data = user.get('user_data', {})
+                current_data['paypal_payment'] = paypal_info
+                update_user_data(session['user_id'], current_data)
+    
+    return jsonify({
+        'success': True,
+        'paypal': {
+            'email': email,
+            'provider': 'paypal'
+        }
+    })
+
+
+@app.route('/payments/status', methods=['GET'])
+def payment_status():
+    """
+    Get payment method status for current user.
+    """
+    result = {
+        'stripe_configured': bool(STRIPE_SECRET_KEY),
+        'paypal_configured': bool(PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET),
+        'stripe_connected': False,
+        'paypal_connected': False
+    }
+    
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer ') and AUTH_AVAILABLE:
+        token = auth_header[7:]
+        session = get_session(token)
+        if session:
+            user = get_user_by_id(session['user_id'])
+            if user:
+                data = user.get('user_data', {})
+                result['stripe_connected'] = bool(data.get('stripe_payment'))
+                result['paypal_connected'] = bool(data.get('paypal_payment'))
+                if data.get('stripe_payment'):
+                    result['stripe_last4'] = data['stripe_payment'].get('last4')
+                    result['stripe_brand'] = data['stripe_payment'].get('brand')
+                if data.get('paypal_payment'):
+                    result['paypal_email'] = data['paypal_payment'].get('email')
+    
+    return jsonify(result)
+
+
 if __name__ == "__main__":
     print("🎴 LO TCG Multi-Agent Server Starting...")
     print("📡 Endpoints available at http://127.0.0.1:5001")

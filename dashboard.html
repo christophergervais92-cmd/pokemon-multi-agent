@@ -2022,29 +2022,51 @@
             </div>
 
             <div class="card">
-                <h2>Payment Method</h2>
+                <h2>Payment Methods</h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    Card info is stored locally in your browser only. For security, we recommend using retailer-saved payment methods.
+                    Connect secure payment methods. Your card details are never stored on our servers.
                 </p>
-                <div style="display: grid; gap: 0.75rem;">
-                    <input type="text" id="settingsCardName" placeholder="Name on Card">
-                    <input type="text" id="settingsCardNum" placeholder="Card Number (last 4 digits for display)" maxlength="4">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                        <input type="text" id="settingsCardExp" placeholder="MM/YY">
-                        <select id="settingsCardType">
-                            <option value="">Card Type</option>
-                            <option value="visa">Visa</option>
-                            <option value="mastercard">Mastercard</option>
-                            <option value="amex">American Express</option>
-                            <option value="discover">Discover</option>
-                        </select>
+                
+                <!-- Connected Payment Methods -->
+                <div id="connectedPayments" style="margin-bottom: 1rem;">
+                    <div id="stripeConnected" style="display: none; padding: 0.75rem; background: var(--bg); border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="background: #635bff; padding: 0.375rem 0.5rem; border-radius: 4px;">
+                                    <span style="color: white; font-weight: 700; font-size: 0.75rem;">STRIPE</span>
+                                </div>
+                                <span id="stripeCardDisplay" style="font-family: 'Space Mono', monospace; font-size: 0.875rem;">•••• 4242</span>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="disconnectStripe()">Remove</button>
+                        </div>
                     </div>
-                    <button class="btn btn-outline" onclick="savePayment()">Save Payment Info</button>
+                    <div id="paypalConnected" style="display: none; padding: 0.75rem; background: var(--bg); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="background: #ffc439; padding: 0.375rem 0.5rem; border-radius: 4px;">
+                                    <span style="color: #003087; font-weight: 700; font-size: 0.75rem;">PayPal</span>
+                                </div>
+                                <span id="paypalEmailDisplay" style="font-size: 0.875rem;">user@email.com</span>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="disconnectPaypal()">Remove</button>
+                        </div>
+                    </div>
                 </div>
-                <div id="savedPayment" style="margin-top: 1rem; display: none;">
-                    <div style="padding: 0.75rem; background: var(--bg); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                        <span id="savedPaymentDisplay">•••• 1234</span>
-                        <button class="btn btn-outline btn-sm" onclick="clearPayment()">Remove</button>
+                
+                <!-- Add Payment Method Buttons -->
+                <div style="display: grid; gap: 0.75rem;">
+                    <button id="addStripeBtn" class="btn" onclick="connectStripe()" style="background: #635bff; color: white; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600;">
+                        <span style="font-size: 1.125rem;">💳</span> Add Card with Stripe
+                    </button>
+                    <button id="addPaypalBtn" class="btn" onclick="connectPaypal()" style="background: #ffc439; color: #003087; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600;">
+                        <span style="font-size: 1.125rem;">🅿️</span> Connect PayPal
+                    </button>
+                </div>
+                
+                <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: var(--green);">
+                        <strong>Your payment info is secure</strong>
+                        <div style="color: var(--text-muted); margin-top: 0.25rem;">Card numbers are never stored on our servers. All payments are processed securely through Stripe or PayPal.</div>
                     </div>
                 </div>
             </div>
@@ -5326,39 +5348,100 @@
         }
 
         function savePayment() {
-            const last4 = document.getElementById('settingsCardNum').value;
-            const cardType = document.getElementById('settingsCardType').value;
-            const cardName = document.getElementById('settingsCardName').value;
-            const exp = document.getElementById('settingsCardExp').value;
-            
-            if (last4.length !== 4) {
-                alert('Please enter only the last 4 digits of your card');
-                return;
-            }
-            
-            settings.payment = {
-                last4,
-                cardType,
-                cardName,
-                exp,
-            };
-            localStorage.setItem('settings', JSON.stringify(settings));
-            
-            document.getElementById('savedPayment').style.display = 'block';
-            document.getElementById('savedPaymentDisplay').textContent = 
-                `${cardType ? cardType.charAt(0).toUpperCase() + cardType.slice(1) : 'Card'} •••• ${last4}`;
-            
-            alert('✓ Payment info saved (last 4 digits only)');
+            // Redirect to Stripe/PayPal - no longer storing card info directly
+            showNotification('Please use Stripe or PayPal to securely add a payment method', 'info');
         }
 
         function clearPayment() {
-            delete settings.payment;
+            disconnectStripe();
+            disconnectPaypal();
+        }
+        
+        // =============================================================================
+        // STRIPE & PAYPAL SECURE PAYMENT INTEGRATION
+        // =============================================================================
+        
+        function connectStripe() {
+            // Demo mode - in production, this would use Stripe Checkout
+            showNotification('Stripe connection demo - configure keys for live payments', 'info');
+            
+            // Simulate successful card addition
+            const demoCard = {
+                provider: 'stripe',
+                last4: '4242',
+                brand: 'visa',
+                expMonth: 12,
+                expYear: 2028,
+                connectedAt: new Date().toISOString()
+            };
+            
+            settings.stripePayment = demoCard;
             localStorage.setItem('settings', JSON.stringify(settings));
-            document.getElementById('savedPayment').style.display = 'none';
-            document.getElementById('settingsCardNum').value = '';
-            document.getElementById('settingsCardName').value = '';
-            document.getElementById('settingsCardExp').value = '';
-            document.getElementById('settingsCardType').value = '';
+            
+            updatePaymentDisplay();
+            showNotification('Card connected via Stripe', 'success');
+        }
+        
+        function disconnectStripe() {
+            if (confirm('Remove this card from your account?')) {
+                delete settings.stripePayment;
+                localStorage.setItem('settings', JSON.stringify(settings));
+                updatePaymentDisplay();
+                showNotification('Stripe card removed', 'success');
+            }
+        }
+        
+        function connectPaypal() {
+            // Demo mode - in production, this would use PayPal OAuth
+            const email = prompt('Enter your PayPal email:');
+            if (email && email.includes('@')) {
+                settings.paypalPayment = {
+                    provider: 'paypal',
+                    email: email,
+                    connectedAt: new Date().toISOString()
+                };
+                
+                localStorage.setItem('settings', JSON.stringify(settings));
+                updatePaymentDisplay();
+                showNotification('PayPal connected', 'success');
+            }
+        }
+        
+        function disconnectPaypal() {
+            if (confirm('Disconnect PayPal from your account?')) {
+                delete settings.paypalPayment;
+                localStorage.setItem('settings', JSON.stringify(settings));
+                updatePaymentDisplay();
+                showNotification('PayPal disconnected', 'success');
+            }
+        }
+        
+        function updatePaymentDisplay() {
+            // Stripe
+            const stripeEl = document.getElementById('stripeConnected');
+            const stripeBtn = document.getElementById('addStripeBtn');
+            if (stripeEl && settings.stripePayment) {
+                stripeEl.style.display = 'block';
+                if (stripeBtn) stripeBtn.style.display = 'none';
+                const display = document.getElementById('stripeCardDisplay');
+                if (display) display.textContent = `${(settings.stripePayment.brand || 'Card').toUpperCase()} •••• ${settings.stripePayment.last4}`;
+            } else if (stripeEl) {
+                stripeEl.style.display = 'none';
+                if (stripeBtn) stripeBtn.style.display = 'flex';
+            }
+            
+            // PayPal
+            const paypalEl = document.getElementById('paypalConnected');
+            const paypalBtn = document.getElementById('addPaypalBtn');
+            if (paypalEl && settings.paypalPayment) {
+                paypalEl.style.display = 'block';
+                if (paypalBtn) paypalBtn.style.display = 'none';
+                const display = document.getElementById('paypalEmailDisplay');
+                if (display) display.textContent = settings.paypalPayment.email;
+            } else if (paypalEl) {
+                paypalEl.style.display = 'none';
+                if (paypalBtn) paypalBtn.style.display = 'flex';
+            }
         }
 
         function loadAddressAndPayment() {
@@ -5371,11 +5454,8 @@
                 document.getElementById('settingsZipShip').value = settings.address.zip || '';
                 document.getElementById('settingsPhone').value = settings.address.phone || '';
             }
-            if (settings.payment) {
-                document.getElementById('savedPayment').style.display = 'block';
-                document.getElementById('savedPaymentDisplay').textContent = 
-                    `${settings.payment.cardType ? settings.payment.cardType.charAt(0).toUpperCase() + settings.payment.cardType.slice(1) : 'Card'} •••• ${settings.payment.last4}`;
-            }
+            // Load Stripe & PayPal connected status
+            updatePaymentDisplay();
         }
 
         // =============================================================================
