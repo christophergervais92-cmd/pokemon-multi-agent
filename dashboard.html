@@ -3381,8 +3381,9 @@
         function getSealedProductImage(name) {
             const n = (name || '').toLowerCase();
             
-            // Product-specific images
+            // Product-specific images (Amazon product photos)
             const images = {
+                'destined rivals': 'https://assets.pokemon.com/assets/cms2/img/trading-card-game/series/series12/series12_pokemon_logo.png',
                 'prismatic': 'https://m.media-amazon.com/images/I/81qNWKKhOcL._AC_SL1500_.jpg',
                 'surging sparks': 'https://m.media-amazon.com/images/I/81Rl4JPLWWL._AC_SL1500_.jpg',
                 'paldean fates': 'https://m.media-amazon.com/images/I/71FJyqdUURL._AC_SL1200_.jpg',
@@ -4494,6 +4495,8 @@
         
         // Sealed Product Images - Set Logos and Symbols
         const SET_IMAGES = {
+            // Upcoming / New Sets
+            'sv9': { logo: 'https://assets.pokemon.com/assets/cms2/img/trading-card-game/series/series12/series12_pokemon_logo.png', symbol: '', name: 'Destined Rivals' },
             // Scarlet & Violet Era
             'sv8': { logo: 'https://images.pokemontcg.io/sv8/logo.png', symbol: 'https://images.pokemontcg.io/sv8/symbol.png', name: 'Prismatic Evolutions' },
             'sv7': { logo: 'https://images.pokemontcg.io/sv7/logo.png', symbol: 'https://images.pokemontcg.io/sv7/symbol.png', name: 'Surging Sparks' },
@@ -4523,6 +4526,7 @@
         
         // Set name to ID mapping
         const SET_NAME_TO_ID = {
+            'destined rivals': 'sv9', 'destined': 'sv9',
             'prismatic evolutions': 'sv8', 'prismatic': 'sv8',
             'surging sparks': 'sv7', 'stellar crown': 'sv7',
             'shrouded fable': 'sv6pt5',
