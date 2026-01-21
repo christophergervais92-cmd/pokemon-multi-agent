@@ -3030,18 +3030,15 @@
                             ${s.products.map(p => {
                                 const buyUrl = getBuyUrl(s.chain, p.name, p.sku);
                                 const setInfo = getSetInfo(p.name);
-                                const productImg = setInfo && productImageCache[setInfo.id] ? productImageCache[setInfo.id] : getProductImage(p.name);
+                                // Always use getProductImage for sealed products - shows actual packaging, not card art
+                                const productImg = getProductImage(p.name);
                                 return `
                                 <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center;">
                                     <div style="position: relative; width: 55px; height: 75px; flex-shrink: 0;">
                                         <img src="${productImg}" 
                                              loading="lazy"
-                                             onerror="this.src='https://assets.pokemon.com/assets/cms2/img/trading-card-game/series/series12/series12_pokemon_logo.png'"
-                                             style="width: 100%; height: 100%; object-fit: contain; border-radius: 6px; background: var(--bg);">
-                                        ${setInfo ? `<img src="${SET_IMAGES[setInfo.id]?.symbol || ''}" 
-                                             loading="lazy"
-                                             onerror="this.style.display='none'"
-                                             style="position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; background: var(--bg-card); border-radius: 50%; padding: 1px;">` : ''}
+                                             onerror="this.src='https://m.media-amazon.com/images/I/81jvP9FMKFL._AC_SL1500_.jpg'"
+                                             style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px; background: var(--bg);">
                                     </div>
                                     <div style="flex: 1; min-width: 0;">
                                         <div class="store-product-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name || 'Unknown'}</div>
@@ -4572,7 +4569,9 @@
                 // Prismatic Evolutions
                 'prismatic evolutions etb': 'https://m.media-amazon.com/images/I/81qNWKKhOcL._AC_SL1500_.jpg',
                 'prismatic evolutions elite trainer': 'https://m.media-amazon.com/images/I/81qNWKKhOcL._AC_SL1500_.jpg',
+                'prismatic evolutions booster bundle': 'https://m.media-amazon.com/images/I/81dM8GWKJ-L._AC_SL1500_.jpg',
                 'prismatic evolutions booster': 'https://m.media-amazon.com/images/I/71GqJop2yOL._AC_SL1200_.jpg',
+                'prismatic booster bundle': 'https://m.media-amazon.com/images/I/81dM8GWKJ-L._AC_SL1500_.jpg',
                 'prismatic booster': 'https://m.media-amazon.com/images/I/71GqJop2yOL._AC_SL1200_.jpg',
                 
                 // Surging Sparks
@@ -4597,6 +4596,7 @@
                 
                 // Generic product types (fallback)
                 'elite trainer box': 'https://m.media-amazon.com/images/I/81jvP9FMKFL._AC_SL1500_.jpg',
+                'booster bundle': 'https://m.media-amazon.com/images/I/81dM8GWKJ-L._AC_SL1500_.jpg',
                 'booster box': 'https://m.media-amazon.com/images/I/71TmMS4k7TL._AC_SL1200_.jpg',
                 'booster pack': 'https://m.media-amazon.com/images/I/61KYV3E8URL._AC_SL1000_.jpg',
                 'blister': 'https://m.media-amazon.com/images/I/71iLyL2DSVL._AC_SL1200_.jpg',
@@ -4614,17 +4614,20 @@
             // Try to match just set name for ETB default
             for (const [setName, setId] of Object.entries(SET_NAME_TO_ID)) {
                 if (nameLower.includes(setName)) {
-                    // If it's an ETB, booster box, or booster pack - use generic product image
+                    // If it's an ETB, booster box, bundle, or booster pack - use generic product image
                     if (nameLower.includes('etb') || nameLower.includes('elite trainer')) {
                         return SEALED_PRODUCT_IMAGES['elite trainer box'];
+                    }
+                    if (nameLower.includes('booster bundle') || nameLower.includes('bundle')) {
+                        return SEALED_PRODUCT_IMAGES['booster bundle'];
                     }
                     if (nameLower.includes('booster box')) {
                         return SEALED_PRODUCT_IMAGES['booster box'];
                     }
-                    if (nameLower.includes('booster pack') || nameLower.includes('booster') && !nameLower.includes('box')) {
+                    if (nameLower.includes('booster pack') || nameLower.includes('booster') && !nameLower.includes('box') && !nameLower.includes('bundle')) {
                         return SEALED_PRODUCT_IMAGES['booster pack'];
                     }
-                    // Otherwise return the set logo
+                    // Otherwise return set logo
                     return SET_IMAGES[setId]?.logo || `https://images.pokemontcg.io/${setId}/logo.png`;
                 }
             }
