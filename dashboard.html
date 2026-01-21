@@ -2679,16 +2679,17 @@
         }
         
         function generateAllRetailerStores(zip, query) {
-            // Main retailers only - no third party sellers
+            // Main retailers with REALISTIC stock probabilities
+            // Pokemon Center is almost always sold out for popular items
             const retailers = [
-                { chain: 'Target', icon: '🎯', color: '#cc0000', storeCount: 3 },
-                { chain: 'Walmart', icon: '🏪', color: '#0071ce', storeCount: 2 },
-                { chain: 'Amazon', icon: '📦', color: '#ff9900', storeCount: 1, online: true },
-                { chain: 'Best Buy', icon: '💻', color: '#0046be', storeCount: 2 },
-                { chain: 'GameStop', icon: '🎮', color: '#000000', storeCount: 3 },
-                { chain: 'Pokemon Center', icon: '⭐', color: '#ffcb05', storeCount: 1, online: true },
-                { chain: 'Costco', icon: '🏬', color: '#e31837', storeCount: 1 },
-                { chain: 'Barnes & Noble', icon: '📚', color: '#2d5a27', storeCount: 1 },
+                { chain: 'Target', icon: '🎯', color: '#cc0000', storeCount: 3, stockChance: 0.5 },
+                { chain: 'Walmart', icon: '🏪', color: '#0071ce', storeCount: 2, stockChance: 0.4 },
+                { chain: 'Amazon', icon: '📦', color: '#ff9900', storeCount: 1, online: true, stockChance: 0.6 },
+                { chain: 'Best Buy', icon: '💻', color: '#0046be', storeCount: 2, stockChance: 0.35 },
+                { chain: 'GameStop', icon: '🎮', color: '#000000', storeCount: 3, stockChance: 0.45 },
+                { chain: 'Pokemon Center', icon: '⭐', color: '#ffcb05', storeCount: 1, online: true, stockChance: 0.1 }, // Usually sold out!
+                { chain: 'Costco', icon: '🏬', color: '#e31837', storeCount: 1, stockChance: 0.3 },
+                { chain: 'Barnes & Noble', icon: '📚', color: '#2d5a27', storeCount: 1, stockChance: 0.25 },
             ];
             
             // Get products filtered by query
@@ -2707,7 +2708,8 @@
                     stock_count: 0,
                     total_quantity: 0,
                     products: [],
-                    online: true
+                    online: true,
+                    isDemo: true
                 }];
             }
             
@@ -2716,8 +2718,8 @@
             
             retailers.forEach(retailer => {
                 for (let i = 0; i < retailer.storeCount; i++) {
-                    // Make sure some stores have stock (70% chance)
-                    const hasStock = Math.random() > 0.3;
+                    // Use realistic stock probability per retailer
+                    const hasStock = Math.random() < retailer.stockChance;
                     const distance = (1 + storeIndex * 1.5 + Math.random() * 2).toFixed(1);
                     
                     // Give stores 1-3 random products from matching products if they have stock
@@ -2748,7 +2750,8 @@
                         stock_count: storeProducts.length,
                         total_quantity: storeProducts.reduce((sum, p) => sum + (p.quantity || 0), 0),
                         products: storeProducts,
-                        online: retailer.online || false
+                        online: retailer.online || false,
+                        isDemo: true // Mark as simulated data
                     });
                     
                     storeIndex++;
@@ -2881,7 +2884,19 @@
             const results = document.getElementById('stockResults');
             const icons = { 'Target': '🎯', 'Walmart': '🏪', 'Amazon': '📦', 'Best Buy': '💻', 'GameStop': '🎮', 'Pokemon Center': '⭐', 'Barnes & Noble': '📚', 'Costco': '🏬' };
             
-            results.innerHTML = stores.map(s => `
+            // Check if this is demo data
+            const isDemo = stores.some(s => s.isDemo);
+            const demoNotice = isDemo ? `
+                <div style="background: var(--gold-muted); border: 1px solid var(--gold); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.25rem;">⚠️</span>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.875rem;">Simulated Stock Data</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Actual availability may vary. Click retailer links to verify real-time stock.</div>
+                    </div>
+                </div>
+            ` : '';
+            
+            results.innerHTML = demoNotice + stores.map(s => `
                 <div class="store" style="margin-bottom: 1rem;">
                     <div class="store-header">
                         <div class="store-name">
