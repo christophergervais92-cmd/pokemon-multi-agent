@@ -8,12 +8,37 @@
     <meta name="theme-color" content="#0a0a0a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Resource Hints for Performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Leaflet CSS for map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="dns-prefetch" href="https://api.pokemontcg.io">
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="dns-prefetch" href="https://cdn.discordapp.com">
+    
+    <!-- Fonts with display=swap for faster rendering -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
+    
+    <!-- Leaflet CSS - Load only when vending section is accessed -->
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/></noscript>
+    
+    <!-- Leaflet JS - Load only when needed (lazy) -->
+    <script>
+        // Lazy load Leaflet only when vending section is accessed
+        window.loadLeaflet = function() {
+            if (window.L) return Promise.resolve(); // Already loaded
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+                script.crossOrigin = 'anonymous';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        };
+    </script>
     <!-- Pokemon-style font -->
     <style>
         @font-face {
@@ -2826,12 +2851,20 @@
             const mobileSelect = document.getElementById('mobileNavSelect');
             if (mobileSelect) mobileSelect.value = name;
             
-            // Initialize vending map when switching to vending section
+            // Initialize vending map when switching to vending section (lazy load Leaflet)
             if (name === 'vending') {
-                setTimeout(() => {
+                setTimeout(async () => {
                     const vendingZip = document.getElementById('vendingZip');
                     if (vendingZip && !vendingZip.value) {
                         vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
+                    }
+                    // Lazy load Leaflet if not already loaded
+                    if (typeof window.loadLeaflet === 'function') {
+                        try {
+                            await window.loadLeaflet();
+                        } catch (e) {
+                            console.warn('Failed to load Leaflet:', e);
+                        }
                     }
                     initVendingMap();
                     if (vendingMap) vendingMap.invalidateSize();
@@ -2846,12 +2879,20 @@
             document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
             document.getElementById(name)?.classList.add('active');
             
-            // Initialize vending map when switching to vending section
+            // Initialize vending map when switching to vending section (lazy load Leaflet)
             if (name === 'vending') {
-                setTimeout(() => {
+                setTimeout(async () => {
                     const vendingZip = document.getElementById('vendingZip');
                     if (vendingZip && !vendingZip.value) {
                         vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
+                    }
+                    // Lazy load Leaflet if not already loaded
+                    if (typeof window.loadLeaflet === 'function') {
+                        try {
+                            await window.loadLeaflet();
+                        } catch (e) {
+                            console.warn('Failed to load Leaflet:', e);
+                        }
                     }
                     initVendingMap();
                     if (vendingMap) vendingMap.invalidateSize();
@@ -2859,7 +2900,7 @@
             }
         }
 
-        // API with caching
+        // API with caching, request deduplication, and timeout
         async function api(endpoint, options = {}) {
             const key = endpoint + JSON.stringify(options);
             
@@ -2870,19 +2911,72 @@
                 return cached.data;
             }
             
-            // Simple fetch without timeout - let it complete naturally
-            try {
-                const res = await fetch(`${API}${endpoint}`, {
-                    ...options,
-                    headers: { 'Content-Type': 'application/json', ...options.headers }
-                });
-                const data = await res.json();
-                cache.set(key, { data, time: Date.now() });
-                return data;
-            } catch (e) {
-                console.log('API error:', endpoint, e.message);
-                return { error: 'Connection failed. Is the server running?' };
+            // Deduplicate in-flight requests
+            if (pendingRequests.has(key)) {
+                return pendingRequests.get(key);
             }
+            
+            // Create request promise with timeout
+            const requestPromise = (async () => {
+                try {
+                    const controller = new AbortController();
+                    const timeout = options.timeout || 30000;
+                    const timeoutId = setTimeout(() => controller.abort(), timeout);
+                    
+                    const res = await fetch(`${API}${endpoint}`, {
+                        ...options,
+                        signal: controller.signal,
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            ...options.headers 
+                        }
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!res.ok) {
+                        throw new Error(`API error: ${res.status} ${res.statusText}`);
+                    }
+                    
+                    const data = await res.json();
+                    cache.set(key, { data, time: Date.now() });
+                    pendingRequests.delete(key);
+                    return data;
+                } catch (e) {
+                    pendingRequests.delete(key);
+                    if (e.name === 'AbortError') {
+                        console.warn('API request timeout:', endpoint);
+                        return { error: 'Request timeout' };
+                    } else {
+                        console.log('API error:', endpoint, e.message);
+                        return { error: 'Connection failed. Is the server running?' };
+                    }
+                }
+            })();
+            
+            pendingRequests.set(key, requestPromise);
+            return requestPromise;
+        }
+        
+        // Intersection Observer for lazy loading images
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                            observer.unobserve(img);
+                        }
+                    }
+                });
+            }, { rootMargin: '50px' });
+            
+            // Observe all images with data-src after DOM loads
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('img[data-src]').forEach(img => imageObserver.observe(img));
+            });
         }
 
         // Connection
