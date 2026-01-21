@@ -3191,21 +3191,36 @@
                         ` : ''}
                         
                         <h2>Market Prices</h2>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                            ${priceData?.source ? `📊 Source: ${priceData.source}` : ''}
+                            ${Object.values(graded).some(g => g.source?.includes('Estimated')) ? ' • <span style="color: var(--accent);">~</span> = Estimated' : ''}
+                        </div>
                         <div class="price-grid">
                             <div class="price-item">
                                 <span class="price-label">Raw (Market)</span>
-                                <span class="price-value">$${raw.price || cardInfo?.tcgplayer?.prices?.holofoil?.market || cardInfo?.tcgplayer?.prices?.normal?.market || '??'}</span>
+                                <span class="price-value">$${formatPrice(raw.price || cardInfo?.tcgplayer?.prices?.holofoil?.market || cardInfo?.tcgplayer?.prices?.normal?.market)}</span>
                             </div>
                             <div class="price-item">
                                 <span class="price-label">Raw (Low)</span>
-                                <span class="price-value">$${raw.low || cardInfo?.tcgplayer?.prices?.holofoil?.low || cardInfo?.tcgplayer?.prices?.normal?.low || '??'}</span>
+                                <span class="price-value">$${formatPrice(raw.low || cardInfo?.tcgplayer?.prices?.holofoil?.low || cardInfo?.tcgplayer?.prices?.normal?.low)}</span>
                             </div>
-                            ${Object.entries(graded).slice(0, 6).map(([grade, info]) => `
-                                <div class="price-item">
-                                    <span class="price-label">${grade}</span>
-                                    <span class="price-value">$${info.price || '??'}</span>
-                                </div>
-                            `).join('')}
+                            ${Object.entries(graded)
+                                .sort((a,b) => {
+                                    // Sort: PSA first, then CGC, then BGS
+                                    const order = {'PSA': 1, 'CGC': 2, 'BGS': 3};
+                                    return (order[a[1].company] || 4) - (order[b[1].company] || 4);
+                                })
+                                .slice(0, 8)
+                                .map(([grade, info]) => {
+                                    const isEstimated = info.source?.includes('Estimated') || info.source?.includes('~');
+                                    const priceDisplay = isEstimated ? '~$' + formatPrice(info.price) : '$' + formatPrice(info.price);
+                                    return `
+                                        <div class="price-item" ${isEstimated ? 'style="opacity: 0.8;"' : ''}>
+                                            <span class="price-label">${grade}</span>
+                                            <span class="price-value" ${isEstimated ? 'title="Estimated price"' : 'title="Based on recent sales"'}>${priceDisplay}</span>
+                                        </div>
+                                    `;
+                                }).join('')}
                         </div>
                         
                         ${cardInfo?.tcgplayer?.url ? `
@@ -3289,6 +3304,18 @@
                 'Metal': '⚙️', 'Dragon': '🐉', 'Fairy': '🧚',
             };
             return emojis[type] || '⭐';
+        }
+        
+        // Format price with proper handling of null/undefined/0
+        function formatPrice(value) {
+            if (value === null || value === undefined || value === '' || isNaN(value)) return '??';
+            const num = parseFloat(value);
+            if (isNaN(num) || num === 0) return '??';
+            // Format based on size
+            if (num >= 1000) return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            if (num >= 100) return num.toFixed(0);
+            if (num >= 10) return num.toFixed(2);
+            return num.toFixed(2);
         }
         
         // Get actual product image for sealed products
