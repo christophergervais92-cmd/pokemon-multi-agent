@@ -11,6 +11,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Pokemon-style font -->
+    <style>
+        @font-face {
+            font-family: 'Pokemon Solid';
+            src: url('https://fonts.cdnfonts.com/s/32808/Pokemon Solid.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
     <style>
         /* Performance optimizations */
         * { 
@@ -120,8 +130,17 @@
         }
 
         .logo {
-            font-size: 1.75rem;
-            font-weight: 700;
+            font-family: 'Pokemon Solid', 'Outfit', sans-serif;
+            font-size: 2rem;
+            font-weight: 400;
+            color: #ffcb05;
+            text-shadow: 
+                2px 2px 0 #3b5ca8,
+                -1px -1px 0 #3b5ca8,
+                1px -1px 0 #3b5ca8,
+                -1px 1px 0 #3b5ca8,
+                0 2px 0 #3b5ca8;
+            letter-spacing: 1px;
             letter-spacing: -0.03em;
             background: linear-gradient(135deg, var(--accent) 0%, var(--blue) 100%);
             -webkit-background-clip: text;
@@ -462,7 +481,12 @@
             }
             
             .logo {
-                font-size: 1.375rem;
+                font-size: 1.5rem;
+                text-shadow: 
+                    1.5px 1.5px 0 #3b5ca8,
+                    -1px -1px 0 #3b5ca8,
+                    1px -1px 0 #3b5ca8,
+                    -1px 1px 0 #3b5ca8;
             }
             
             /* Hide desktop nav on mobile */
@@ -668,6 +692,11 @@
             
             header h1, .logo {
                 font-size: 1.25rem;
+                text-shadow: 
+                    1px 1px 0 #3b5ca8,
+                    -1px -1px 0 #3b5ca8,
+                    1px -1px 0 #3b5ca8,
+                    -1px 1px 0 #3b5ca8;
             }
         }
 
