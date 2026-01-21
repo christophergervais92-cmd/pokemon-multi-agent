@@ -4192,7 +4192,18 @@
                     <div class="address-card">
                         <div class="address-line">
                             <span class="address-icon">${s.online ? '' : ''}</span>
-                            <strong>${s.full_address || s.address}</strong>
+                            <a href="https://maps.apple.com/?q=${encodeURIComponent(s.full_address || s.address)}" 
+                               target="_blank" rel="noopener"
+                               style="color: var(--text); text-decoration: none; font-weight: 600;"
+                               title="Open in Apple Maps">
+                                ${s.full_address || s.address}
+                            </a>
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.full_address || s.address)}" 
+                               target="_blank" rel="noopener"
+                               style="margin-left: 0.5rem; font-size: 0.7rem; color: var(--accent); text-decoration: none;"
+                               title="Open in Google Maps">
+                                [Google]
+                            </a>
                         </div>
                         ${!s.online ? `<div class="address-line">
                             <span class="address-icon">📏</span>
@@ -4200,7 +4211,7 @@
                         </div>` : ''}
                         <div class="address-line">
                             <span class="address-icon">📞</span>
-                            <span>${s.phone || 'N/A'}</span>
+                            ${s.phone && s.phone !== 'N/A' ? `<a href="tel:${s.phone.replace(/[^0-9+]/g, '')}" style="color: var(--text); text-decoration: none;">${s.phone}</a>` : '<span>N/A</span>'}
                         </div>
                         <div class="address-line">
                             <span class="address-icon">🕐</span>
