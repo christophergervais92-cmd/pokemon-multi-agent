@@ -3013,6 +3013,11 @@
                                    class="btn btn-outline btn-sm">
                                     Get Directions
                                 </a>
+                                <a href="${getStockCheckUrl(s.chain, document.getElementById('stockQuery')?.value || 'pokemon tcg', s.store_id, document.getElementById('stockZip')?.value)}" 
+                                   target="_blank" 
+                                   class="btn btn-sm" style="background: var(--accent); color: #000;">
+                                    Check Real Stock
+                                </a>
                             </div>
                         ` : ''}
                     </div>
@@ -5647,9 +5652,43 @@
                 'GameStop': `https://www.gamestop.com/search/?q=${q}&lang=en`,
                 'Pokemon Center': `https://www.pokemoncenter.com/search/${q}`,
                 'Barnes & Noble': `https://www.barnesandnoble.com/s/${q}`,
-                'Costco': `https://www.costco.com/CatalogSearch?keyword=${q}`,
+                'Costco': `https://www.costco.com/CatalogSearch?dept=All&keyword=${q}`,
             };
             return urls[retailer] || `https://www.google.com/search?q=${q}+buy`;
+        }
+        
+        // Get stock check URLs - direct to store inventory pages
+        function getStockCheckUrl(retailer, productName, storeId, zip) {
+            const q = encodeURIComponent(productName || 'pokemon tcg');
+            const z = zip || '90210';
+            
+            const urls = {
+                // Target - Best in-store stock checker
+                'Target': `https://www.target.com/s?searchTerm=${q}&facetedValue=at_store`,
+                
+                // Walmart - Store pickup filter
+                'Walmart': `https://www.walmart.com/search?q=${q}&facet=fulfillment_method%3AIn-store`,
+                
+                // Best Buy - Store pickup availability
+                'Best Buy': `https://www.bestbuy.com/site/searchpage.jsp?st=${q}&qp=storepickupstores_facet%3DStore%20Pickup%20At~My%20Local%20Store`,
+                
+                // GameStop - Store stock
+                'GameStop': `https://www.gamestop.com/search/?q=${q}&prefn1=availability&prefv1=inStock`,
+                
+                // Pokemon Center - Online only
+                'Pokemon Center': `https://www.pokemoncenter.com/search/${q}?inStockOnly=true`,
+                
+                // Amazon - In stock filter
+                'Amazon': `https://www.amazon.com/s?k=${q}&rh=p_6%3AATVPDKIKX0DER%2Cp_85%3A2470955011`,
+                
+                // Barnes & Noble
+                'Barnes & Noble': `https://www.barnesandnoble.com/s/${q}?Ns=P_Ship_Availability`,
+                
+                // Costco - Warehouse stock
+                'Costco': `https://www.costco.com/CatalogSearch?keyword=${q}`,
+            };
+            
+            return urls[retailer] || getBuyUrl(retailer, productName, '');
         }
 
         async function testApi() {
