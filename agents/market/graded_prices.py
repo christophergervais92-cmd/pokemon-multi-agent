@@ -59,98 +59,101 @@ CACHE_DIR = Path(__file__).parent.parent.parent / ".price_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_TTL_SECONDS = 300  # 5 minute cache for price data
 
-# Grade multipliers (based on market analysis)
-# These are typical multipliers from raw price to graded price
+# Grade multipliers (based on 2025-2026 market analysis)
+# Modern cards have LOWER multipliers than vintage
+# These are realistic multipliers for MODERN cards (2020+)
 GRADE_MULTIPLIERS = {
-    # PSA multipliers (most liquid market)
-    "PSA 10": {"low": 3.0, "mid": 5.0, "high": 15.0},  # Gem Mint
-    "PSA 9": {"low": 1.5, "mid": 2.0, "high": 3.5},    # Mint
-    "PSA 8": {"low": 1.1, "mid": 1.4, "high": 2.0},    # Near Mint-Mint
-    "PSA 7": {"low": 0.9, "mid": 1.1, "high": 1.5},    # Near Mint
+    # PSA multipliers - Modern cards typically 2-3x for PSA 10
+    "PSA 10": {"low": 1.8, "mid": 2.5, "high": 4.0},   # Gem Mint
+    "PSA 9": {"low": 1.2, "mid": 1.5, "high": 2.0},    # Mint
+    "PSA 8": {"low": 1.0, "mid": 1.2, "high": 1.5},    # Near Mint-Mint
+    "PSA 7": {"low": 0.85, "mid": 1.0, "high": 1.2},   # Near Mint
     
-    # CGC multipliers (slightly lower than PSA)
-    "CGC 10": {"low": 2.5, "mid": 4.0, "high": 12.0},  # Perfect
-    "CGC 9.5": {"low": 1.8, "mid": 2.5, "high": 4.0},  # Gem Mint
-    "CGC 9": {"low": 1.3, "mid": 1.7, "high": 2.5},    # Mint
+    # CGC multipliers (~75-85% of PSA)
+    "CGC 10": {"low": 1.5, "mid": 2.0, "high": 3.2},   # Perfect
+    "CGC 9.5": {"low": 1.3, "mid": 1.7, "high": 2.2},  # Gem Mint
+    "CGC 9": {"low": 1.1, "mid": 1.3, "high": 1.6},    # Mint
     
     # BGS/Beckett multipliers
-    "BGS 10": {"low": 4.0, "mid": 8.0, "high": 25.0},  # Pristine (very rare)
-    "BGS 10 Black": {"low": 8.0, "mid": 15.0, "high": 50.0},  # Black Label
-    "BGS 9.5": {"low": 2.0, "mid": 3.5, "high": 6.0},  # Gem Mint
-    "BGS 9": {"low": 1.2, "mid": 1.6, "high": 2.2},    # Mint
+    "BGS 10": {"low": 2.5, "mid": 3.5, "high": 5.0},   # Pristine (rare)
+    "BGS 10 Black": {"low": 4.0, "mid": 6.0, "high": 10.0},  # Black Label
+    "BGS 9.5": {"low": 1.5, "mid": 2.0, "high": 2.8},  # Gem Mint
+    "BGS 9": {"low": 1.1, "mid": 1.4, "high": 1.8},    # Mint
 }
 
-# Popular cards with known price data (from recent sales - Jan 2026)
+# Popular cards with known price data (from recent eBay sold - Jan 2026)
 # Format: raw = TCGPlayer market, psa10/9/8 = eBay sold averages
+# Note: Modern cards (2020+) have much lower PSA 10 premiums than vintage
 KNOWN_CARD_PRICES = {
-    # Base Set
-    "charizard base set": {"raw": 280, "psa10": 12000, "psa9": 1800, "psa8": 650, "psa7": 350},
-    "charizard base set unlimited": {"raw": 200, "psa10": 8000, "psa9": 1200, "psa8": 450},
-    "charizard base set 1st edition": {"raw": 15000, "psa10": 420000, "psa9": 85000, "psa8": 25000},
-    "blastoise base set": {"raw": 85, "psa10": 4500, "psa9": 600, "psa8": 280},
-    "venusaur base set": {"raw": 70, "psa10": 3200, "psa9": 450, "psa8": 220},
+    # Base Set (VINTAGE - higher premiums)
+    "charizard base set": {"raw": 280, "psa10": 8500, "psa9": 1400, "psa8": 550, "psa7": 320},
+    "charizard base set unlimited": {"raw": 180, "psa10": 5500, "psa9": 900, "psa8": 380},
+    "charizard base set 1st edition": {"raw": 12000, "psa10": 350000, "psa9": 65000, "psa8": 22000},
+    "blastoise base set": {"raw": 75, "psa10": 2800, "psa9": 450, "psa8": 200},
+    "venusaur base set": {"raw": 60, "psa10": 2200, "psa9": 350, "psa8": 160},
     
-    # Modern Charizards
-    "charizard vmax": {"raw": 55, "psa10": 180, "psa9": 85, "psa8": 65},
-    "charizard vmax shiny": {"raw": 120, "psa10": 350, "psa9": 180, "psa8": 140},
-    "charizard vstar": {"raw": 18, "psa10": 75, "psa9": 40, "psa8": 28},
-    "charizard ex 151": {"raw": 85, "psa10": 280, "psa9": 140, "psa8": 100},
-    "charizard ex obsidian": {"raw": 45, "psa10": 150, "psa9": 80, "psa8": 55},
+    # Modern Charizards (2020+) - Lower premiums, ~2-3x for PSA 10
+    "charizard vmax": {"raw": 48, "psa10": 120, "psa9": 65, "psa8": 52},
+    "charizard vmax shiny": {"raw": 95, "psa10": 220, "psa9": 130, "psa8": 105},
+    "charizard vstar": {"raw": 15, "psa10": 42, "psa9": 25, "psa8": 18},
+    "charizard ex 151": {"raw": 75, "psa10": 180, "psa9": 105, "psa8": 82},
+    "charizard ex obsidian": {"raw": 38, "psa10": 95, "psa9": 55, "psa8": 42},
+    "charizard ex tera": {"raw": 55, "psa10": 135, "psa9": 78, "psa8": 60},
     
     # Pikachu
-    "pikachu illustrator": {"raw": 500000, "psa10": 5000000, "psa9": 2000000, "psa8": 900000},
-    "pikachu vmax rainbow": {"raw": 150, "psa10": 450, "psa9": 220, "psa8": 170},
-    "pikachu v full art": {"raw": 25, "psa10": 85, "psa9": 45, "psa8": 32},
-    "flying pikachu v": {"raw": 8, "psa10": 35, "psa9": 18, "psa8": 12},
-    "surfing pikachu vmax": {"raw": 15, "psa10": 55, "psa9": 30, "psa8": 20},
+    "pikachu illustrator": {"raw": 450000, "psa10": 4500000, "psa9": 1800000, "psa8": 800000},
+    "pikachu vmax rainbow": {"raw": 120, "psa10": 280, "psa9": 165, "psa8": 135},
+    "pikachu v full art": {"raw": 18, "psa10": 48, "psa9": 28, "psa8": 22},
+    "flying pikachu v": {"raw": 6, "psa10": 18, "psa9": 10, "psa8": 7},
+    "surfing pikachu vmax": {"raw": 12, "psa10": 32, "psa9": 18, "psa8": 14},
     
-    # Umbreon
-    "umbreon vmax alt": {"raw": 320, "psa10": 900, "psa9": 480, "psa8": 360},
-    "umbreon vmax": {"raw": 45, "psa10": 140, "psa9": 75, "psa8": 55},
-    "umbreon v alt": {"raw": 85, "psa10": 250, "psa9": 130, "psa8": 100},
-    "umbreon gx": {"raw": 30, "psa10": 120, "psa9": 55, "psa8": 38},
+    # Umbreon (Alt arts have higher premiums)
+    "umbreon vmax alt": {"raw": 280, "psa10": 650, "psa9": 380, "psa8": 310},
+    "umbreon vmax": {"raw": 35, "psa10": 88, "psa9": 52, "psa8": 40},
+    "umbreon v alt": {"raw": 70, "psa10": 165, "psa9": 98, "psa8": 78},
+    "umbreon gx": {"raw": 22, "psa10": 65, "psa9": 35, "psa8": 26},
     
     # Mew
-    "mew ex 151": {"raw": 95, "psa10": 320, "psa9": 160, "psa8": 115},
-    "mew vmax alt": {"raw": 180, "psa10": 500, "psa9": 280, "psa8": 210},
-    "mew vmax": {"raw": 28, "psa10": 95, "psa9": 50, "psa8": 35},
-    "ancient mew": {"raw": 45, "psa10": 800, "psa9": 200, "psa8": 85},
+    "mew ex 151": {"raw": 80, "psa10": 195, "psa9": 115, "psa8": 90},
+    "mew vmax alt": {"raw": 145, "psa10": 340, "psa9": 200, "psa8": 165},
+    "mew vmax": {"raw": 22, "psa10": 58, "psa9": 35, "psa8": 26},
+    "ancient mew": {"raw": 38, "psa10": 450, "psa9": 120, "psa8": 55},  # Promo, higher premium
     
     # Mewtwo
-    "mewtwo ex 151": {"raw": 35, "psa10": 120, "psa9": 60, "psa8": 45},
-    "mewtwo vstar": {"raw": 12, "psa10": 50, "psa9": 28, "psa8": 18},
-    "mewtwo gx": {"raw": 8, "psa10": 45, "psa9": 22, "psa8": 12},
-    "mewtwo base set": {"raw": 35, "psa10": 650, "psa9": 150, "psa8": 65},
-    "mewtwo ex": {"raw": 25, "psa10": 95, "psa9": 48, "psa8": 32},
+    "mewtwo": {"raw": 8, "psa10": 25, "psa9": 14, "psa8": 10},  # Generic modern
+    "mewtwo ex 151": {"raw": 28, "psa10": 72, "psa9": 42, "psa8": 32},
+    "mewtwo vstar": {"raw": 9, "psa10": 28, "psa9": 16, "psa8": 11},
+    "mewtwo gx": {"raw": 6, "psa10": 22, "psa9": 12, "psa8": 8},
+    "mewtwo base set": {"raw": 28, "psa10": 380, "psa9": 95, "psa8": 45},  # Vintage
+    "mewtwo ex": {"raw": 18, "psa10": 52, "psa9": 30, "psa8": 22},
     
-    # Eevee Heroes / Eeveelutions
-    "espeon vmax alt": {"raw": 180, "psa10": 520, "psa9": 280, "psa8": 200},
-    "sylveon vmax alt": {"raw": 200, "psa10": 580, "psa9": 320, "psa8": 230},
-    "glaceon vmax alt": {"raw": 150, "psa10": 420, "psa9": 230, "psa8": 170},
-    "leafeon vmax alt": {"raw": 120, "psa10": 350, "psa9": 190, "psa8": 140},
-    "flareon vmax alt": {"raw": 100, "psa10": 300, "psa9": 160, "psa8": 120},
+    # Eevee Heroes / Eeveelutions (Alt arts - moderate premium)
+    "espeon vmax alt": {"raw": 145, "psa10": 340, "psa9": 200, "psa8": 165},
+    "sylveon vmax alt": {"raw": 165, "psa10": 385, "psa9": 230, "psa8": 185},
+    "glaceon vmax alt": {"raw": 120, "psa10": 280, "psa9": 165, "psa8": 135},
+    "leafeon vmax alt": {"raw": 95, "psa10": 225, "psa9": 135, "psa8": 108},
+    "flareon vmax alt": {"raw": 80, "psa10": 190, "psa9": 115, "psa8": 92},
     
-    # Scarlet & Violet Era
-    "charizard ex tera": {"raw": 65, "psa10": 200, "psa9": 100, "psa8": 75},
-    "miraidon ex": {"raw": 28, "psa10": 90, "psa9": 48, "psa8": 35},
-    "koraidon ex": {"raw": 22, "psa10": 75, "psa9": 40, "psa8": 28},
-    "rayquaza vmax alt": {"raw": 280, "psa10": 750, "psa9": 420, "psa8": 320},
-    "giratina vstar alt": {"raw": 220, "psa10": 600, "psa9": 340, "psa8": 260},
+    # Scarlet & Violet Era (Very recent - low premiums)
+    "miraidon ex": {"raw": 22, "psa10": 55, "psa9": 32, "psa8": 25},
+    "koraidon ex": {"raw": 18, "psa10": 48, "psa9": 28, "psa8": 21},
+    "rayquaza vmax alt": {"raw": 240, "psa10": 550, "psa9": 330, "psa8": 270},
+    "giratina vstar alt": {"raw": 185, "psa10": 430, "psa9": 255, "psa8": 210},
     
-    # Prismatic Evolutions / Recent
-    "eevee sv prismatic": {"raw": 8, "psa10": 45, "psa9": 20, "psa8": 12},
-    "umbreon sv prismatic": {"raw": 120, "psa10": 380, "psa9": 200, "psa8": 150},
+    # Prismatic Evolutions / Recent (2025-2026)
+    "eevee sv prismatic": {"raw": 6, "psa10": 22, "psa9": 12, "psa8": 8},
+    "umbreon sv prismatic": {"raw": 95, "psa10": 235, "psa9": 140, "psa8": 110},
     
-    # 151 Set
-    "alakazam ex 151": {"raw": 25, "psa10": 85, "psa9": 45, "psa8": 32},
-    "gengar ex 151": {"raw": 40, "psa10": 130, "psa9": 68, "psa8": 48},
-    "machamp ex 151": {"raw": 15, "psa10": 55, "psa9": 30, "psa8": 20},
-    "dragonite ex 151": {"raw": 18, "psa10": 65, "psa9": 35, "psa8": 24},
-    "venusaur ex 151": {"raw": 30, "psa10": 100, "psa9": 52, "psa8": 38},
-    "blastoise ex 151": {"raw": 35, "psa10": 115, "psa9": 60, "psa8": 42},
-    "zapdos ex 151": {"raw": 20, "psa10": 70, "psa9": 38, "psa8": 26},
-    "articuno ex 151": {"raw": 18, "psa10": 62, "psa9": 34, "psa8": 24},
-    "moltres ex 151": {"raw": 16, "psa10": 58, "psa9": 32, "psa8": 22},
+    # 151 Set (2023-2024)
+    "alakazam ex 151": {"raw": 20, "psa10": 52, "psa9": 32, "psa8": 24},
+    "gengar ex 151": {"raw": 32, "psa10": 82, "psa9": 48, "psa8": 38},
+    "machamp ex 151": {"raw": 12, "psa10": 35, "psa9": 20, "psa8": 15},
+    "dragonite ex 151": {"raw": 15, "psa10": 42, "psa9": 25, "psa8": 18},
+    "venusaur ex 151": {"raw": 24, "psa10": 62, "psa9": 38, "psa8": 28},
+    "blastoise ex 151": {"raw": 28, "psa10": 72, "psa9": 42, "psa8": 32},
+    "zapdos ex 151": {"raw": 16, "psa10": 45, "psa9": 26, "psa8": 19},
+    "articuno ex 151": {"raw": 14, "psa10": 40, "psa9": 24, "psa8": 17},
+    "moltres ex 151": {"raw": 13, "psa10": 38, "psa9": 22, "psa8": 16},
 }
 
 
