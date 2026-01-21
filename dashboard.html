@@ -3194,6 +3194,7 @@
         }
         
         let currentDropFilter = 'all';
+        let liveRedditPosts = [];
         let livePokeBeachNews = [];
         let liveTwitterPosts = [];
         let liveInstagramPosts = [];
@@ -3209,6 +3210,18 @@
         }
         
         async function loadLiveIntel() {
+            // Fetch Reddit intel (for backend processing, not displayed)
+            try {
+                const redditRes = await fetch(`${API}/drops/reddit`);
+                if (redditRes.ok) {
+                    const data = await redditRes.json();
+                    liveRedditPosts = data.posts || [];
+                    console.log('Reddit intel loaded:', liveRedditPosts.length, 'posts (not displayed)');
+                }
+            } catch (e) {
+                console.log('Reddit fetch skipped:', e.message);
+            }
+            
             // Fetch PokeBeach news
             try {
                 const pbRes = await fetch(`${API}/drops/pokebeach`);
