@@ -1493,18 +1493,6 @@
     <div class="app">
         <header>
             <div class="logo">PokeAgent</div>
-            <div style="display: flex; align-items: center; gap: 1rem; flex: 1; max-width: 500px; margin: 0 auto;">
-                <div style="position: relative; flex: 1; max-width: 400px;">
-                    <input type="text" id="quickSearch" placeholder="🔍 Quick search cards/products..." 
-                           style="width: 100%; padding: 0.625rem 1rem; padding-right: 2.5rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text); font-size: 0.875rem;"
-                           onkeydown="if(event.key === 'Enter') quickSearchFromHeader()">
-                    <button onclick="quickSearchFromHeader()" 
-                            style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem; font-size: 1rem;">
-                        🔍
-                    </button>
-                    <div id="quickSearchResults" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000; max-height: 400px; overflow-y: auto; display: none;"></div>
-                </div>
-            </div>
             <div style="display: flex; align-items: center; gap: 1rem;">
                 <button id="themeToggle" class="btn btn-sm" onclick="toggleTheme()" title="Toggle dark/light mode" style="padding: 0.5rem; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
                     <span id="themeIcon" style="display: inline-block; line-height: 1;">☀️</span>
