@@ -4791,83 +4791,70 @@
             const query = document.getElementById('stockQuery').value || 'pokemon';
             const results = document.getElementById('stockResults');
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching retailers for real stock data...</div>';
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching for products...</div>';
             
-            // Fetch from multiple sources in parallel for speed
             let allProducts = [];
             
-            const fetchWithTimeout = async (url, timeout = 10000) => {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
+            try {
+                // Primary source: Pokemon TCG API (fast and reliable)
+                // This gives us card data with TCGPlayer prices
+                const tcgResponse = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=30&orderBy=-tcgplayer.prices.holofoil.market`);
+                
+                if (tcgResponse.ok) {
+                    const tcgData = await tcgResponse.json();
+                    if (tcgData.data && tcgData.data.length > 0) {
+                        // Convert to product format
+                        const tcgProducts = tcgData.data.map(card => {
+                            const prices = card.tcgplayer?.prices || {};
+                            const price = prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0;
+                            return {
+                                name: `${card.name} - ${card.set?.name || 'Unknown Set'}`,
+                                retailer: 'TCGPlayer',
+                                price: price,
+                                stock: price > 0,
+                                image_url: card.images?.small || '',
+                                url: card.tcgplayer?.url || `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(card.name)}`,
+                                sku: card.id,
+                                category: 'Singles'
+                            };
+                        }).filter(p => p.price > 0);
+                        
+                        allProducts.push(...tcgProducts);
+                        console.log('TCGPlayer cards:', tcgProducts.length);
+                    }
+                }
+                
+                // Also try backend for sealed products if available (with short timeout)
                 try {
-                    const response = await fetch(url, { 
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    
+                    const backendResponse = await fetch(`${API}/scanner/target?q=${encodeURIComponent(query)}&zip=${zip}&limit=10`, {
                         signal: controller.signal,
-                        headers: { 'Accept': 'application/json' },
-                        cache: 'no-cache'
+                        headers: { 'Accept': 'application/json' }
                     });
                     clearTimeout(timeoutId);
-                    if (response.ok) {
-                        return await response.json();
+                    
+                    if (backendResponse.ok) {
+                        const backendData = await backendResponse.json();
+                        if (backendData.products && backendData.products.length > 0) {
+                            backendData.products.forEach(p => p.retailer = p.retailer || 'Target');
+                            allProducts.push(...backendData.products);
+                            console.log('Target products:', backendData.products.length);
+                        }
                     }
                 } catch (e) {
-                    clearTimeout(timeoutId);
-                    console.log('Fetch failed:', url, e.message);
-                }
-                return null;
-            };
-            
-            // Fetch from multiple endpoints in parallel
-            const endpoints = [
-                { url: `${API}/scanner/cards?q=${encodeURIComponent(query)}&limit=20`, name: 'TCGPlayer' },
-                { url: `${API}/scanner/target?q=${encodeURIComponent(query)}&zip=${zip}&limit=15`, name: 'Target' },
-                { url: `${API}/scanner/pokemoncenter?q=${encodeURIComponent(query)}&limit=10`, name: 'Pokemon Center' },
-            ];
-            
-            // If searching for specific retailer, only fetch that one
-            if (currentRetailerFilter && currentRetailerFilter !== 'all') {
-                const retailerEndpoints = {
-                    'Target': `${API}/scanner/target?q=${encodeURIComponent(query)}&zip=${zip}&limit=20`,
-                    'Pokemon Center': `${API}/scanner/pokemoncenter?q=${encodeURIComponent(query)}&limit=15`,
-                    'TCGPlayer': `${API}/scanner/cards?q=${encodeURIComponent(query)}&limit=25`,
-                    'Best Buy': `${API}/scanner/bestbuy?q=${encodeURIComponent(query)}&limit=15`,
-                    'GameStop': `${API}/scanner/gamestop?q=${encodeURIComponent(query)}&limit=15`,
-                };
-                
-                if (retailerEndpoints[currentRetailerFilter]) {
-                    endpoints.length = 0;
-                    endpoints.push({ url: retailerEndpoints[currentRetailerFilter], name: currentRetailerFilter });
-                }
-            }
-            
-            try {
-                // Fetch all endpoints in parallel
-                const fetchPromises = endpoints.map(ep => 
-                    fetchWithTimeout(ep.url, 12000).then(data => ({ data, name: ep.name }))
-                );
-                
-                const responses = await Promise.all(fetchPromises);
-                
-                // Collect all products from successful responses
-                for (const resp of responses) {
-                    if (resp.data) {
-                        const products = resp.data.products || resp.data.cards || resp.data.results || [];
-                        products.forEach(p => {
-                            p.retailer = p.retailer || resp.name;
-                        });
-                        allProducts.push(...products);
-                        console.log(`${resp.name}: ${products.length} products`);
-                    }
+                    console.log('Backend unavailable, using TCG API only');
                 }
                 
             } catch (e) {
                 console.error('Stock fetch error:', e);
                 results.innerHTML = `
                     <div class="card" style="text-align: center; padding: 2rem;">
-                        <div style="font-size: 2rem; margin-bottom: 1rem;">🔌</div>
-                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Connection Error</div>
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">⚠️</div>
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Search Error</div>
                         <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
-                            Cannot connect to stock checker backend at:<br>
-                            <code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${API}</code>
+                            Could not fetch product data. Please try again.
                         </div>
                         <button class="btn" onclick="findStock()">Retry</button>
                     </div>
