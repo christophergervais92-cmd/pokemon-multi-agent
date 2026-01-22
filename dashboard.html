@@ -6136,54 +6136,140 @@
         }
         
         async function selectCardFromGrid(index) {
+            console.log('selectCardFromGrid called with index:', index);
+            console.log('allCardResults length:', allCardResults?.length);
+            
             if (allCardResults && allCardResults[index]) {
                 selectedCard = allCardResults[index];
+                console.log('Selected card:', selectedCard.name);
             } else {
-                console.error('allCardResults not initialized or index out of bounds');
+                console.error('allCardResults not initialized or index out of bounds', {
+                    hasAllCardResults: !!allCardResults,
+                    length: allCardResults?.length,
+                    index: index
+                });
                 return;
             }
             
-            document.getElementById('cardGrid').style.display = 'none';
-            document.getElementById('cardDetail').style.display = 'block';
+            const grid = document.getElementById('cardGrid');
+            const detail = document.getElementById('cardDetail');
+            const results = document.getElementById('cardResults');
+            
+            if (grid) grid.style.display = 'none';
+            if (results) results.style.display = 'none';
+            if (detail) detail.style.display = 'block';
+            
+            // Show loading state
+            if (detail) {
+                const detailName = document.getElementById('detailName');
+                const detailImage = document.getElementById('detailImage');
+                const detailPrices = document.getElementById('detailPrices');
+                if (detailName) detailName.textContent = 'Loading...';
+                if (detailImage) detailImage.src = '';
+                if (detailPrices) detailPrices.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+            }
             
             // If it's a product, show product detail
             if (selectedCard.isProduct) {
+                console.log('Displaying product detail');
                 displayProductDetail(selectedCard);
                 return;
             }
             
             // Find all variations of this card (same name, different sets)
-            allVariations = (allCardResults || []).filter(c => 
-                c.name.toLowerCase() === selectedCard.name.toLowerCase() && !c.isProduct
+            let allVariations = (allCardResults || []).filter(c => 
+                c.name && c.name.toLowerCase() === selectedCard.name.toLowerCase() && !c.isProduct
             );
+            console.log('Found variations from allCardResults:', allVariations.length);
             
             // If only one variation found, search for more
             if (allVariations.length < 3) {
                 try {
+                    console.log('Fetching more variations from TCG API...');
                     const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(selectedCard.name)}"&pageSize=30&orderBy=-set.releaseDate`);
                     const data = await res.json();
                     if (data.data?.length) {
                         allVariations = data.data;
+                        console.log('Fetched variations from API:', allVariations.length);
                     }
-                } catch (e) { console.log('Variation fetch failed:', e); }
+                } catch (e) { 
+                    console.log('Variation fetch failed:', e); 
+                }
             }
             
-            displayCardDetail(selectedCard);
+            // Fetch price data from backend
+            let priceData = {};
+            try {
+                console.log('Fetching price data from backend...');
+                priceData = await Promise.race([
+                    api(`/prices/card/${encodeURIComponent(selectedCard.name)}`),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]).catch((e) => {
+                    console.log('Price API call failed or timed out:', e.message);
+                    return {};
+                });
+                console.log('Price data received:', priceData);
+            } catch (e) {
+                console.log('Error fetching price data:', e);
+            }
+            
+            // Store price data
+            if (priceData && !priceData.error) {
+                selectedCard.priceData = priceData;
+            }
+            
+            // Ensure card has basic price data from TCGPlayer if API failed
+            if (!selectedCard.priceData && selectedCard.tcgplayer?.prices) {
+                const prices = selectedCard.tcgplayer.prices;
+                selectedCard.priceData = {
+                    raw: {
+                        price: prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0,
+                        low: prices.holofoil?.low || prices.normal?.low || 0,
+                        high: prices.holofoil?.high || prices.normal?.high || 0
+                    }
+                };
+                console.log('Using TCGPlayer price data:', selectedCard.priceData);
+            }
+            
+            console.log('Calling displayCardDetail with card:', selectedCard.name, 'variations:', allVariations.length);
+            try {
+                displayCardDetail(selectedCard, allVariations);
+            } catch (e) {
+                console.error('Error in displayCardDetail:', e);
+                const detailName = document.getElementById('detailName');
+                if (detailName) detailName.textContent = 'Error: ' + e.message;
+            }
         }
         
         function displayCardDetail(card, variations = null) {
+            console.log('displayCardDetail called with:', {
+                cardName: card.name,
+                hasImages: !!(card.images?.large || card.images?.small),
+                hasPriceData: !!card.priceData,
+                variationsCount: variations?.length || 0
+            });
+            
             // Use provided variations or fall back to global
             const cardVariations = variations || allVariations || [card];
             
             // Image
             const detailImage = document.getElementById('detailImage');
             if (detailImage) {
-                detailImage.src = card.images?.large || card.images?.small || 'https://images.pokemontcg.io/base1/4.png';
+                const imageUrl = card.images?.large || card.images?.small || 'https://images.pokemontcg.io/base1/4.png';
+                detailImage.src = imageUrl;
+                console.log('Set card image to:', imageUrl);
+            } else {
+                console.error('detailImage element not found!');
             }
             
             // Basic info
             const detailName = document.getElementById('detailName');
-            if (detailName) detailName.textContent = card.name || 'Unknown Card';
+            if (detailName) {
+                detailName.textContent = card.name || 'Unknown Card';
+                console.log('Set card name to:', card.name);
+            } else {
+                console.error('detailName element not found!');
+            }
             
             const detailSet = document.getElementById('detailSet');
             if (detailSet) {
@@ -6192,6 +6278,9 @@
                     ${card.number ? `#${card.number}/${card.set?.printedTotal || '?'}` : ''}
                     ${card.rarity ? `• ${card.rarity}` : ''}
                 `;
+                console.log('Set card set info');
+            } else {
+                console.error('detailSet element not found!');
             }
             
             // Meta tags
@@ -6230,10 +6319,13 @@
             }
             
             // Prices - Always try to display, use fallback if needed
+            console.log('Displaying prices...');
             try {
                 if (typeof displayCardPrices === 'function') {
+                    console.log('Calling displayCardPrices');
                     displayCardPrices(card);
                 } else {
+                    console.log('displayCardPrices not found, using fallback');
                     displayCardPricesFallback(card);
                 }
             } catch (e) {
@@ -6515,11 +6607,13 @@
         }
         
         function displayCardPrices(card) {
+            console.log('displayCardPrices called for:', card.name);
             const detailPrices = document.getElementById('detailPrices');
             if (!detailPrices) {
-                console.error('detailPrices element not found');
+                console.error('detailPrices element not found!');
                 return;
             }
+            console.log('detailPrices element found, populating...');
             
             const prices = card.tcgplayer?.prices || {};
             const priceData = card.priceData || {};
@@ -6537,15 +6631,13 @@
             const rawLow = priceData.raw?.low || prices.holofoil?.low || prices.normal?.low || 0;
             const rawHigh = priceData.raw?.high || prices.holofoil?.high || prices.normal?.high || 0;
             
-            // Always show raw prices
-            if (rawPrice > 0) {
-                priceHtml += `
-                    <div class="price-cell">
-                        <div class="price-label">Raw (Market)</div>
-                        <div class="price-value">$${rawPrice.toFixed(2)}</div>
-                    </div>
-                `;
-            }
+            // Always show raw prices (even if 0, show something)
+            priceHtml += `
+                <div class="price-cell">
+                    <div class="price-label">Raw (Market)</div>
+                    <div class="price-value">${rawPrice > 0 ? '$' + rawPrice.toFixed(2) : 'N/A'}</div>
+                </div>
+            `;
             if (rawLow > 0) {
                 priceHtml += `
                     <div class="price-cell">
@@ -6562,6 +6654,34 @@
                     </div>
                 `;
             }
+            
+            // Add graded prices if available
+            const graded = priceData.graded || {};
+            if (Object.keys(graded).length > 0) {
+                Object.entries(graded).slice(0, 6).forEach(([grade, info]) => {
+                    const gradePrice = info.price || 0;
+                    if (gradePrice > 0) {
+                        priceHtml += `
+                            <div class="price-cell">
+                                <div class="price-label">${grade}</div>
+                                <div class="price-value">$${gradePrice.toFixed(2)}</div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            
+            // If no prices at all, show a message
+            if (rawPrice === 0 && Object.keys(graded).length === 0) {
+                priceHtml += `
+                    <div style="grid-column: 1 / -1; padding: 1rem; text-align: center; color: var(--text-muted);">
+                        Price data not available. Check TCGPlayer for current prices.
+                    </div>
+                `;
+            }
+            
+            console.log('Setting price HTML, length:', priceHtml.length);
+            detailPrices.innerHTML = priceHtml;
             
             // Raw prices from TCGPlayer (additional types)
             for (const type of priceTypes) {
