@@ -6,8 +6,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.4.1">
-    <title>PokeAgent v2.4.1</title>
+    <meta name="version" content="2.4.2">
+    <title>PokeAgent v2.4.2</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>">
     <meta name="theme-color" content="#0a0a0a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6376,46 +6376,28 @@
                 displayBuyLinksFallback(card);
             }
             
-            // Price chart
+            // Price chart - use requestAnimationFrame to ensure canvas is visible
             try {
                 if (typeof generatePriceHistory === 'function' && typeof drawPriceChart === 'function') {
                     generatePriceHistory(card);
-                    drawPriceChart();
+                    // Wait for next frame to ensure element is visible and sized
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            try {
+                                drawPriceChart();
+                                console.log('Chart drawn successfully');
+                            } catch (e) {
+                                console.error('Error in drawPriceChart:', e);
+                            }
+                        });
+                    });
                 } else {
-                    // Fallback: show placeholder or generate simple chart
-                    const chartCanvas = document.getElementById('priceChart');
-                    if (chartCanvas) {
-                        const ctx = chartCanvas.getContext('2d');
-                        const prices = card.tcgplayer?.prices || {};
-                        const marketPrice = prices.holofoil?.market || prices.normal?.market || 0;
-                        
-                        if (marketPrice > 0) {
-                            // Draw a simple price line
-                            ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
-                            ctx.strokeStyle = 'var(--accent)';
-                            ctx.lineWidth = 2;
-                            ctx.beginPath();
-                            const padding = 20;
-                            const width = chartCanvas.width - padding * 2;
-                            const height = chartCanvas.height - padding * 2;
-                            ctx.moveTo(padding, height + padding);
-                            ctx.lineTo(width + padding, padding);
-                            ctx.stroke();
-                            
-                            ctx.fillStyle = 'var(--text)';
-                            ctx.font = '12px sans-serif';
-                            ctx.textAlign = 'center';
-                            ctx.fillText(`Market: $${marketPrice.toFixed(2)}`, chartCanvas.width / 2, chartCanvas.height / 2);
-                        } else {
-                            ctx.fillStyle = 'var(--text-muted)';
-                            ctx.font = '14px sans-serif';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('Price history chart loading...', chartCanvas.width / 2, chartCanvas.height / 2);
-                        }
-                    }
+                    console.log('Chart functions not available, using fallback');
+                    initFallbackChart(card);
                 }
             } catch (e) {
                 console.error('Error displaying price chart:', e);
+                initFallbackChart(card);
             }
         }
         
@@ -6971,18 +6953,28 @@
         
         function drawPriceChart() {
             const canvas = document.getElementById('priceChart');
+            if (!canvas) {
+                console.error('Price chart canvas not found');
+                return;
+            }
+            
             const ctx = canvas.getContext('2d');
             const data = priceHistoryData[currentChartRange] || [];
             
-            if (!data.length) return;
+            if (!data.length) {
+                console.log('No price history data for range:', currentChartRange);
+                return;
+            }
             
-            // Set canvas size
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width - 32;
-            canvas.height = rect.height - 32;
+            // Set canvas size with fallback minimums
+            const rect = canvas.parentElement?.getBoundingClientRect() || { width: 432, height: 232 };
+            canvas.width = Math.max(rect.width - 32, 400);
+            canvas.height = Math.max(rect.height - 32, 168);
             
             const width = canvas.width;
             const height = canvas.height;
+            
+            console.log('Drawing chart:', { width, height, dataPoints: data.length });
             const padding = { top: 20, right: 15, bottom: 25, left: 55 };
             
             // Clear
@@ -7087,33 +7079,35 @@
         }
         
         function setupChartHover(canvas) {
-            // Create tooltip element
+            // Create tooltip element (stock-chart style)
             let tooltip = document.getElementById('chartTooltip');
             if (!tooltip) {
                 tooltip = document.createElement('div');
                 tooltip.id = 'chartTooltip';
                 tooltip.style.cssText = `
                     position: fixed;
-                    background: var(--surface);
-                    border: 1px solid var(--border);
+                    background: rgba(20, 20, 25, 0.95);
+                    border: 1px solid rgba(139, 92, 246, 0.5);
                     border-radius: 8px;
-                    padding: 8px 12px;
+                    padding: 10px 14px;
                     font-size: 12px;
                     font-family: 'Space Mono', monospace;
                     pointer-events: none;
                     z-index: 1000;
                     display: none;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                    backdrop-filter: blur(8px);
+                    min-width: 140px;
                 `;
                 document.body.appendChild(tooltip);
             }
             
-            let hoverLine = null;
-            let hoverDot = null;
+            // Track last hover index for performance
+            let lastHoverIndex = -1;
             
             canvas.addEventListener('mousemove', (e) => {
                 const { data, xScale, yScale, padding, width, height, isUp } = chartContext;
-                if (!data.length || !xScale) return;
+                if (!data || !data.length || !xScale) return;
                 
                 const rect = canvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -7122,6 +7116,10 @@
                 // Check if in chart area
                 if (x < padding.left || x > width - padding.right) {
                     tooltip.style.display = 'none';
+                    if (lastHoverIndex !== -1) {
+                        lastHoverIndex = -1;
+                        drawPriceChart();
+                    }
                     return;
                 }
                 
@@ -7131,27 +7129,82 @@
                 const index = Math.round(ratio * (data.length - 1));
                 const clampedIndex = Math.max(0, Math.min(data.length - 1, index));
                 
-                const point = data[clampedIndex];
-                const pointX = xScale(clampedIndex);
-                const pointY = yScale(point.price);
+                // Only redraw if index changed (performance)
+                if (clampedIndex === lastHoverIndex) {
+                    // Just update tooltip position
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY - 60) + 'px';
+                    return;
+                }
+                lastHoverIndex = clampedIndex;
                 
-                // Update tooltip
-                const dateStr = point.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const point = data[clampedIndex];
+                const startPoint = data[0];
+                const changePercent = ((point.price - startPoint.price) / startPoint.price * 100).toFixed(2);
+                const changeColor = point.price >= startPoint.price ? '#22c55e' : '#ef4444';
+                const changeSign = point.price >= startPoint.price ? '+' : '';
+                
+                // Update tooltip with stock-chart style info
+                const dateStr = point.date.toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                });
+                
                 tooltip.innerHTML = `
-                    <div style="color: var(--text-muted); font-size: 10px; margin-bottom: 4px;">${dateStr}</div>
-                    <div style="color: ${isUp ? 'var(--green)' : 'var(--red)'}; font-weight: 600; font-size: 14px;">$${point.price.toFixed(2)}</div>
+                    <div style="color: #888; font-size: 10px; margin-bottom: 6px; letter-spacing: 0.5px;">${dateStr}</div>
+                    <div style="font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px;">$${point.price.toFixed(2)}</div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="color: ${changeColor}; font-weight: 600; font-size: 13px;">${changeSign}${changePercent}%</span>
+                        <span style="color: #666; font-size: 11px;">from start</span>
+                    </div>
+                    <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 10px; color: #666;">
+                        Day ${clampedIndex + 1} of ${data.length}
+                    </div>
                 `;
                 tooltip.style.display = 'block';
-                tooltip.style.left = (e.clientX + 15) + 'px';
-                tooltip.style.top = (e.clientY - 40) + 'px';
                 
-                // Redraw chart with hover indicator
+                // Smart positioning - avoid going off screen
+                const tooltipRect = tooltip.getBoundingClientRect();
+                let left = e.clientX + 15;
+                let top = e.clientY - 60;
+                
+                if (left + 160 > window.innerWidth) {
+                    left = e.clientX - 160;
+                }
+                if (top < 10) {
+                    top = e.clientY + 20;
+                }
+                
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+                
+                // Redraw chart with hover crosshair
                 drawPriceChartWithHover(clampedIndex);
             });
             
             canvas.addEventListener('mouseleave', () => {
                 tooltip.style.display = 'none';
+                lastHoverIndex = -1;
                 drawPriceChart(); // Redraw without hover
+            });
+            
+            // Touch support for mobile
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(mouseEvent);
+            });
+            
+            canvas.addEventListener('touchend', () => {
+                tooltip.style.display = 'none';
+                lastHoverIndex = -1;
+                drawPriceChart();
             });
         }
         
@@ -7160,7 +7213,7 @@
             const ctx = canvas.getContext('2d');
             const { data, xScale, yScale, padding, width, height, isUp, minPrice, maxPrice } = chartContext;
             
-            if (!data.length) return;
+            if (!data || !data.length) return;
             
             // Clear
             ctx.clearRect(0, 0, width, height);
@@ -7190,23 +7243,47 @@
             ctx.lineJoin = 'round';
             ctx.stroke();
             
-            // Draw hover vertical line
+            // Get hover point coordinates
             const hoverX = xScale(hoverIndex);
-            ctx.strokeStyle = 'rgba(128, 128, 128, 0.5)';
+            const hoverY = yScale(data[hoverIndex].price);
+            const hoverPrice = data[hoverIndex].price;
+            
+            // Draw vertical crosshair line (full height, semi-transparent)
+            ctx.strokeStyle = 'rgba(139, 92, 246, 0.4)';
             ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
+            ctx.setLineDash([]);
             ctx.beginPath();
             ctx.moveTo(hoverX, padding.top);
             ctx.lineTo(hoverX, height - padding.bottom);
             ctx.stroke();
+            
+            // Draw horizontal crosshair line at price level
+            ctx.strokeStyle = 'rgba(139, 92, 246, 0.4)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, hoverY);
+            ctx.lineTo(width - padding.right, hoverY);
+            ctx.stroke();
             ctx.setLineDash([]);
             
-            // Draw hover dot
-            const hoverY = yScale(data[hoverIndex].price);
+            // Draw price label on Y-axis
+            ctx.fillStyle = '#8b5cf6';
+            const priceLabel = '$' + hoverPrice.toFixed(2);
+            const labelWidth = ctx.measureText(priceLabel).width + 10;
+            ctx.fillRect(0, hoverY - 10, padding.left - 4, 20);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px Space Mono, monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(priceLabel, padding.left - 8, hoverY + 4);
+            
+            // Draw hover dot with glow effect
+            ctx.shadowColor = isUp ? '#22c55e' : '#ef4444';
+            ctx.shadowBlur = 12;
             ctx.beginPath();
             ctx.arc(hoverX, hoverY, 8, 0, Math.PI * 2);
             ctx.fillStyle = isUp ? '#22c55e' : '#ef4444';
             ctx.fill();
+            ctx.shadowBlur = 0;
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 3;
             ctx.stroke();
@@ -7250,6 +7327,32 @@
             dates.forEach((d, i) => {
                 const x = xScale(i === 0 ? 0 : i === 1 ? Math.floor(data.length / 2) : data.length - 1);
                 ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, height - 5);
+            });
+        }
+        
+        // Fallback chart initialization
+        function initFallbackChart(card) {
+            const chartCanvas = document.getElementById('priceChart');
+            if (!chartCanvas) return;
+            
+            requestAnimationFrame(() => {
+                const rect = chartCanvas.parentElement.getBoundingClientRect();
+                chartCanvas.width = rect.width - 32 || 400;
+                chartCanvas.height = rect.height - 32 || 168;
+                
+                const ctx = chartCanvas.getContext('2d');
+                const prices = card.tcgplayer?.prices || {};
+                const marketPrice = prices.holofoil?.market || prices.normal?.market || 0;
+                
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#666';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                
+                if (marketPrice > 0) {
+                    ctx.fillText(`Market: $${marketPrice.toFixed(2)}`, chartCanvas.width / 2, chartCanvas.height / 2);
+                } else {
+                    ctx.fillText('Price history loading...', chartCanvas.width / 2, chartCanvas.height / 2);
+                }
             });
         }
         
