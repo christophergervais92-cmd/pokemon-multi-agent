@@ -6411,7 +6411,8 @@
             // Recent sales
             try {
                 if (typeof displayRecentSales === 'function') {
-                    displayRecentSales(card);
+                    // Pass current grade to show correct sales data
+                    displayRecentSales(card, currentChartGrade || 'raw');
                 } else {
                     // Fallback for recent sales
                     const salesDiv = document.getElementById('recentSales');
@@ -6569,9 +6570,9 @@
             gradeLabel = gradeInfo.label;
             condition = gradeInfo.condition;
             
-            // Calculate low/high based on grade
+            // Calculate low/high based on grade (reasonable variance)
             const lowPrice = basePrice * 0.85;
-            const highPrice = basePrice * 1.2;
+            const highPrice = basePrice * 1.25;  // Max 25% above market
             
             // Estimate eBay prices (typically 5-15% variance from TCG)
             const ebayAvg = basePrice * (0.95 + Math.random() * 0.1);
