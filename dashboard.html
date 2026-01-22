@@ -2399,6 +2399,7 @@
         let currentChartGrade = 'raw';
         let priceHistoryData = {};
         let allGradePrices = {};
+        let chartContext = { data: [], xScale: null, yScale: null, padding: null, width: 0, height: 0, isUp: true };
         
         // Config - Auto-detect API URL
         // Change this to your deployed backend URL after deploying to Render
@@ -7052,8 +7053,7 @@
             drawPriceChart();
         }
         
-        // Store chart context for hover
-        let chartContext = { data: [], xScale: null, yScale: null, padding: null, width: 0, height: 0, isUp: true };
+        // chartContext declared at top of script
         
         function drawPriceChart() {
             const canvas = document.getElementById('priceChart');
@@ -7063,17 +7063,26 @@
             }
             
             const ctx = canvas.getContext('2d');
-            const data = priceHistoryData[currentChartRange] || [];
+            let data = priceHistoryData[currentChartRange] || [];
+            
+            // If no data, generate fallback data based on allGradePrices
+            if (!data.length) {
+                console.log('No price history data for range:', currentChartRange, '- generating fallback');
+                const basePrice = allGradePrices['raw'] || allGradePrices[currentChartGrade] || 10;
+                const days = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '2Y': 730 }[currentChartRange] || 30;
+                data = generatePricePoints(basePrice, days, 0.15);
+                priceHistoryData[currentChartRange] = data;
+            }
             
             if (!data.length) {
-                console.log('No price history data for range:', currentChartRange);
+                console.error('Still no chart data after fallback');
                 return;
             }
             
             // Set canvas size with fallback minimums
             const rect = canvas.parentElement?.getBoundingClientRect() || { width: 432, height: 232 };
             canvas.width = Math.max(rect.width - 32, 400);
-            canvas.height = Math.max(rect.height - 32, 168);
+            canvas.height = Math.max(rect.height - 32, 200);
             
             const width = canvas.width;
             const height = canvas.height;
