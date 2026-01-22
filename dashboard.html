@@ -8025,7 +8025,9 @@
             // Use priceData from API if available, otherwise use TCGPlayer data
             const rawPrice = priceData.raw?.price || prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0;
             const rawLow = priceData.raw?.low || prices.holofoil?.low || prices.normal?.low || 0;
-            const rawHigh = priceData.raw?.high || prices.holofoil?.high || prices.normal?.high || 0;
+            // Cap HIGH to max 2x market to avoid outlier listings
+            const rawHighRaw = priceData.raw?.high || prices.holofoil?.high || prices.normal?.high || 0;
+            const rawHigh = rawPrice > 0 ? Math.min(rawHighRaw, rawPrice * 2) : rawHighRaw;
             
             // Always show raw prices (even if 0, show something)
             priceHtml += `
@@ -8096,89 +8098,96 @@
                 }
             }
             
-            // Graded card prices - REALISTIC multipliers for modern cards (2020+)
-            // Modern cards: ~2-3x for PSA 10, less for others
-            // Vintage cards: Higher premiums (handled separately if detected)
+            // Graded card prices - only show for cards worth grading
             const basePrice = prices.holofoil?.market || prices.normal?.market || 10;
             const releaseYear = card.set?.releaseDate ? parseInt(card.set.releaseDate.split('/')[0]) : 2024;
             const isVintage = releaseYear < 2015;
             
-            // Realistic multipliers based on modern market (Jan 2026)
-            const gradeMultipliers = isVintage ? {
-                // Vintage cards (pre-2015) - higher premiums
-                'PSA 10': { mult: 15, range: [12, 20], label: 'PSA 10 Gem Mint' },
-                'PSA 9': { mult: 4, range: [3, 5], label: 'PSA 9 Mint' },
-                'PSA 8': { mult: 2, range: [1.5, 2.5], label: 'PSA 8 NM-MT' },
-                'CGC 10': { mult: 10, range: [8, 14], label: 'CGC 10 Pristine' },
-                'CGC 9.5': { mult: 5, range: [4, 7], label: 'CGC 9.5 Gem Mint' },
-                'BGS 10 Black': { mult: 50, range: [35, 80], label: 'BGS 10 Black Label' },
-                'BGS 10': { mult: 25, range: [18, 35], label: 'BGS 10 Pristine' },
-                'BGS 9.5': { mult: 6, range: [5, 8], label: 'BGS 9.5 Gem Mint' },
-            } : {
-                // Modern cards (2015+) - lower, realistic premiums
-                'PSA 10': { mult: 2.5, range: [2.0, 3.5], label: 'PSA 10 Gem Mint' },
-                'PSA 9': { mult: 1.5, range: [1.3, 1.8], label: 'PSA 9 Mint' },
-                'PSA 8': { mult: 1.2, range: [1.1, 1.4], label: 'PSA 8 NM-MT' },
-                'CGC 10': { mult: 2.0, range: [1.7, 2.5], label: 'CGC 10 Pristine' },
-                'CGC 9.5': { mult: 1.7, range: [1.4, 2.0], label: 'CGC 9.5 Gem Mint' },
-                'BGS 10 Black': { mult: 6.0, range: [4.5, 8.0], label: 'BGS 10 Black Label' },
-                'BGS 10': { mult: 3.5, range: [2.8, 4.5], label: 'BGS 10 Pristine' },
-                'BGS 9.5': { mult: 2.0, range: [1.7, 2.5], label: 'BGS 9.5 Gem Mint' },
-            };
+            // Grading costs make low-value cards not worth grading
+            // PSA: ~$25-50+ per card, CGC: ~$20-35, BGS: ~$35-150
+            const GRADING_MIN_THRESHOLD = 15; // Cards under $15 raw aren't typically worth grading
+            const isWorthGrading = basePrice >= GRADING_MIN_THRESHOLD;
             
-            // Store ALL grade prices for chart (global variable)
-            allGradePrices = {
-                'raw': basePrice,
-                // PSA
-                'PSA 10': basePrice * gradeMultipliers['PSA 10'].mult,
-                'PSA 9': basePrice * gradeMultipliers['PSA 9'].mult,
-                'PSA 8': basePrice * gradeMultipliers['PSA 8'].mult,
-                'PSA 7': basePrice * (isVintage ? 1.5 : 1.0),
-                // CGC
-                'CGC 10': basePrice * gradeMultipliers['CGC 10'].mult,
-                'CGC 9.5': basePrice * gradeMultipliers['CGC 9.5'].mult,
-                'CGC 9': basePrice * (isVintage ? 3.5 : 1.3),
-                'CGC 8.5': basePrice * (isVintage ? 2.5 : 1.15),
-                // BGS / Beckett
-                'BGS 10 Black': basePrice * gradeMultipliers['BGS 10 Black'].mult,
-                'BGS 10': basePrice * gradeMultipliers['BGS 10'].mult,
-                'BGS 9.5': basePrice * gradeMultipliers['BGS 9.5'].mult,
-                'BGS 9': basePrice * (isVintage ? 4.0 : 1.4),
-                'BGS 8.5': basePrice * (isVintage ? 2.8 : 1.2),
-            };
+            // Store raw price
+            allGradePrices = { 'raw': basePrice };
             
-            priceHtml += `
-                <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0.25rem;">
-                    Graded Prices ${isVintage ? '(Vintage)' : '(Modern)'} — <span style="color: var(--accent);">~</span> = Est. from eBay
-                </div>
-            `;
-            
-            // Display in organized order: PSA, CGC, BGS
-            const displayOrder = [
-                'PSA 10', 'PSA 9', 'PSA 8',
-                'CGC 10', 'CGC 9.5',
-                'BGS 10 Black', 'BGS 10', 'BGS 9.5'
-            ];
-            
-            for (const grade of displayOrder) {
-                const data = gradeMultipliers[grade];
-                if (!data) continue;
+            if (isWorthGrading) {
+                // Realistic multipliers for cards worth grading
+                const gradeMultipliers = isVintage ? {
+                    // Vintage cards (pre-2015) - higher premiums
+                    'PSA 10': { mult: 15, range: [12, 20], label: 'PSA 10 Gem Mint' },
+                    'PSA 9': { mult: 4, range: [3, 5], label: 'PSA 9 Mint' },
+                    'PSA 8': { mult: 2, range: [1.5, 2.5], label: 'PSA 8 NM-MT' },
+                    'CGC 10': { mult: 10, range: [8, 14], label: 'CGC 10 Pristine' },
+                    'CGC 9.5': { mult: 5, range: [4, 7], label: 'CGC 9.5 Gem Mint' },
+                    'BGS 10 Black': { mult: 50, range: [35, 80], label: 'BGS 10 Black Label' },
+                    'BGS 10': { mult: 25, range: [18, 35], label: 'BGS 10 Pristine' },
+                    'BGS 9.5': { mult: 6, range: [5, 8], label: 'BGS 9.5 Gem Mint' },
+                } : {
+                    // Modern cards (2015+) - realistic premiums
+                    'PSA 10': { mult: 2.5, range: [2.0, 3.5], label: 'PSA 10 Gem Mint' },
+                    'PSA 9': { mult: 1.5, range: [1.3, 1.8], label: 'PSA 9 Mint' },
+                    'PSA 8': { mult: 1.2, range: [1.1, 1.4], label: 'PSA 8 NM-MT' },
+                    'CGC 10': { mult: 2.0, range: [1.7, 2.5], label: 'CGC 10 Pristine' },
+                    'CGC 9.5': { mult: 1.7, range: [1.4, 2.0], label: 'CGC 9.5 Gem Mint' },
+                    'BGS 10 Black': { mult: 6.0, range: [4.5, 8.0], label: 'BGS 10 Black Label' },
+                    'BGS 10': { mult: 3.5, range: [2.8, 4.5], label: 'BGS 10 Pristine' },
+                    'BGS 9.5': { mult: 2.0, range: [1.7, 2.5], label: 'BGS 9.5 Gem Mint' },
+                };
                 
-                const price = basePrice * data.mult;
-                const lowPrice = basePrice * data.range[0];
-                const highPrice = basePrice * data.range[1];
-                
-                // Highlight BGS Black Label specially
-                const isBlackLabel = grade === 'BGS 10 Black';
-                const cellStyle = isBlackLabel ? 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid gold;' : '';
-                const labelStyle = isBlackLabel ? 'color: gold; font-weight: 600;' : '';
+                // Calculate graded prices
+                allGradePrices['PSA 10'] = basePrice * gradeMultipliers['PSA 10'].mult;
+                allGradePrices['PSA 9'] = basePrice * gradeMultipliers['PSA 9'].mult;
+                allGradePrices['PSA 8'] = basePrice * gradeMultipliers['PSA 8'].mult;
+                allGradePrices['PSA 7'] = basePrice * (isVintage ? 1.5 : 1.0);
+                allGradePrices['CGC 10'] = basePrice * gradeMultipliers['CGC 10'].mult;
+                allGradePrices['CGC 9.5'] = basePrice * gradeMultipliers['CGC 9.5'].mult;
+                allGradePrices['CGC 9'] = basePrice * (isVintage ? 3.5 : 1.3);
+                allGradePrices['BGS 10 Black'] = basePrice * gradeMultipliers['BGS 10 Black'].mult;
+                allGradePrices['BGS 10'] = basePrice * gradeMultipliers['BGS 10'].mult;
+                allGradePrices['BGS 9.5'] = basePrice * gradeMultipliers['BGS 9.5'].mult;
                 
                 priceHtml += `
-                    <div class="price-cell" style="${cellStyle}">
-                        <div class="price-label" style="${labelStyle}">${data.label || grade}</div>
-                        <div class="price-value" ${isBlackLabel ? 'style="color: gold;"' : ''}>~$${formatPrice(price)}</div>
-                        <div style="font-size: 0.5rem; color: var(--text-muted);">
-                            $${formatPrice(lowPrice)} - $${formatPrice(highPrice)}
+                    <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0.25rem;">
+                        Graded Prices ${isVintage ? '(Vintage)' : '(Modern)'} — <span style="color: var(--accent);">~</span> = Est. from eBay
+                    </div>
+                `;
+                
+                // Display in organized order: PSA, CGC, BGS
+                const displayOrder = ['PSA 10', 'PSA 9', 'PSA 8', 'CGC 10', 'CGC 9.5', 'BGS 10 Black', 'BGS 10', 'BGS 9.5'];
+                
+                for (const grade of displayOrder) {
+                    const data = gradeMultipliers[grade];
+                    if (!data) continue;
+                    
+                    const price = basePrice * data.mult;
+                    const lowPrice = basePrice * data.range[0];
+                    const highPrice = basePrice * data.range[1];
+                    
+                    const isBlackLabel = grade === 'BGS 10 Black';
+                    const cellStyle = isBlackLabel ? 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid gold;' : '';
+                    const labelStyle = isBlackLabel ? 'color: gold; font-weight: 600;' : '';
+                    
+                    priceHtml += `
+                        <div class="price-cell" style="${cellStyle}">
+                            <div class="price-label" style="${labelStyle}">${data.label || grade}</div>
+                            <div class="price-value" ${isBlackLabel ? 'style="color: gold;"' : ''}>~$${formatPrice(price)}</div>
+                            <div style="font-size: 0.5rem; color: var(--text-muted);">
+                                $${formatPrice(lowPrice)} - $${formatPrice(highPrice)}
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                // Card is not worth grading - show notice
+                priceHtml += `
+                    <div style="grid-column: 1 / -1; padding: 1rem; background: var(--bg-card-elevated); border-radius: 8px; margin-top: 0.5rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">
+                            <strong style="color: var(--text);">Graded prices not shown</strong><br>
+                            This card's raw value ($${formatPrice(basePrice)}) is below the typical grading threshold.<br>
+                            Grading costs $20-50+ per card, making it uneconomical for cards under ~$15 raw.<br><br>
+                            <a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent('PSA ' + card.name + ' pokemon')}" 
+                               target="_blank" style="color: var(--accent);">Search eBay for graded copies →</a>
                         </div>
                     </div>
                 `;
