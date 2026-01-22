@@ -2394,6 +2394,12 @@
         let selectedCard = null;
         let allVariations = [];
         
+        // Chart-related globals - must be declared early
+        let currentChartRange = '1M';
+        let currentChartGrade = 'raw';
+        let priceHistoryData = {};
+        let allGradePrices = {};
+        
         // Config - Auto-detect API URL
         // Change this to your deployed backend URL after deploying to Render
         const DEPLOYED_API = 'https://pokemon-multi-agent.onrender.com';
@@ -5964,11 +5970,7 @@
         // CARD & PRODUCT SEARCH WITH VARIATIONS AND PRICE CHART
         // =============================================================================
         
-        // allCardResults, selectedCard, and allVariations declared at the top of the script
-        let currentChartRange = '1M';
-        let currentChartGrade = 'raw';
-        let priceHistoryData = {};
-        let allGradePrices = {};  // Stores prices for all grades
+        // allCardResults, selectedCard, allVariations, and chart globals declared at the top of the script
         
         function quickCardSearch(name) {
             document.getElementById('cardName').value = name;
