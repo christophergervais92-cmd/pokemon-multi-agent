@@ -4786,128 +4786,340 @@
                 document.getElementById('statInStock').textContent = storesWithStock;
             }
         }
+        // Sealed product database with DIRECT product URLs where available
+        const SEALED_PRODUCTS = [
+            // Destined Rivals (2025)
+            { 
+                name: 'Destined Rivals Booster Box', set: 'Destined Rivals', type: 'Booster Box', msrp: 143.64, release: '2025-02-07',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/561614_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/561614',
+                    'Pokemon Center': 'https://www.pokemoncenter.com/category/trading-card-game',
+                }
+            },
+            { 
+                name: 'Destined Rivals Elite Trainer Box', set: 'Destined Rivals', type: 'ETB', msrp: 49.99, release: '2025-02-07',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/561616_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/561616',
+                    'Target': 'https://www.target.com/s?searchTerm=destined+rivals+elite+trainer+box',
+                    'Walmart': 'https://www.walmart.com/search?q=destined+rivals+elite+trainer+box',
+                }
+            },
+            // Prismatic Evolutions (2025)
+            { 
+                name: 'Prismatic Evolutions Booster Box', set: 'Prismatic Evolutions', type: 'Booster Box', msrp: 143.64, release: '2025-01-17',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/553291_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/553291',
+                    'Pokemon Center': 'https://www.pokemoncenter.com/category/trading-card-game',
+                }
+            },
+            { 
+                name: 'Prismatic Evolutions Elite Trainer Box', set: 'Prismatic Evolutions', type: 'ETB', msrp: 59.99, release: '2025-01-17',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/553293_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/553293',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-prismatic-evolutions-elite-trainer-box/-/A-91741847',
+                    'Walmart': 'https://www.walmart.com/ip/Pokemon-TCG-Scarlet-Violet-Prismatic-Evolutions-Elite-Trainer-Box/5765499498',
+                    'Best Buy': 'https://www.bestbuy.com/site/pokemon-trading-card-game-scarlet-violet-prismatic-evolutions-elite-trainer-box/6594285.p',
+                    'GameStop': 'https://www.gamestop.com/toys-games/trading-cards/products/pokemon-trading-card-game-scarlet-and-violet-prismatic-evolutions-elite-trainer-box/412773.html',
+                    'Pokemon Center': 'https://www.pokemoncenter.com/product/290-85768/pokemon-tcg-scarlet-and-violet-prismatic-evolutions-elite-trainer-box',
+                }
+            },
+            { 
+                name: 'Prismatic Evolutions Super Premium Collection', set: 'Prismatic Evolutions', type: 'Collection Box', msrp: 129.99, release: '2025-01-17',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/553294_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/553294',
+                    'Target': 'https://www.target.com/s?searchTerm=prismatic+evolutions+super+premium',
+                    'Pokemon Center': 'https://www.pokemoncenter.com/category/trading-card-game',
+                }
+            },
+            { 
+                name: 'Prismatic Evolutions Binder Collection', set: 'Prismatic Evolutions', type: 'Collection Box', msrp: 39.99, release: '2025-01-17',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/553295_200w.jpg',
+                urls: {
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-prismatic-evolutions-binder-collection/-/A-91741849',
+                    'Walmart': 'https://www.walmart.com/search?q=prismatic+evolutions+binder',
+                }
+            },
+            // Surging Sparks (2024)
+            { 
+                name: 'Surging Sparks Booster Box', set: 'Surging Sparks', type: 'Booster Box', msrp: 143.64, release: '2024-11-08',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/543976_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/543976',
+                    'Amazon': 'https://www.amazon.com/dp/B0DFHW5Y5N',
+                }
+            },
+            { 
+                name: 'Surging Sparks Elite Trainer Box', set: 'Surging Sparks', type: 'ETB', msrp: 49.99, release: '2024-11-08',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/543978_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/543978',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-surging-sparks-elite-trainer-box/-/A-91322969',
+                    'Walmart': 'https://www.walmart.com/ip/Pokemon-TCG-Scarlet-Violet-Surging-Sparks-Elite-Trainer-Box/5089282216',
+                    'Best Buy': 'https://www.bestbuy.com/site/pokemon-trading-card-game-scarlet-violet-surging-sparks-elite-trainer-box/6581997.p',
+                    'GameStop': 'https://www.gamestop.com/toys-games/trading-cards/products/pokemon-trading-card-game-scarlet-and-violet-surging-sparks-elite-trainer-box/411234.html',
+                }
+            },
+            // Stellar Crown (2024)
+            { 
+                name: 'Stellar Crown Booster Box', set: 'Stellar Crown', type: 'Booster Box', msrp: 143.64, release: '2024-09-13',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/534283_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/534283',
+                    'Amazon': 'https://www.amazon.com/dp/B0D5RGFK84',
+                }
+            },
+            { 
+                name: 'Stellar Crown Elite Trainer Box', set: 'Stellar Crown', type: 'ETB', msrp: 49.99, release: '2024-09-13',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/534284_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/534284',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-stellar-crown-elite-trainer-box/-/A-90927875',
+                    'Walmart': 'https://www.walmart.com/ip/Pokemon-TCG-Scarlet-Violet-Stellar-Crown-Elite-Trainer-Box/3994949867',
+                }
+            },
+            // Shrouded Fable (2024)
+            { 
+                name: 'Shrouded Fable Booster Box', set: 'Shrouded Fable', type: 'Booster Box', msrp: 143.64, release: '2024-08-02',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/525847_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/525847',
+                }
+            },
+            { 
+                name: 'Shrouded Fable Elite Trainer Box', set: 'Shrouded Fable', type: 'ETB', msrp: 49.99, release: '2024-08-02',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/525848_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/525848',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-shrouded-fable-elite-trainer-box/-/A-90586665',
+                }
+            },
+            // Twilight Masquerade (2024)
+            { 
+                name: 'Twilight Masquerade Booster Box', set: 'Twilight Masquerade', type: 'Booster Box', msrp: 143.64, release: '2024-05-24',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/516719_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/516719',
+                    'Amazon': 'https://www.amazon.com/dp/B0CX4K1MHR',
+                }
+            },
+            { 
+                name: 'Twilight Masquerade Elite Trainer Box', set: 'Twilight Masquerade', type: 'ETB', msrp: 49.99, release: '2024-05-24',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/516720_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/516720',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-twilight-masquerade-elite-trainer-box/-/A-90262802',
+                }
+            },
+            // Temporal Forces (2024)
+            { 
+                name: 'Temporal Forces Booster Box', set: 'Temporal Forces', type: 'Booster Box', msrp: 143.64, release: '2024-03-22',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/509058_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/509058',
+                    'Amazon': 'https://www.amazon.com/dp/B0CJL8ZS6Z',
+                }
+            },
+            { 
+                name: 'Temporal Forces Elite Trainer Box', set: 'Temporal Forces', type: 'ETB', msrp: 49.99, release: '2024-03-22',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/509059_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/509059',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-temporal-forces-elite-trainer-box/-/A-89741310',
+                }
+            },
+            // Paldean Fates (2024)
+            { 
+                name: 'Paldean Fates Booster Box', set: 'Paldean Fates', type: 'Booster Box', msrp: 143.64, release: '2024-01-26',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/503219_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/503219',
+                }
+            },
+            { 
+                name: 'Paldean Fates Elite Trainer Box', set: 'Paldean Fates', type: 'ETB', msrp: 59.99, release: '2024-01-26',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/503220_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/503220',
+                    'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-paldean-fates-elite-trainer-box/-/A-89381579',
+                }
+            },
+            // 151 (2023)
+            { 
+                name: '151 Elite Trainer Box', set: '151', type: 'ETB', msrp: 49.99, release: '2023-09-22',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/489722_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/489722',
+                    'Amazon': 'https://www.amazon.com/dp/B0C2RFVMKT',
+                }
+            },
+            { 
+                name: '151 Ultra Premium Collection', set: '151', type: 'Collection Box', msrp: 119.99, release: '2023-10-06',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/489723_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/489723',
+                }
+            },
+            // Evolving Skies
+            { 
+                name: 'Evolving Skies Booster Box', set: 'Evolving Skies', type: 'Booster Box', msrp: 143.64, release: '2021-08-27',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/243119_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/243119',
+                    'Amazon': 'https://www.amazon.com/dp/B0979V1TF9',
+                }
+            },
+            // Crown Zenith
+            { 
+                name: 'Crown Zenith Elite Trainer Box', set: 'Crown Zenith', type: 'ETB', msrp: 49.99, release: '2023-01-20',
+                image: 'https://tcgplayer-cdn.tcgplayer.com/product/283604_200w.jpg',
+                urls: {
+                    'TCGPlayer': 'https://www.tcgplayer.com/product/283604',
+                }
+            },
+        ];
+        
+        // Fallback URL patterns (used when direct URL not available)
+        const RETAILER_SEARCH_URLS = {
+            'Target': (name) => `https://www.target.com/s?searchTerm=${encodeURIComponent(name + ' pokemon')}`,
+            'Walmart': (name) => `https://www.walmart.com/search?q=${encodeURIComponent(name + ' pokemon tcg')}`,
+            'Best Buy': (name) => `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(name + ' pokemon')}`,
+            'GameStop': (name) => `https://www.gamestop.com/search/?q=${encodeURIComponent(name)}&lang=en_US`,
+            'Pokemon Center': (name) => `https://www.pokemoncenter.com/search/${encodeURIComponent(name)}`,
+            'Amazon': (name) => `https://www.amazon.com/s?k=${encodeURIComponent(name + ' pokemon tcg')}`,
+            'TCGPlayer': (name) => `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}&view=grid`,
+        };
+        
         async function findStock() {
             const zip = document.getElementById('stockZip').value || settings.zip || '90210';
             const query = document.getElementById('stockQuery').value || 'pokemon';
             const results = document.getElementById('stockResults');
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching for products...</div>';
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching sealed products...</div>';
             
-            let allProducts = [];
+            // Filter sealed products by search query
+            const queryLower = query.toLowerCase();
+            const matchingProducts = SEALED_PRODUCTS.filter(p => {
+                const searchText = `${p.name} ${p.set} ${p.type}`.toLowerCase();
+                // Match if any word from query is in the product (words > 2 chars)
+                return queryLower.split(' ').some(word => word.length > 2 && searchText.includes(word));
+            });
             
-            try {
-                // Primary source: Pokemon TCG API (fast and reliable)
-                // This gives us card data with TCGPlayer prices
-                const tcgResponse = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=30&orderBy=-tcgplayer.prices.holofoil.market`);
+            // Sort by release date (newest first)
+            matchingProducts.sort((a, b) => new Date(b.release) - new Date(a.release));
+            
+            // Get selected retailer filter
+            const retailerFilter = currentRetailerFilter || 'all';
+            
+            // Render products directly
+            if (matchingProducts.length > 0) {
+                renderSealedProducts(matchingProducts, retailerFilter);
                 
-                if (tcgResponse.ok) {
-                    const tcgData = await tcgResponse.json();
-                    if (tcgData.data && tcgData.data.length > 0) {
-                        // Convert to product format
-                        const tcgProducts = tcgData.data.map(card => {
-                            const prices = card.tcgplayer?.prices || {};
-                            const price = prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0;
-                            return {
-                                name: `${card.name} - ${card.set?.name || 'Unknown Set'}`,
-                                retailer: 'TCGPlayer',
-                                price: price,
-                                stock: price > 0,
-                                image_url: card.images?.small || '',
-                                url: card.tcgplayer?.url || `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(card.name)}`,
-                                sku: card.id,
-                                category: 'Singles'
-                            };
-                        }).filter(p => p.price > 0);
-                        
-                        allProducts.push(...tcgProducts);
-                        console.log('TCGPlayer cards:', tcgProducts.length);
-                    }
-                }
-                
-                // Also try backend for sealed products if available (with short timeout)
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    
-                    const backendResponse = await fetch(`${API}/scanner/target?q=${encodeURIComponent(query)}&zip=${zip}&limit=10`, {
-                        signal: controller.signal,
-                        headers: { 'Accept': 'application/json' }
-                    });
-                    clearTimeout(timeoutId);
-                    
-                    if (backendResponse.ok) {
-                        const backendData = await backendResponse.json();
-                        if (backendData.products && backendData.products.length > 0) {
-                            backendData.products.forEach(p => p.retailer = p.retailer || 'Target');
-                            allProducts.push(...backendData.products);
-                            console.log('Target products:', backendData.products.length);
-                        }
-                    }
-                } catch (e) {
-                    console.log('Backend unavailable, using TCG API only');
-                }
-                
-            } catch (e) {
-                console.error('Stock fetch error:', e);
-                results.innerHTML = `
-                    <div class="card" style="text-align: center; padding: 2rem;">
-                        <div style="font-size: 2rem; margin-bottom: 1rem;">⚠️</div>
-                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Search Error</div>
-                        <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
-                            Could not fetch product data. Please try again.
-                        </div>
-                        <button class="btn" onclick="findStock()">Retry</button>
-                    </div>
-                `;
+                // Update stats
+                const totalRetailers = retailerFilter === 'all' ? 7 : 1;
+                document.getElementById('statStores').textContent = totalRetailers;
+                document.getElementById('statInStock').textContent = matchingProducts.length;
+                document.getElementById('statProducts').textContent = matchingProducts.length;
+                document.getElementById('statUnits').textContent = '-';
                 return;
             }
             
-            // Show results if we have data
-            if (allProducts.length > 0) {
-                allStockStores = convertRealProductsToStores(allProducts, zip, query);
-                console.log('Total products found:', allProducts.length, 'from', allStockStores.length, 'sources');
+            // No products matched - show helpful message
+            results.innerHTML = `
+                <div class="card" style="text-align: center; padding: 2rem;">
+                    <div style="font-size: 2rem; margin-bottom: 1rem;">📦</div>
+                    <div style="font-weight: 600; margin-bottom: 0.5rem;">No Products Found</div>
+                    <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                        No sealed products found for "<strong>${query}</strong>".<br>
+                        Try searching for a set name or product type.
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='prismatic evolutions'; findStock();">Prismatic Evolutions</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='destined rivals'; findStock();">Destined Rivals</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='booster box'; findStock();">Booster Box</button>
+                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='etb'; findStock();">Elite Trainer Box</button>
+                    </div>
+                </div>
+            `;
+            
+            // Reset stats
+            document.getElementById('statStores').textContent = '0';
+            document.getElementById('statInStock').textContent = '0';
+            document.getElementById('statProducts').textContent = '0';
+            document.getElementById('statUnits').textContent = '0';
+        }
+        
+        // Render sealed products with direct retailer links
+        function renderSealedProducts(products, retailerFilter) {
+            const results = document.getElementById('stockResults');
+            const retailers = ['Target', 'Walmart', 'Best Buy', 'GameStop', 'Pokemon Center', 'Amazon', 'TCGPlayer'];
+            const retailerColors = {
+                'Target': '#cc0000',
+                'Walmart': '#0071ce',
+                'Best Buy': '#0046be',
+                'GameStop': '#000000',
+                'Pokemon Center': '#ffcb05',
+                'Amazon': '#ff9900',
+                'TCGPlayer': '#1a4b8e',
+            };
+            
+            results.innerHTML = products.map(product => {
+                // Get URLs for this product (direct URLs or fallback search URLs)
+                const productUrls = product.urls || {};
+                const availableRetailers = retailerFilter === 'all' 
+                    ? retailers 
+                    : retailers.filter(r => r === retailerFilter);
                 
-                // Apply current filter
-                const filteredStores = currentRetailerFilter === 'all' 
-                    ? allStockStores 
-                    : allStockStores.filter(s => s.chain === currentRetailerFilter);
+                const retailerLinks = availableRetailers.map(retailer => {
+                    const url = productUrls[retailer] || RETAILER_SEARCH_URLS[retailer](product.name);
+                    const isDirect = !!productUrls[retailer];
+                    const color = retailerColors[retailer];
+                    const textColor = retailer === 'Pokemon Center' ? '#000' : '#fff';
+                    
+                    return `
+                        <a href="${url}" target="_blank" rel="noopener" 
+                           style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.375rem 0.75rem; 
+                                  background: ${color}; color: ${textColor}; border-radius: 6px; 
+                                  font-size: 0.75rem; font-weight: 600; text-decoration: none; 
+                                  transition: transform 0.1s, opacity 0.1s;"
+                           onmouseover="this.style.transform='scale(1.05)'" 
+                           onmouseout="this.style.transform='scale(1)'"
+                           title="${isDirect ? 'Direct product link' : 'Search results'}">
+                            ${retailer}
+                            ${isDirect ? '<span style="font-size: 0.625rem;">✓</span>' : ''}
+                        </a>
+                    `;
+                }).join('');
                 
-                const totalUnits = allStockStores.reduce((sum, s) => sum + (s.total_quantity || 0), 0);
-                const storesWithStock = allStockStores.filter(s => s.has_stock).length;
-                const totalProducts = allStockStores.reduce((sum, s) => sum + (s.products?.length || 0), 0);
-                
-                // Update stats
-                document.getElementById('statStores').textContent = filteredStores.length;
-                document.getElementById('statInStock').textContent = storesWithStock;
-                document.getElementById('statProducts').textContent = totalProducts;
-                document.getElementById('statUnits').textContent = totalUnits;
-                
-                // Render results
-                renderStockResults(filteredStores);
-            } else {
-                // No data found
-                results.innerHTML = `
-                    <div class="card" style="text-align: center; padding: 2rem;">
-                        <div style="font-size: 2rem; margin-bottom: 1rem;">📦</div>
-                        <div style="font-weight: 600; margin-bottom: 0.5rem;">No Products Found</div>
-                        <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
-                            No stock data found for "<strong>${query}</strong>".<br>
-                            Try a different search term like a card name or product type.
-                        </div>
-                        <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
-                            <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='charizard'; findStock();">Charizard</button>
-                            <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='pikachu'; findStock();">Pikachu</button>
-                            <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='umbreon'; findStock();">Umbreon</button>
+                return `
+                    <div class="card" style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap;">
+                        <img src="${product.image}" alt="${product.name}" 
+                             style="width: 100px; height: auto; border-radius: 8px; flex-shrink: 0;"
+                             onerror="this.style.display='none'">
+                        <div style="flex: 1; min-width: 200px;">
+                            <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">${product.name}</div>
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                <span>${product.set}</span>
+                                <span>${product.type}</span>
+                                <span>Released: ${product.release}</span>
+                            </div>
+                            <div style="font-family: 'Space Mono', monospace; font-size: 1.125rem; font-weight: 700; color: var(--green); margin-bottom: 0.75rem;">
+                                MSRP: $${product.msrp.toFixed(2)}
+                            </div>
+                            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase;">
+                                Check Stock At:
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                ${retailerLinks}
+                            </div>
                         </div>
                     </div>
                 `;
-                
-                // Reset stats
-                document.getElementById('statStores').textContent = '0';
-                document.getElementById('statInStock').textContent = '0';
-                document.getElementById('statProducts').textContent = '0';
-                document.getElementById('statUnits').textContent = '0';
-            }
+            }).join('');
         }
         
         // Convert real scraped products to store format for display
