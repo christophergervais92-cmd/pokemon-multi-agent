@@ -20,17 +20,51 @@ app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 
 # =============================================================================
-# CORS SUPPORT - Allow browser requests from file:// and localhost
+# CORS SUPPORT - Restricted to allowed origins
 # =============================================================================
+
+# Allowed origins for CORS - add your domains here
+ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://localhost:5001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:5001',
+    'https://pokemon-multi-agent.vercel.app',
+    'https://poke-agent.vercel.app',
+    'https://pokemon-multi-agent.onrender.com',
+]
+
+def get_cors_origin():
+    """Get the appropriate CORS origin based on request."""
+    origin = request.headers.get('Origin', '')
+    
+    # Allow file:// protocol for local development
+    if origin.startswith('file://'):
+        return '*'
+    
+    # Check if origin is in allowed list
+    if origin in ALLOWED_ORIGINS:
+        return origin
+    
+    # Allow any vercel.app subdomain for preview deployments
+    if origin.endswith('.vercel.app'):
+        return origin
+    
+    # Default: return first allowed origin (restrictive)
+    return ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else ''
 
 @app.after_request
 def add_cors_headers(response):
     """Add CORS headers and optimization headers to all responses."""
-    # CORS headers
-    response.headers['Access-Control-Allow-Origin'] = '*'
+    # CORS headers - use specific origin instead of wildcard
+    cors_origin = get_cors_origin()
+    response.headers['Access-Control-Allow-Origin'] = cors_origin
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
     response.headers['Access-Control-Max-Age'] = '3600'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
     
     # Performance optimizations
     # Cache static/scanner endpoints for 30 seconds
