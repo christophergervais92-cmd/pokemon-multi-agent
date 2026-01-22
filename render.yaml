@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: poke-agent-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd agents && gunicorn agents_server:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+    plan: free

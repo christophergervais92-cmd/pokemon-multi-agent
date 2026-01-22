@@ -1,0 +1,76 @@
+{
+  "pokemon_multi_agent": {
+    "version": "1.0.0",
+    "description": "Pokemon Card Multi-Agent System - Scans retailers, analyzes prices, and auto-buys deals",
+    
+    "watchlist": {
+      "enabled": true,
+      "sets": [
+        "Paldean Fates",
+        "Prismatic Evolutions",
+        "Surging Sparks",
+        "Scarlet & Violet",
+        "Crown Zenith",
+        "Pokemon 151",
+        "Obsidian Flames",
+        "Paradox Rift"
+      ],
+      "product_types": [
+        "Elite Trainer Box",
+        "Booster Box",
+        "Ultra Premium Collection",
+        "Booster Bundle",
+        "Collection Box",
+        "Blister Pack"
+      ]
+    },
+    
+    "price_thresholds": {
+      "min_discount_percent": 15,
+      "max_price": 150,
+      "good_deal_percent": 25,
+      "great_deal_percent": 40
+    },
+    
+    "autobuy": {
+      "enabled": false,
+      "simulation_mode": true,
+      "max_purchase_price": 100,
+      "max_daily_spend": 500,
+      "max_quantity_per_product": 2,
+      "retailers": {
+        "Target": { "enabled": true, "priority": 1 },
+        "Walmart": { "enabled": true, "priority": 2 },
+        "Best Buy": { "enabled": true, "priority": 3 },
+        "GameStop": { "enabled": true, "priority": 4 },
+        "Costco": { "enabled": true, "priority": 5 }
+      }
+    },
+    
+    "notifications": {
+      "discord": {
+        "enabled": true,
+        "channels": {
+          "stock_alerts": "DISCORD_CHANNEL_ID",
+          "deal_alerts": "DISCORD_CHANNEL_ID",
+          "purchase_confirmations": "DISCORD_CHANNEL_ID"
+        },
+        "mention_on_great_deal": true,
+        "mention_role_id": ""
+      }
+    },
+    
+    "scan_schedule": {
+      "interval_minutes": 10,
+      "active_hours": {
+        "start": "06:00",
+        "end": "23:00"
+      }
+    },
+    
+    "api_keys": {
+      "pokemon_price_tracker": "POKEMON_PRICE_API_KEY",
+      "best_buy_api": "BESTBUY_API_KEY"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database files (contain user data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache directories
+.price_cache/
+.stock_cache/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Node modules (if any)
+node_modules/
+
+# Python virtual environments
+venv/
+env/
+.venv/
