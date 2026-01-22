@@ -5434,16 +5434,50 @@
                 }
             }
             
-            // Fetch price data from backend
-            const priceData = await api(`/prices/card/${encodeURIComponent(card.name)}`).catch(() => ({}));
+            // Fetch price data from backend (with timeout and error handling)
+            let priceData = {};
+            try {
+                priceData = await Promise.race([
+                    api(`/prices/card/${encodeURIComponent(card.name)}`),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]).catch((e) => {
+                    console.log('Price API call failed or timed out:', e.message);
+                    return {};
+                });
+            } catch (e) {
+                console.log('Error fetching price data:', e);
+            }
             
             // Store price data for use in displayCardDetail
             if (priceData && !priceData.error) {
                 card.priceData = priceData;
             }
             
+            // Ensure card has basic price data from TCGPlayer if API failed
+            if (!card.priceData && card.tcgplayer?.prices) {
+                const prices = card.tcgplayer.prices;
+                card.priceData = {
+                    raw: {
+                        price: prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0,
+                        low: prices.holofoil?.low || prices.normal?.low || 0,
+                        high: prices.holofoil?.high || prices.normal?.high || 0
+                    }
+                };
+            }
+            
             // Display detailed view using the proper cardDetail system
-            displayCardDetail(card, allVariations);
+            try {
+                displayCardDetail(card, allVariations);
+            } catch (e) {
+                console.error('Error displaying card detail:', e);
+                // Show error message
+                const detailName = document.getElementById('detailName');
+                if (detailName) detailName.textContent = 'Error loading card data';
+                const detailPrices = document.getElementById('detailPrices');
+                if (detailPrices) {
+                    detailPrices.innerHTML = `<div style="padding: 1rem; color: var(--red);">Error: ${e.message}</div>`;
+                }
+            }
         }
         
         // Legacy single card fetch (for compatibility)
@@ -6195,40 +6229,91 @@
                 }
             }
             
-            // Prices
-            if (typeof displayCardPrices === 'function') {
-                displayCardPrices(card);
-            } else {
-                // Fallback: display prices directly
+            // Prices - Always try to display, use fallback if needed
+            try {
+                if (typeof displayCardPrices === 'function') {
+                    displayCardPrices(card);
+                } else {
+                    displayCardPricesFallback(card);
+                }
+            } catch (e) {
+                console.error('Error displaying prices:', e);
                 displayCardPricesFallback(card);
             }
             
             // Recent sales
-            if (typeof displayRecentSales === 'function') {
-                displayRecentSales(card);
+            try {
+                if (typeof displayRecentSales === 'function') {
+                    displayRecentSales(card);
+                } else {
+                    // Fallback for recent sales
+                    const salesDiv = document.getElementById('recentSales');
+                    if (salesDiv) {
+                        const prices = card.tcgplayer?.prices || {};
+                        const marketPrice = prices.holofoil?.market || prices.normal?.market || 0;
+                        salesDiv.innerHTML = `
+                            <div style="padding: 1rem; text-align: center; color: var(--text-muted);">
+                                ${marketPrice > 0 ? `Market Price: $${marketPrice.toFixed(2)}` : 'Price data loading...'}
+                            </div>
+                        `;
+                    }
+                }
+            } catch (e) {
+                console.error('Error displaying recent sales:', e);
             }
             
             // Buy links
-            if (typeof displayBuyLinks === 'function') {
-                displayBuyLinks(card);
-            } else {
+            try {
+                if (typeof displayBuyLinks === 'function') {
+                    displayBuyLinks(card);
+                } else {
+                    displayBuyLinksFallback(card);
+                }
+            } catch (e) {
+                console.error('Error displaying buy links:', e);
                 displayBuyLinksFallback(card);
             }
             
             // Price chart
-            if (typeof generatePriceHistory === 'function' && typeof drawPriceChart === 'function') {
-                generatePriceHistory(card);
-                drawPriceChart();
-            } else {
-                // Fallback: show placeholder
-                const chartCanvas = document.getElementById('priceChart');
-                if (chartCanvas) {
-                    const ctx = chartCanvas.getContext('2d');
-                    ctx.fillStyle = 'var(--text-muted)';
-                    ctx.font = '14px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Price history chart coming soon', chartCanvas.width / 2, chartCanvas.height / 2);
+            try {
+                if (typeof generatePriceHistory === 'function' && typeof drawPriceChart === 'function') {
+                    generatePriceHistory(card);
+                    drawPriceChart();
+                } else {
+                    // Fallback: show placeholder or generate simple chart
+                    const chartCanvas = document.getElementById('priceChart');
+                    if (chartCanvas) {
+                        const ctx = chartCanvas.getContext('2d');
+                        const prices = card.tcgplayer?.prices || {};
+                        const marketPrice = prices.holofoil?.market || prices.normal?.market || 0;
+                        
+                        if (marketPrice > 0) {
+                            // Draw a simple price line
+                            ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+                            ctx.strokeStyle = 'var(--accent)';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            const padding = 20;
+                            const width = chartCanvas.width - padding * 2;
+                            const height = chartCanvas.height - padding * 2;
+                            ctx.moveTo(padding, height + padding);
+                            ctx.lineTo(width + padding, padding);
+                            ctx.stroke();
+                            
+                            ctx.fillStyle = 'var(--text)';
+                            ctx.font = '12px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(`Market: $${marketPrice.toFixed(2)}`, chartCanvas.width / 2, chartCanvas.height / 2);
+                        } else {
+                            ctx.fillStyle = 'var(--text-muted)';
+                            ctx.font = '14px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('Price history chart loading...', chartCanvas.width / 2, chartCanvas.height / 2);
+                        }
+                    }
                 }
+            } catch (e) {
+                console.error('Error displaying price chart:', e);
             }
         }
         
@@ -6430,7 +6515,14 @@
         }
         
         function displayCardPrices(card) {
+            const detailPrices = document.getElementById('detailPrices');
+            if (!detailPrices) {
+                console.error('detailPrices element not found');
+                return;
+            }
+            
             const prices = card.tcgplayer?.prices || {};
+            const priceData = card.priceData || {};
             const priceTypes = ['normal', 'holofoil', 'reverseHolofoil', '1stEditionHolofoil', '1stEditionNormal', 'unlimited'];
             
             // Data source header
@@ -6440,9 +6532,40 @@
                 </div>
             `;
             
-            // Raw prices from TCGPlayer
+            // Use priceData from API if available, otherwise use TCGPlayer data
+            const rawPrice = priceData.raw?.price || prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0;
+            const rawLow = priceData.raw?.low || prices.holofoil?.low || prices.normal?.low || 0;
+            const rawHigh = priceData.raw?.high || prices.holofoil?.high || prices.normal?.high || 0;
+            
+            // Always show raw prices
+            if (rawPrice > 0) {
+                priceHtml += `
+                    <div class="price-cell">
+                        <div class="price-label">Raw (Market)</div>
+                        <div class="price-value">$${rawPrice.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (rawLow > 0) {
+                priceHtml += `
+                    <div class="price-cell">
+                        <div class="price-label">Raw (Low)</div>
+                        <div class="price-value">$${rawLow.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            if (rawHigh > 0) {
+                priceHtml += `
+                    <div class="price-cell">
+                        <div class="price-label">Raw (High)</div>
+                        <div class="price-value">$${rawHigh.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+            
+            // Raw prices from TCGPlayer (additional types)
             for (const type of priceTypes) {
-                if (prices[type]) {
+                if (prices[type] && !['normal', 'holofoil'].includes(type)) {
                     const p = prices[type];
                     const ebayEst = (p.market * (0.95 + Math.random() * 0.1)).toFixed(2);
                     priceHtml += `
