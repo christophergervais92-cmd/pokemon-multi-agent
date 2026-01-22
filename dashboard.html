@@ -5398,19 +5398,52 @@
         // Select a single card to show detailed view
         async function selectCardForDetail(card) {
             selectedCard = card;
+            
+            // Hide grid and results, show detail
             const results = document.getElementById('cardResults');
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Loading card details...</div>';
+            const grid = document.getElementById('cardGrid');
+            const detail = document.getElementById('cardDetail');
+            
+            if (results) results.style.display = 'none';
+            if (grid) grid.style.display = 'none';
+            if (detail) detail.style.display = 'block';
+            
+            // Show loading state
+            if (detail) {
+                document.getElementById('detailImage').src = '';
+                document.getElementById('detailName').textContent = 'Loading...';
+                document.getElementById('detailSet').textContent = '';
+                document.getElementById('detailPrices').innerHTML = '<div class="loading"><div class="spinner"></div>Loading prices...</div>';
+            }
+            
+            // Find all variations of this card (same name, different sets)
+            let allVariations = (allCardResults || []).filter(c => 
+                c.name && c.name.toLowerCase() === card.name.toLowerCase() && !c.isProduct
+            );
+            
+            // If only one variation found, search for more
+            if (allVariations.length < 3) {
+                try {
+                    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=30&orderBy=-set.releaseDate`);
+                    const data = await res.json();
+                    if (data.data?.length) {
+                        allVariations = data.data;
+                    }
+                } catch (e) { 
+                    console.log('Variation fetch failed:', e); 
+                }
+            }
             
             // Fetch price data from backend
             const priceData = await api(`/prices/card/${encodeURIComponent(card.name)}`).catch(() => ({}));
             
-            // Display detailed view
-            displayCardResults({
-                priceData,
-                cardInfo: card,
-                cardImage: card.images?.large || card.images?.small,
-                name: card.name
-            });
+            // Store price data for use in displayCardDetail
+            if (priceData && !priceData.error) {
+                card.priceData = priceData;
+            }
+            
+            // Display detailed view using the proper cardDetail system
+            displayCardDetail(card, allVariations);
         }
         
         // Legacy single card fetch (for compatibility)
@@ -6104,17 +6137,28 @@
             displayCardDetail(selectedCard);
         }
         
-        function displayCardDetail(card) {
+        function displayCardDetail(card, variations = null) {
+            // Use provided variations or fall back to global
+            const cardVariations = variations || allVariations || [card];
+            
             // Image
-            document.getElementById('detailImage').src = card.images?.large || card.images?.small || '';
+            const detailImage = document.getElementById('detailImage');
+            if (detailImage) {
+                detailImage.src = card.images?.large || card.images?.small || 'https://images.pokemontcg.io/base1/4.png';
+            }
             
             // Basic info
-            document.getElementById('detailName').textContent = card.name;
-            document.getElementById('detailSet').innerHTML = `
-                ${card.set?.name || ''} 
-                ${card.number ? `#${card.number}/${card.set?.printedTotal || '?'}` : ''}
-                ${card.rarity ? `• ${card.rarity}` : ''}
-            `;
+            const detailName = document.getElementById('detailName');
+            if (detailName) detailName.textContent = card.name || 'Unknown Card';
+            
+            const detailSet = document.getElementById('detailSet');
+            if (detailSet) {
+                detailSet.innerHTML = `
+                    ${card.set?.name || ''} 
+                    ${card.number ? `#${card.number}/${card.set?.printedTotal || '?'}` : ''}
+                    ${card.rarity ? `• ${card.rarity}` : ''}
+                `;
+            }
             
             // Meta tags
             const meta = [];
@@ -6122,33 +6166,124 @@
             if (card.types?.length) meta.push(...card.types.map(t => `${getTypeEmoji(t)} ${t}`));
             if (card.supertype) meta.push(card.supertype);
             if (card.subtypes?.length) meta.push(...card.subtypes);
-            if (card.artist) meta.push(`${card.artist}`);
+            if (card.artist) meta.push(`Art: ${card.artist}`);
             
-            document.getElementById('detailMeta').innerHTML = meta.map(m => 
-                `<span class="meta-tag">${m}</span>`
-            ).join('');
+            const detailMeta = document.getElementById('detailMeta');
+            if (detailMeta) {
+                detailMeta.innerHTML = meta.length > 0 ? meta.map(m => 
+                    `<span class="meta-tag">${m}</span>`
+                ).join('') : '<span class="meta-tag">Pokemon Card</span>';
+            }
             
             // Variation dropdown
             const variationSelect = document.getElementById('variationSelect');
-            variationSelect.innerHTML = allVariations.map((v, i) => {
-                const vPrice = v.tcgplayer?.prices?.holofoil?.market || 
-                               v.tcgplayer?.prices?.normal?.market || 'N/A';
-                const selected = v.id === card.id ? 'selected' : '';
-                return `<option value="${i}" ${selected}>${v.set?.name || 'Unknown'} ${v.number ? '#' + v.number : ''} - $${vPrice}</option>`;
-            }).join('');
+            if (variationSelect) {
+                if (cardVariations.length > 1) {
+                    variationSelect.innerHTML = cardVariations.map((v, i) => {
+                        const vPrice = v.tcgplayer?.prices?.holofoil?.market || 
+                                       v.tcgplayer?.prices?.normal?.market || 
+                                       v.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+                        const priceStr = vPrice > 0 ? `$${vPrice.toFixed(2)}` : 'N/A';
+                        const selected = (v.id === card.id || i === 0) ? 'selected' : '';
+                        return `<option value="${i}" ${selected}>${v.set?.name || 'Unknown'} ${v.number ? '#' + v.number : ''} - ${priceStr}</option>`;
+                    }).join('');
+                    // Store variations globally for selectVariation function
+                    allVariations = cardVariations;
+                } else {
+                    variationSelect.innerHTML = `<option value="0">${card.set?.name || 'Unknown'} ${card.number ? '#' + card.number : ''}</option>`;
+                    allVariations = [card];
+                }
+            }
             
             // Prices
-            displayCardPrices(card);
+            if (typeof displayCardPrices === 'function') {
+                displayCardPrices(card);
+            } else {
+                // Fallback: display prices directly
+                displayCardPricesFallback(card);
+            }
             
             // Recent sales
-            displayRecentSales(card);
+            if (typeof displayRecentSales === 'function') {
+                displayRecentSales(card);
+            }
             
             // Buy links
-            displayBuyLinks(card);
+            if (typeof displayBuyLinks === 'function') {
+                displayBuyLinks(card);
+            } else {
+                displayBuyLinksFallback(card);
+            }
             
             // Price chart
-            generatePriceHistory(card);
-            drawPriceChart();
+            if (typeof generatePriceHistory === 'function' && typeof drawPriceChart === 'function') {
+                generatePriceHistory(card);
+                drawPriceChart();
+            } else {
+                // Fallback: show placeholder
+                const chartCanvas = document.getElementById('priceChart');
+                if (chartCanvas) {
+                    const ctx = chartCanvas.getContext('2d');
+                    ctx.fillStyle = 'var(--text-muted)';
+                    ctx.font = '14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Price history chart coming soon', chartCanvas.width / 2, chartCanvas.height / 2);
+                }
+            }
+        }
+        
+        function displayCardPricesFallback(card) {
+            const detailPrices = document.getElementById('detailPrices');
+            if (!detailPrices) return;
+            
+            const prices = card.tcgplayer?.prices || {};
+            const raw = card.priceData?.raw || {};
+            const graded = card.priceData?.graded || {};
+            
+            const marketPrice = raw.price || prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0;
+            const lowPrice = raw.low || prices.holofoil?.low || prices.normal?.low || 0;
+            const highPrice = raw.high || prices.holofoil?.high || prices.normal?.high || 0;
+            
+            let pricesHTML = `
+                <div class="price-item">
+                    <span class="price-label">Raw (Market)</span>
+                    <span class="price-value">$${formatPrice(marketPrice)}</span>
+                </div>
+                <div class="price-item">
+                    <span class="price-label">Raw (Low)</span>
+                    <span class="price-value">$${formatPrice(lowPrice)}</span>
+                </div>
+                <div class="price-item">
+                    <span class="price-label">Raw (High)</span>
+                    <span class="price-value">$${formatPrice(highPrice)}</span>
+                </div>
+            `;
+            
+            // Add graded prices if available
+            if (graded && Object.keys(graded).length > 0) {
+                Object.entries(graded).slice(0, 6).forEach(([grade, info]) => {
+                    pricesHTML += `
+                        <div class="price-item">
+                            <span class="price-label">${grade}</span>
+                            <span class="price-value">$${formatPrice(info.price || 0)}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            detailPrices.innerHTML = pricesHTML;
+        }
+        
+        function displayBuyLinksFallback(card) {
+            const detailBuyLinks = document.getElementById('detailBuyLinks');
+            if (!detailBuyLinks) return;
+            
+            const cardName = encodeURIComponent(card.name);
+            detailBuyLinks.innerHTML = `
+                <a href="https://www.tcgplayer.com/search/pokemon/product?q=${cardName}" target="_blank" class="btn btn-outline">TCGPlayer</a>
+                <a href="https://www.ebay.com/sch/i.html?_nkw=${cardName} pokemon card" target="_blank" class="btn btn-outline">eBay</a>
+                <a href="https://www.trollandtoad.com/pokemon/7061?search-words=${cardName}" target="_blank" class="btn btn-outline">Troll & Toad</a>
+            `;
         }
         
         // Display recent sales with REAL pricing data from TCGPlayer/eBay
@@ -6466,10 +6601,13 @@
         }
         
         function selectVariation() {
-            const index = parseInt(document.getElementById('variationSelect').value);
-            if (allVariations[index]) {
+            const variationSelect = document.getElementById('variationSelect');
+            if (!variationSelect) return;
+            
+            const index = parseInt(variationSelect.value);
+            if (allVariations && allVariations[index]) {
                 selectedCard = allVariations[index];
-                displayCardDetail(selectedCard);
+                displayCardDetail(selectedCard, allVariations);
             }
         }
         
