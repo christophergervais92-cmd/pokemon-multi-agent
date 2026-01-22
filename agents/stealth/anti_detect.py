@@ -21,6 +21,7 @@ import random
 import time
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
+from pathlib import Path
 import requests
 
 # =============================================================================
@@ -118,22 +119,79 @@ PROXY_SERVICE_KEY = os.environ.get("PROXY_SERVICE_KEY", "")
 # Free proxy list (fallback - less reliable)
 FREE_PROXIES = os.environ.get("FREE_PROXY_LIST", "").split(",") if os.environ.get("FREE_PROXY_LIST") else []
 
+# Free proxy sources (scraped from public lists)
+FREE_PROXY_SOURCES = [
+    "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+    "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+]
+
+
+def fetch_free_proxies() -> List[str]:
+    """
+    Fetch free proxies from public sources.
+    
+    WARNING: Free proxies are unreliable and may be slow/insecure.
+    Use at your own risk.
+    """
+    proxies = []
+    
+    if not requests:
+        return proxies
+    
+    for source in FREE_PROXY_SOURCES:
+        try:
+            resp = requests.get(source, timeout=10)
+            if resp.status_code == 200:
+                # Parse proxy list (format: ip:port)
+                for line in resp.text.split('\n'):
+                    line = line.strip()
+                    if line and ':' in line and not line.startswith('#'):
+                        proxies.append(f"http://{line}")
+        except:
+            continue
+    
+    return proxies[:50]  # Limit to 50 to avoid too many
+
+
+# Cache for free proxies (refresh every hour)
+_free_proxy_cache: List[str] = []
+_free_proxy_cache_time: Optional[datetime] = None
 
 def get_random_proxy() -> Optional[Dict[str, str]]:
     """Get a random proxy for the request."""
+    global _free_proxy_cache, _free_proxy_cache_time
+    
     if PROXY_SERVICE_URL:
-        # Use proxy service (e.g., Bright Data, Oxylabs)
+        # Use configured proxy directly (no rotation, no port switching)
         return {
             "http": PROXY_SERVICE_URL,
             "https": PROXY_SERVICE_URL,
         }
     elif FREE_PROXIES and FREE_PROXIES[0]:
-        # Use free proxy list (less reliable)
+        # Use free proxy list from env (less reliable)
         proxy = random.choice(FREE_PROXIES)
         return {
             "http": proxy,
             "https": proxy,
         }
+    else:
+        # Try fetching free proxies from public sources
+        # Only fetch once per hour to avoid rate limits
+        if (_free_proxy_cache_time is None or 
+            (datetime.now() - _free_proxy_cache_time).total_seconds() > 3600):
+            _free_proxy_cache = fetch_free_proxies()
+            _free_proxy_cache_time = datetime.now()
+            if _free_proxy_cache:
+                print(f"📡 Fetched {len(_free_proxy_cache)} free proxies from public sources")
+        
+        if _free_proxy_cache:
+            proxy = random.choice(_free_proxy_cache)
+            return {
+                "http": proxy,
+                "https": proxy,
+            }
+    
     return None
 
 
@@ -149,16 +207,19 @@ class StealthSession:
     - Rotating user agents
     - Random delays between requests
     - Proxy support
-    - Cookie persistence
+    - Cookie persistence & sharing
     - Realistic headers
+    - Header consistency
+    - Referer chain building
     """
     
     def __init__(
         self,
-        min_delay: float = 1.0,
-        max_delay: float = 5.0,
-        use_proxy: bool = False,
+        min_delay: float = 2.0,
+        max_delay: float = 4.0,
+        use_proxy: bool = True,  # Default to True if proxy is configured
         persist_cookies: bool = True,
+        cookie_jar_file: Optional[str] = None,  # Save/load cookies from file
     ):
         """
         Initialize stealth session.
@@ -168,21 +229,82 @@ class StealthSession:
             max_delay: Maximum seconds between requests
             use_proxy: Whether to use proxy rotation
             persist_cookies: Whether to persist cookies between requests
+            cookie_jar_file: Path to save/load cookies (enables cookie sharing)
         """
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.use_proxy = use_proxy
         self.persist_cookies = persist_cookies
+        self.cookie_jar_file = cookie_jar_file
         
         self.session = requests.Session() if persist_cookies else None
         self.last_request_time: Optional[datetime] = None
         self.request_count = 0
+        self.current_user_agent: Optional[str] = None  # Track for consistency
+        self.referer_chain: List[str] = []  # Build realistic referer chain
+        
+        # Load cookies if file exists
+        if cookie_jar_file and self.session:
+            self._load_cookies()
         
     def _get_session(self) -> requests.Session:
         """Get or create session."""
         if self.persist_cookies and self.session:
             return self.session
         return requests.Session()
+    
+    def _load_cookies(self):
+        """Load cookies from file if exists."""
+        if not self.cookie_jar_file or not self.session:
+            return
+        
+        try:
+            import json
+            cookie_file = Path(self.cookie_jar_file)
+            if cookie_file.exists():
+                with open(cookie_file) as f:
+                    cookies = json.load(f)
+                    for cookie in cookies:
+                        # Convert back to Cookie object
+                        from http.cookies import SimpleCookie
+                        c = SimpleCookie()
+                        c.load(cookie.get('value', ''))
+                        self.session.cookies.set(
+                            cookie.get('name', ''),
+                            cookie.get('value', ''),
+                            domain=cookie.get('domain', ''),
+                            path=cookie.get('path', '/'),
+                        )
+                print(f"✅ Loaded {len(cookies)} cookies from {cookie_jar_file}")
+        except Exception as e:
+            print(f"⚠️ Failed to load cookies: {e}")
+    
+    def _save_cookies(self):
+        """Save cookies to file for reuse."""
+        if not self.cookie_jar_file or not self.session:
+            return
+        
+        try:
+            import json
+            from pathlib import Path
+            
+            cookies = []
+            for cookie in self.session.cookies:
+                cookies.append({
+                    'name': cookie.name,
+                    'value': cookie.value,
+                    'domain': cookie.domain,
+                    'path': cookie.path,
+                    'expires': cookie.expires,
+                })
+            
+            cookie_file = Path(self.cookie_jar_file)
+            cookie_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(cookie_file, 'w') as f:
+                json.dump(cookies, f)
+        except Exception as e:
+            print(f"⚠️ Failed to save cookies: {e}")
     
     def _random_delay(self):
         """Apply random delay before request (jitter)."""
@@ -199,7 +321,7 @@ class StealthSession:
                 time.sleep(actual_delay)
     
     def _get_headers(self, url: str) -> Dict[str, str]:
-        """Generate realistic headers for the request."""
+        """Generate realistic headers with consistency."""
         # Extract domain for referer selection
         domain = None
         for d in REFERERS.keys():
@@ -207,10 +329,26 @@ class StealthSession:
                 domain = d
                 break
         
+        # Choose User-Agent and keep it consistent for this session
+        if not self.current_user_agent:
+            self.current_user_agent = random.choice(USER_AGENTS)
+        
+        # Match Accept headers with User-Agent (Chrome vs Firefox vs Safari)
+        ua = self.current_user_agent.lower()
+        if "firefox" in ua:
+            accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+            accept_lang = random.choice(["en-US,en;q=0.5", "en-GB,en-US;q=0.9,en;q=0.8"])
+        elif "safari" in ua and "chrome" not in ua:
+            accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            accept_lang = random.choice(["en-US,en;q=0.9", "en-GB,en-US;q=0.9,en;q=0.8"])
+        else:  # Chrome/Edge
+            accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+            accept_lang = random.choice(ACCEPT_LANGUAGES)
+        
         headers = {
-            "User-Agent": random.choice(USER_AGENTS),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": random.choice(ACCEPT_LANGUAGES),
+            "User-Agent": self.current_user_agent,
+            "Accept": accept,
+            "Accept-Language": accept_lang,
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
@@ -221,17 +359,66 @@ class StealthSession:
             "Cache-Control": "max-age=0",
         }
         
-        # Add random referer
-        if domain and domain in REFERERS:
+        # Build referer chain (more realistic)
+        if self.referer_chain:
+            # Use last URL as referer (realistic browsing)
+            headers["Referer"] = self.referer_chain[-1]
+        elif domain and domain in REFERERS:
+            # First request - use random referer
             referer = random.choice(REFERERS[domain])
             if referer:
                 headers["Referer"] = referer
         
-        # Occasionally add DNT header
+        # Add to referer chain (keep last 5)
+        self.referer_chain.append(url)
+        if len(self.referer_chain) > 5:
+            self.referer_chain.pop(0)
+        
+        # Occasionally add DNT header (realistic - not everyone has it)
         if random.random() > 0.7:
             headers["DNT"] = "1"
         
+        # Add Viewport-Width for mobile user agents
+        if "mobile" in ua or "android" in ua or "iphone" in ua:
+            headers["Viewport-Width"] = str(random.choice([375, 390, 414, 428, 768]))
+        
         return headers
+    
+    def warm_retailer(self, retailer_url: str) -> bool:
+        """
+        Warm up session by visiting retailer homepage.
+        Makes requests look more like a real user browsing.
+        
+        Args:
+            retailer_url: Base URL of retailer (e.g., "https://www.gamestop.com")
+        
+        Returns:
+            True if successful
+        """
+        try:
+            # Visit homepage first
+            self.get(retailer_url, timeout=15)
+            time.sleep(random.uniform(1, 3))  # Mimic reading page
+            
+            # Visit a category page if available
+            category_urls = {
+                "gamestop.com": f"{retailer_url}/toys-games/trading-cards",
+                "pokemoncenter.com": f"{retailer_url}/category/trading-cards",
+                "costco.com": f"{retailer_url}/toys-games.html",
+                "amazon.com": f"{retailer_url}/s?k=trading+cards",
+                "barnesandnoble.com": f"{retailer_url}/b/toys-games/trading-cards/_/N-1p0i",
+            }
+            
+            for domain, cat_url in category_urls.items():
+                if domain in retailer_url:
+                    self.get(cat_url, timeout=15)
+                    time.sleep(random.uniform(1, 2))
+                    break
+            
+            return True
+        except Exception as e:
+            print(f"⚠️ Session warming error: {e}")
+            return False
     
     def get(
         self,
@@ -239,6 +426,7 @@ class StealthSession:
         params: Dict[str, Any] = None,
         headers: Dict[str, str] = None,
         timeout: int = 30,
+        warm_session: bool = False,
         **kwargs
     ) -> requests.Response:
         """
@@ -249,11 +437,20 @@ class StealthSession:
             params: Query parameters
             headers: Additional headers (merged with generated ones)
             timeout: Request timeout
+            warm_session: If True, warm session by visiting homepage first
             **kwargs: Additional requests arguments
         
         Returns:
             requests.Response
         """
+        # Warm session if requested (for first request to a retailer)
+        if warm_session:
+            # Extract base URL
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
+            self.warm_retailer(base_url)
+        
         # Apply jitter delay
         self._random_delay()
         
@@ -265,8 +462,8 @@ class StealthSession:
         if headers:
             request_headers.update(headers)
         
-        # Get proxy
-        proxies = get_random_proxy() if self.use_proxy else None
+        # Get proxy - always try to use if configured
+        proxies = get_random_proxy() if (self.use_proxy or PROXY_SERVICE_URL) else None
         
         # Make request
         try:
@@ -281,6 +478,10 @@ class StealthSession:
             
             self.last_request_time = datetime.now()
             self.request_count += 1
+            
+            # Save cookies after successful request
+            if self.cookie_jar_file and self.request_count % 5 == 0:  # Save every 5 requests
+                self._save_cookies()
             
             return response
             
@@ -394,7 +595,7 @@ def get_stealth_session(use_proxy: bool = None) -> StealthSession:
         # Use proxy if configured
         proxy_enabled = use_proxy if use_proxy is not None else bool(PROXY_SERVICE_URL or FREE_PROXIES)
         _global_session = StealthSession(
-            min_delay=1.0,
+            min_delay=2.0,  # Increased from 1.0 for better success
             max_delay=4.0,
             use_proxy=proxy_enabled,
             persist_cookies=True,

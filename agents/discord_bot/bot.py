@@ -48,9 +48,9 @@ from user_db import (
 )
 
 # Bot configuration - Load from .env or environment
-# Set these in your .env file or environment variables
+# Using the existing LO TCG bot token
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
-DISCORD_CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "")
+DISCORD_CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "1404800573206827139")
 DISCORD_GUILD_ID = os.environ.get("DISCORD_GUILD_ID", "")  # Optional: for faster command sync
 DISCORD_ALERT_ROLES = os.environ.get("DISCORD_ALERT_ROLES", "").split(",") if os.environ.get("DISCORD_ALERT_ROLES") else []
 
@@ -130,7 +130,7 @@ async def stock_monitor():
         import requests
         
         # Scan all retailers
-        response = requests.post("http://127.0.0.1:5001/scanner/all", timeout=60)
+        response = requests.post("http://127.0.0.1:5001/scanner/unified", timeout=60)
         if response.status_code != 200:
             return
         
@@ -288,7 +288,7 @@ async def check_stock(ctx, *, query: str = None):
         import requests
         
         # Scan all retailers
-        response = requests.post("http://127.0.0.1:5001/scanner/all", timeout=60)
+        response = requests.post("http://127.0.0.1:5001/scanner/unified", timeout=60)
         if response.status_code != 200:
             await ctx.send("❌ Error scanning retailers. Is the server running?")
             return

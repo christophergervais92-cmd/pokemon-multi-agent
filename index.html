@@ -1,8 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta http-equiv="refresh" content="0; url=dashboard.html">
     <title>Poke Agent</title>
+    <script>
+    // Clear old service workers and caches
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(r) {
+            r.forEach(function(reg) { reg.unregister(); });
+        });
+    }
+    if ('caches' in window) {
+        caches.keys().then(function(n) {
+            n.forEach(function(c) { caches.delete(c); });
+        });
+    }
+    </script>
 </head>
 <body>
     <p>Redirecting to <a href="dashboard.html">Poke Agent Dashboard</a>...</p>
