@@ -2450,6 +2450,10 @@
     <div class="alerts" id="alertsContainer"></div>
 
     <script>
+        // TEST: Verify JavaScript is loading
+        console.log('PokeAgent v2.1 - Script starting...');
+        window.pokeAgentLoaded = true;
+        
         // Initialize global variables FIRST to prevent "before initialization" errors
         window.allCardResults = [];
         window.allStockStores = [];
@@ -4366,7 +4370,14 @@
         
         // Initialize drops and stock on load
         document.addEventListener('DOMContentLoaded', () => {
-            initDrops();
+            console.log('DOMContentLoaded - initializing drops...');
+            try {
+                initDrops();
+                console.log('initDrops completed successfully');
+            } catch (e) {
+                console.error('initDrops error:', e);
+                document.getElementById('upcomingDrops').innerHTML = '<div style="color:red;">Error loading drops: ' + e.message + '</div>';
+            }
             // Auto-load stock when switching to stock tab
             setTimeout(() => {
                 if (document.getElementById('stockZip')) {
