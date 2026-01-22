@@ -4786,12 +4786,19 @@
                 document.getElementById('statInStock').textContent = storesWithStock;
             }
         }
-        // Sealed product database with DIRECT product URLs where available
+        // Sealed product database with SKUs, UPCs, and direct URLs
+        // UPC = Universal Product Code (same across all retailers)
+        // SKU = Stock Keeping Unit (retailer-specific)
         const SEALED_PRODUCTS = [
-            // Destined Rivals (2025)
+            // Destined Rivals (2025) - SV09
             { 
                 name: 'Destined Rivals Booster Box', set: 'Destined Rivals', type: 'Booster Box', msrp: 143.64, release: '2025-02-07',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/561614_200w.jpg',
+                upc: '820650855931', // 36 packs
+                skus: {
+                    'TCGPlayer': '561614',
+                    'Pokemon Center': '290-85931',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/561614',
                     'Pokemon Center': 'https://www.pokemoncenter.com/category/trading-card-game',
@@ -4800,16 +4807,27 @@
             { 
                 name: 'Destined Rivals Elite Trainer Box', set: 'Destined Rivals', type: 'ETB', msrp: 49.99, release: '2025-02-07',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/561616_200w.jpg',
+                upc: '820650855894',
+                skus: {
+                    'TCGPlayer': '561616',
+                    'Target': 'A-XXXXXXXX', // To be filled
+                    'Walmart': 'XXXXXXXXX',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/561616',
                     'Target': 'https://www.target.com/s?searchTerm=destined+rivals+elite+trainer+box',
                     'Walmart': 'https://www.walmart.com/search?q=destined+rivals+elite+trainer+box',
                 }
             },
-            // Prismatic Evolutions (2025)
+            // Prismatic Evolutions (2025) - SV08.5
             { 
                 name: 'Prismatic Evolutions Booster Box', set: 'Prismatic Evolutions', type: 'Booster Box', msrp: 143.64, release: '2025-01-17',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/553291_200w.jpg',
+                upc: '820650857683', // 36 packs
+                skus: {
+                    'TCGPlayer': '553291',
+                    'Pokemon Center': '290-85768',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/553291',
                     'Pokemon Center': 'https://www.pokemoncenter.com/category/trading-card-game',
@@ -4818,6 +4836,15 @@
             { 
                 name: 'Prismatic Evolutions Elite Trainer Box', set: 'Prismatic Evolutions', type: 'ETB', msrp: 59.99, release: '2025-01-17',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/553293_200w.jpg',
+                upc: '820650857676',
+                skus: {
+                    'TCGPlayer': '553293',
+                    'Target': 'A-91741847',
+                    'Walmart': '5765499498',
+                    'Best Buy': '6594285',
+                    'GameStop': '412773',
+                    'Pokemon Center': '290-85768',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/553293',
                     'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-prismatic-evolutions-elite-trainer-box/-/A-91741847',
@@ -4830,6 +4857,11 @@
             { 
                 name: 'Prismatic Evolutions Super Premium Collection', set: 'Prismatic Evolutions', type: 'Collection Box', msrp: 129.99, release: '2025-01-17',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/553294_200w.jpg',
+                upc: '820650857690',
+                skus: {
+                    'TCGPlayer': '553294',
+                    'Pokemon Center': '290-85769',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/553294',
                     'Target': 'https://www.target.com/s?searchTerm=prismatic+evolutions+super+premium',
@@ -4839,15 +4871,24 @@
             { 
                 name: 'Prismatic Evolutions Binder Collection', set: 'Prismatic Evolutions', type: 'Collection Box', msrp: 39.99, release: '2025-01-17',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/553295_200w.jpg',
+                upc: '820650857706',
+                skus: {
+                    'Target': 'A-91741849',
+                },
                 urls: {
                     'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-prismatic-evolutions-binder-collection/-/A-91741849',
                     'Walmart': 'https://www.walmart.com/search?q=prismatic+evolutions+binder',
                 }
             },
-            // Surging Sparks (2024)
+            // Surging Sparks (2024) - SV08
             { 
                 name: 'Surging Sparks Booster Box', set: 'Surging Sparks', type: 'Booster Box', msrp: 143.64, release: '2024-11-08',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/543976_200w.jpg',
+                upc: '820650855474', // 36 packs
+                skus: {
+                    'TCGPlayer': '543976',
+                    'Amazon': 'B0DFHW5Y5N',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/543976',
                     'Amazon': 'https://www.amazon.com/dp/B0DFHW5Y5N',
@@ -4856,6 +4897,14 @@
             { 
                 name: 'Surging Sparks Elite Trainer Box', set: 'Surging Sparks', type: 'ETB', msrp: 49.99, release: '2024-11-08',
                 image: 'https://tcgplayer-cdn.tcgplayer.com/product/543978_200w.jpg',
+                upc: '820650855467',
+                skus: {
+                    'TCGPlayer': '543978',
+                    'Target': 'A-91322969',
+                    'Walmart': '5089282216',
+                    'Best Buy': '6581997',
+                    'GameStop': '411234',
+                },
                 urls: {
                     'TCGPlayer': 'https://www.tcgplayer.com/product/543978',
                     'Target': 'https://www.target.com/p/pokemon-trading-card-game-scarlet-violet-surging-sparks-elite-trainer-box/-/A-91322969',
