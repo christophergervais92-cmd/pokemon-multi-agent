@@ -2331,11 +2331,7 @@ def get_notification_settings(discord_id):
 # UTILITY ENDPOINTS
 # =============================================================================
 
-@app.get("/health")
-def health_check():
-    """Health check endpoint."""
-    return jsonify({"status": "ok", "service": "pokemon-multi-agent"})
-
+# Note: health_check is defined earlier with detailed status
 
 @app.get("/agents")
 def list_agents():
