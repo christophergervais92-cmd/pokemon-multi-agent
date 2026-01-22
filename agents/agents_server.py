@@ -834,6 +834,106 @@ def batch_grading():
 
 
 # =============================================================================
+# AI ASSISTANT ENDPOINTS
+# =============================================================================
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+@app.post("/ai/chat")
+def ai_chat():
+    """
+    AI Pokemon TCG Assistant chat endpoint.
+    Uses server-side OpenAI API key so users don't need their own.
+    
+    Accepts:
+    - message: User's question/message
+    - history: Optional conversation history
+    
+    Returns:
+    - response: AI assistant's response
+    """
+    payload = request.get_json(force=True) or {}
+    message = payload.get("message", "").strip()
+    
+    if not message:
+        return jsonify({"error": "No message provided"}), 400
+    
+    # Check for API key
+    api_key = OPENAI_API_KEY
+    if not api_key:
+        return jsonify({
+            "error": "AI Assistant not configured",
+            "demo_response": "The AI Assistant requires an OpenAI API key to be configured on the server. Please contact the administrator.",
+            "demo_mode": True
+        })
+    
+    try:
+        import requests as req
+        
+        response = req.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": """You are a helpful Pokemon TCG expert assistant. You help users with:
+- Card pricing and valuations (use real market data when possible)
+- Investment advice for Pokemon cards and sealed products
+- Grading recommendations (PSA, CGC, BGS) and when it's worth grading
+- Set information and chase card identification
+- Market trends and timing for buying/selling
+- Authenticity verification tips
+- Collection strategies and storage advice
+
+Be concise but helpful. Use specific prices when you know them. Format responses clearly with bullet points when listing multiple items. If you don't know current prices, say so and suggest checking TCGPlayer or eBay sold listings."""
+                    },
+                    {"role": "user", "content": message}
+                ],
+                "max_tokens": 800,
+                "temperature": 0.7
+            },
+            timeout=30
+        )
+        
+        data = response.json()
+        
+        if "error" in data:
+            return jsonify({
+                "error": data["error"].get("message", "OpenAI API error"),
+                "demo_mode": False
+            })
+        
+        ai_response = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        return jsonify({
+            "response": ai_response,
+            "model": "gpt-4o-mini",
+            "demo_mode": False
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "demo_mode": False
+        }), 500
+
+
+@app.get("/ai/status")
+def ai_status():
+    """Check if AI Assistant is configured and available."""
+    return jsonify({
+        "available": bool(OPENAI_API_KEY),
+        "model": "gpt-4o-mini" if OPENAI_API_KEY else None,
+        "features": ["chat", "grading", "market_analysis"] if OPENAI_API_KEY else []
+    })
+
+
+# =============================================================================
 # MARKET ANALYSIS ENDPOINTS
 # =============================================================================
 
