@@ -9268,10 +9268,26 @@
         }
         
         async function calculateFlip() {
-            const card = document.getElementById('flipCard').value?.trim();
-            const price = document.getElementById('flipPrice').value;
-            const company = document.getElementById('flipCompany').value;
-            const tier = document.getElementById('flipTier')?.value || 'economy';
+            console.log('[Flip] calculateFlip called');
+            
+            const cardInput = document.getElementById('flipCard');
+            const priceInput = document.getElementById('flipPrice');
+            const companyInput = document.getElementById('flipCompany');
+            const tierInput = document.getElementById('flipTier');
+            
+            // Debug: check if elements exist
+            if (!cardInput || !priceInput || !companyInput || !tierInput) {
+                console.error('[Flip] Missing elements:', { cardInput, priceInput, companyInput, tierInput });
+                alert('Flip Calculator Error: Missing form elements');
+                return;
+            }
+            
+            const card = cardInput.value?.trim();
+            const price = priceInput.value;
+            const company = companyInput.value;
+            const tier = tierInput.value || 'economy';
+            
+            console.log('[Flip] Inputs:', { card, price, company, tier });
             
             if (!card || card.length < 2) {
                 document.getElementById('flipCardGrid').style.display = 'none';
@@ -9287,7 +9303,9 @@
             grid.style.display = 'none';
             
             try {
+                console.log('[Flip] Fetching cards from TCG API...');
                 const matchingCards = await fetchAllCardsFromTCG(card);
+                console.log('[Flip] Found cards:', matchingCards?.length || 0);
                 flipCardResults = matchingCards;
                 
                 if (matchingCards.length === 0) {
@@ -9346,12 +9364,15 @@
         }
         
         async function calculateFlipForCard(card, price, company, tier) {
+            console.log('[Flip] calculateFlipForCard called:', { card: card?.name || card, price, company, tier });
+            
             const cardName = card.name || card;
             const results = document.getElementById('flipResults');
             const cacheKey = `${cardName}-${price}-${company}-${tier}`;
             
             // Check cache
             if (flipCache.has(cacheKey)) {
+                console.log('[Flip] Using cached data');
                 const cachedData = flipCache.get(cacheKey);
                 // Enhance with card data if not already present
                 if (!cachedData.card_image && card.images) {
@@ -9370,33 +9391,46 @@
             let endpoint = `/flip/${encodeURIComponent(cardName)}?company=${company}&tier=${tier}`;
             if (price) endpoint += `&price=${price}`;
             
-            const [flipData, priceData] = await Promise.all([
-                api(endpoint, { timeout: 5000 }),
-                api(`/prices/card/${encodeURIComponent(cardName)}`, { timeout: 5000 }).catch(() => null)
-            ]);
+            console.log('[Flip] Fetching:', endpoint);
             
-            // Enhance flip data with card image and info
-            if (card.images) {
-                flipData.card_image = card.images.large || card.images.small;
-                flipData.card_set = card.set?.name || '';
-                flipData.card_number = card.number || '';
-                flipData.card_rarity = card.rarity || '';
-            }
+            try {
+                const [flipData, priceData] = await Promise.all([
+                    api(endpoint, { timeout: 10000 }),
+                    api(`/prices/card/${encodeURIComponent(cardName)}`, { timeout: 10000 }).catch(e => {
+                        console.log('[Flip] Price fetch failed (non-critical):', e.message);
+                        return null;
+                    })
+                ]);
+                
+                console.log('[Flip] Got flip data:', flipData);
+                console.log('[Flip] Got price data:', priceData);
             
-            // Use real prices if available (more accurate than estimates)
-            if (priceData?.raw?.price && !price) {
-                flipData.real_raw_price = priceData.raw.price;
-                flipData.raw_price = priceData.raw.price;
+                // Enhance flip data with card image and info
+                if (card.images) {
+                    flipData.card_image = card.images.large || card.images.small;
+                    flipData.card_set = card.set?.name || '';
+                    flipData.card_number = card.number || '';
+                    flipData.card_rarity = card.rarity || '';
+                }
+                
+                // Use real prices if available (more accurate than estimates)
+                if (priceData?.raw?.price && !price) {
+                    flipData.real_raw_price = priceData.raw.price;
+                    flipData.raw_price = priceData.raw.price;
+                }
+                if (priceData?.graded) {
+                    flipData.real_graded_prices = priceData.graded;
+                }
+                
+                if (!flipData.error) {
+                    flipCache.set(cacheKey, flipData);
+                }
+                
+                renderFlipResults(flipData);
+            } catch (e) {
+                console.error('[Flip] calculateFlipForCard error:', e);
+                results.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Error calculating flip: ${e.message}</div>`;
             }
-            if (priceData?.graded) {
-                flipData.real_graded_prices = priceData.graded;
-            }
-            
-            if (!flipData.error) {
-                flipCache.set(cacheKey, flipData);
-            }
-            
-            renderFlipResults(flipData);
         }
         
         function renderFlipResults(data) {
