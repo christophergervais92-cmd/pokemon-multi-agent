@@ -7424,16 +7424,26 @@
         };
         
         async function calculateFlip() {
-            const cardName = document.getElementById('flipCard').value?.trim();
-            const userPrice = parseFloat(document.getElementById('flipPrice').value) || 0;
-            const company = document.getElementById('flipCompany').value || 'PSA';
+            const flipCardInput = document.getElementById('flipCard');
+            const flipPriceInput = document.getElementById('flipPrice');
+            const flipCompanyInput = document.getElementById('flipCompany');
+            const results = document.getElementById('flipResults');
             
-            if (!cardName || cardName.length < 2) {
-                document.getElementById('flipResults').innerHTML = '<div class="empty">Enter a card name to calculate</div>';
+            if (!flipCardInput || !results) {
+                console.error('Flip calculator elements not found');
+                alert('Flip calculator error: Form elements not found');
                 return;
             }
             
-            const results = document.getElementById('flipResults');
+            const cardName = flipCardInput.value?.trim();
+            const userPrice = parseFloat(flipPriceInput?.value) || 0;
+            const company = flipCompanyInput?.value || 'PSA';
+            
+            if (!cardName || cardName.length < 2) {
+                results.innerHTML = '<div class="empty">Enter a card name to calculate</div>';
+                return;
+            }
+            
             const cacheKey = `${cardName}-${userPrice}-${company}`;
             
             // Check cache
@@ -7445,8 +7455,11 @@
             results.innerHTML = '<div class="loading"><div class="spinner"></div>Fetching card data...</div>';
             
             try {
+                console.log('Flip calc: searching for', cardName);
+                
                 // Fetch card from Pokemon TCG API directly (most reliable)
                 const cardData = await fetchCardFromTCG(cardName);
+                console.log('Flip calc: got card data', cardData ? cardData.name : 'null');
                 
                 if (!cardData) {
                     results.innerHTML = `<div class="empty">Card "${cardName}" not found. Try a more specific name.</div>`;
