@@ -3552,21 +3552,37 @@
 
         // Connection
         async function checkConnection() {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
             try {
-                const res = await fetch(`${API}/health`);
-                const statusDot = getCachedElement('statusDot');
-                const statusText = getCachedElement('statusText');
+                const res = await fetch(`${API}/health`, { timeout: 5000 });
                 
                 if (res.ok) {
-                    statusDot?.classList.remove('offline');
-                    if (statusText) statusText.textContent = 'Connected';
+                    if (statusDot) {
+                        statusDot.classList.remove('offline');
+                        statusDot.style.background = 'var(--green)';
+                        statusDot.style.boxShadow = '0 0 8px var(--green)';
+                    }
+                    if (statusText) {
+                        statusText.textContent = 'Connected';
+                        statusText.style.color = 'var(--green)';
+                    }
                     return true;
                 }
-            } catch {}
-            const statusDot = getCachedElement('statusDot');
-            const statusText = getCachedElement('statusText');
-            statusDot?.classList.add('offline');
-            if (statusText) statusText.textContent = 'Offline';
+            } catch (e) {
+                console.log('Connection check failed:', e.message);
+            }
+            
+            if (statusDot) {
+                statusDot.classList.add('offline');
+                statusDot.style.background = 'var(--red)';
+                statusDot.style.boxShadow = '0 0 8px var(--red)';
+            }
+            if (statusText) {
+                statusText.textContent = 'Offline';
+                statusText.style.color = 'var(--red)';
+            }
             return false;
         }
 
