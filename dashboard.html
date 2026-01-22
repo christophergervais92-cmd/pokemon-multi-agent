@@ -6,8 +6,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.3.1">
-    <title>PokeAgent v2.3.1</title>
+    <meta name="version" content="2.4.0">
+    <title>PokeAgent v2.4.0</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>">
     <meta name="theme-color" content="#0a0a0a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1491,6 +1491,18 @@
     <div class="app">
         <header>
             <div class="logo">PokeAgent</div>
+            <div style="display: flex; align-items: center; gap: 1rem; flex: 1; max-width: 500px; margin: 0 auto;">
+                <div style="position: relative; flex: 1; max-width: 400px;">
+                    <input type="text" id="quickSearch" placeholder="🔍 Quick search cards/products..." 
+                           style="width: 100%; padding: 0.625rem 1rem; padding-right: 2.5rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text); font-size: 0.875rem;"
+                           onkeydown="if(event.key === 'Enter') quickSearchFromHeader()">
+                    <button onclick="quickSearchFromHeader()" 
+                            style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem; font-size: 1rem;">
+                        🔍
+                    </button>
+                    <div id="quickSearchResults" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000; max-height: 400px; overflow-y: auto; display: none;"></div>
+                </div>
+            </div>
             <div style="display: flex; align-items: center; gap: 1rem;">
                 <button id="themeToggle" class="btn btn-sm" onclick="toggleTheme()" title="Toggle dark/light mode" style="padding: 0.5rem; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
                     <span id="themeIcon" style="display: inline-block; line-height: 1;">☀️</span>
@@ -2008,15 +2020,28 @@
             
             <div class="card">
                 <div class="search-bar" style="margin-bottom: 1rem;">
-                    <input type="text" id="flipCard" placeholder="Card name">
+                    <input type="text" id="flipCard" placeholder="Card name (e.g., Charizard VMAX)">
                     <input type="number" id="flipPrice" placeholder="Raw price ($)" style="flex: 0 0 120px;">
-                    <select id="flipCompany" style="flex: 0 0 100px;">
+                    <select id="flipCompany" style="flex: 0 0 100px;" onchange="updateFlipTiers()">
                         <option value="PSA">PSA</option>
                         <option value="CGC">CGC</option>
                         <option value="BGS">BGS</option>
                     </select>
+                    <select id="flipTier" style="flex: 0 0 130px;">
+                        <option value="economy">Economy</option>
+                        <option value="regular">Regular</option>
+                        <option value="express">Express</option>
+                        <option value="super_express">Super Express</option>
+                        <option value="walk_through">Walk-Through</option>
+                    </select>
                     <button class="btn" onclick="calculateFlip()">Calculate</button>
                 </div>
+            </div>
+
+            <!-- Card Grid for Multiple Results -->
+            <div id="flipCardGrid" style="display: none;">
+                <h2 style="margin-bottom: 1rem;">Select Card <span id="flipResultCount" style="font-weight: normal; color: var(--text-muted);"></span></h2>
+                <div id="flipCardGridItems" class="card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;"></div>
             </div>
 
             <div id="flipResults"></div>
@@ -2875,6 +2900,28 @@
             const debouncedSearch = debounce(quickSearch, 300);
             const debouncedCardLookup = debounce(lookupCard, 300);
             const debouncedFlip = debounce(calculateFlip, 400);
+            const debouncedQuickSearch = debounce(quickSearchFromHeader, 300);
+            
+            // Quick search in header
+            const quickSearchInput = document.getElementById('quickSearch');
+            if (quickSearchInput) {
+                quickSearchInput.addEventListener('input', () => {
+                    const query = quickSearchInput.value.trim();
+                    if (query.length >= 2) {
+                        debouncedQuickSearch();
+                    } else {
+                        document.getElementById('quickSearchResults').style.display = 'none';
+                    }
+                });
+                
+                // Close results when clicking outside
+                document.addEventListener('click', (e) => {
+                    const results = document.getElementById('quickSearchResults');
+                    if (results && !quickSearchInput.contains(e.target) && !results.contains(e.target)) {
+                        results.style.display = 'none';
+                    }
+                });
+            }
             const debouncedStock = debounce(findStock, 400);
             
             // Search inputs
@@ -2882,6 +2929,9 @@
             document.getElementById('cardName')?.addEventListener('input', debouncedCardLookup);
             document.getElementById('flipCard')?.addEventListener('input', debouncedFlip);
             document.getElementById('stockQuery')?.addEventListener('input', debouncedStock);
+            
+            // Initialize flip calculator tiers
+            updateFlipTiers();
             
             // Enter key for immediate search
             document.getElementById('searchQuery')?.addEventListener('keypress', e => {
@@ -3232,6 +3282,99 @@
             osc.stop(ctx.currentTime + 0.1);
         }
 
+        // Quick Search from Header
+        async function quickSearchFromHeader() {
+            const query = document.getElementById('quickSearch')?.value?.trim();
+            if (!query || query.length < 2) {
+                document.getElementById('quickSearchResults').style.display = 'none';
+                return;
+            }
+            
+            const results = document.getElementById('quickSearchResults');
+            results.style.display = 'block';
+            results.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted);"><div class="spinner" style="margin: 0 auto;"></div>Searching...</div>';
+            
+            try {
+                // Search for cards first (faster, more common)
+                const cards = await fetchAllCardsFromTCG(query);
+                
+                if (cards.length > 0) {
+                    // Show card results
+                    results.innerHTML = `
+                        <div style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+                            Cards (${cards.length})
+                        </div>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            ${cards.slice(0, 5).map((card, i) => {
+                                const price = card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market || 0;
+                                return `
+                                    <div onclick="selectCardFromQuickSearch('${card.name}')" 
+                                         style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.2s;"
+                                         onmouseover="this.style.background='var(--bg)'" 
+                                         onmouseout="this.style.background='transparent'">
+                                        <img src="${card.images?.small || ''}" 
+                                             style="width: 50px; height: 70px; object-fit: contain; border-radius: 4px;"
+                                             onerror="this.style.display='none'">
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-weight: 500; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${card.name}</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-muted);">${card.set?.name || ''}</div>
+                                            ${price > 0 ? `<div style="font-size: 0.75rem; color: var(--green); font-weight: 600;">$${price.toFixed(2)}</div>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${cards.length > 5 ? `
+                                <div onclick="goToCardLookup('${query}')" 
+                                     style="padding: 0.75rem; text-align: center; cursor: pointer; color: var(--accent); font-size: 0.875rem; font-weight: 500; border-top: 1px solid var(--border);"
+                                     onmouseover="this.style.background='var(--bg)'" 
+                                     onmouseout="this.style.background='transparent'">
+                                    View all ${cards.length} results →
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    // No cards found, try products
+                    results.innerHTML = `
+                        <div style="padding: 1rem; text-align: center; color: var(--text-muted);">
+                            No cards found. <a href="#" onclick="goToStockSearch('${query}'); return false;" style="color: var(--accent);">Search products instead →</a>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                results.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-muted);">Search error: ${e.message}</div>`;
+            }
+        }
+        
+        function selectCardFromQuickSearch(cardName) {
+            document.getElementById('quickSearch').value = cardName;
+            document.getElementById('quickSearchResults').style.display = 'none';
+            // Switch to card lookup section and search
+            switchSection('card');
+            setTimeout(() => {
+                document.getElementById('cardName').value = cardName;
+                searchCardsOrProducts();
+            }, 100);
+        }
+        
+        function goToCardLookup(query) {
+            document.getElementById('quickSearchResults').style.display = 'none';
+            switchSection('card');
+            setTimeout(() => {
+                document.getElementById('cardName').value = query;
+                searchCardsOrProducts();
+            }, 100);
+        }
+        
+        function goToStockSearch(query) {
+            document.getElementById('quickSearchResults').style.display = 'none';
+            switchSection('stock');
+            setTimeout(() => {
+                document.getElementById('stockQuery').value = query;
+                findStock();
+            }, 100);
+        }
+        
         // Quick Search
         // Last search query for deduplication
         let lastSearchQuery = '';
@@ -6943,46 +7086,169 @@
         // Flip Calculator
         // Flip calculator cache
         const flipCache = new Map();
+        let flipCardResults = [];
+        let selectedFlipCard = null;
+        
+        // Update tier options based on company
+        function updateFlipTiers() {
+            const company = document.getElementById('flipCompany').value;
+            const tierSelect = document.getElementById('flipTier');
+            const currentTier = tierSelect.value;
+            
+            const tiers = {
+                'PSA': [
+                    { value: 'economy', label: 'Economy ($25)' },
+                    { value: 'regular', label: 'Regular ($50)' },
+                    { value: 'express', label: 'Express ($100)' },
+                    { value: 'super_express', label: 'Super Express ($200)' },
+                    { value: 'walk_through', label: 'Walk-Through ($600)' }
+                ],
+                'CGC': [
+                    { value: 'economy', label: 'Economy ($20)' },
+                    { value: 'standard', label: 'Standard ($30)' },
+                    { value: 'express', label: 'Express ($65)' },
+                    { value: 'walk_through', label: 'Walk-Through ($150)' }
+                ],
+                'BGS': [
+                    { value: 'economy', label: 'Economy ($25)' },
+                    { value: 'standard', label: 'Standard ($40)' },
+                    { value: 'express', label: 'Express ($100)' },
+                    { value: 'premium', label: 'Premium ($250)' }
+                ]
+            };
+            
+            tierSelect.innerHTML = tiers[company].map(t => 
+                `<option value="${t.value}">${t.label}</option>`
+            ).join('');
+            
+            // Try to keep the same tier if it exists, otherwise use first option
+            if (tiers[company].some(t => t.value === currentTier)) {
+                tierSelect.value = currentTier;
+            } else {
+                tierSelect.value = tiers[company][0].value;
+            }
+        }
         
         async function calculateFlip() {
             const card = document.getElementById('flipCard').value?.trim();
             const price = document.getElementById('flipPrice').value;
             const company = document.getElementById('flipCompany').value;
+            const tier = document.getElementById('flipTier')?.value || 'economy';
             
-            if (!card || card.length < 2) return;
-            
-            const results = document.getElementById('flipResults');
-            const cacheKey = `${card}-${price}-${company}`;
-            
-            // Check cache
-            if (flipCache.has(cacheKey)) {
-                renderFlipResults(flipCache.get(cacheKey));
+            if (!card || card.length < 2) {
+                document.getElementById('flipCardGrid').style.display = 'none';
+                document.getElementById('flipResults').innerHTML = '';
                 return;
             }
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Fetching card data & calculating ROI...</div>';
+            const results = document.getElementById('flipResults');
+            const grid = document.getElementById('flipCardGrid');
             
-            // Fetch flip calculation AND card image in parallel
-            let endpoint = `/flip/${encodeURIComponent(card)}?company=${company}`;
+            // First, search for matching cards (like card lookup)
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching for cards...</div>';
+            grid.style.display = 'none';
+            
+            try {
+                const matchingCards = await fetchAllCardsFromTCG(card);
+                flipCardResults = matchingCards;
+                
+                if (matchingCards.length === 0) {
+                    results.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>No cards found for "${card}"</div>`;
+                    return;
+                }
+                
+                // If multiple cards found, show grid (like card lookup)
+                if (matchingCards.length > 1) {
+                    displayFlipCardGrid(matchingCards);
+                    results.innerHTML = '';
+                    return;
+                }
+                
+                // Single card found, calculate flip directly
+                await calculateFlipForCard(matchingCards[0], price, company, tier);
+            } catch (e) {
+                console.error('Flip calculator error:', e);
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>Error: ${e.message}</div>`;
+            }
+        }
+        
+        function displayFlipCardGrid(cards) {
+            const grid = document.getElementById('flipCardGrid');
+            const gridItems = document.getElementById('flipCardGridItems');
+            const resultCount = document.getElementById('flipResultCount');
+            
+            grid.style.display = 'block';
+            resultCount.textContent = `(${cards.length} results)`;
+            
+            gridItems.innerHTML = cards.map((card, i) => {
+                const price = card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market || card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+                return `
+                    <div class="card-grid-item" onclick="selectFlipCard(${i})" style="cursor: pointer;">
+                        <img src="${card.images?.small || ''}" 
+                             alt="${card.name}"
+                             style="width: 100%; height: 160px; object-fit: contain;"
+                             loading="lazy"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22160%22><rect fill=%22%23171717%22 width=%22120%22 height=%22160%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22></text></svg>'">
+                        <div class="card-title">${card.name}</div>
+                        <div class="card-set">${card.set?.name || ''}</div>
+                        <div class="card-price">${price > 0 ? '$' + price.toFixed(2) : ''}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function selectFlipCard(index) {
+            selectedFlipCard = flipCardResults[index];
+            document.getElementById('flipCard').value = selectedFlipCard.name;
+            document.getElementById('flipCardGrid').style.display = 'none';
+            const price = document.getElementById('flipPrice').value;
+            const company = document.getElementById('flipCompany').value;
+            const tier = document.getElementById('flipTier')?.value || 'economy';
+            await calculateFlipForCard(selectedFlipCard, price, company, tier);
+        }
+        
+        async function calculateFlipForCard(card, price, company, tier) {
+            const cardName = card.name || card;
+            const results = document.getElementById('flipResults');
+            const cacheKey = `${cardName}-${price}-${company}-${tier}`;
+            
+            // Check cache
+            if (flipCache.has(cacheKey)) {
+                const cachedData = flipCache.get(cacheKey);
+                // Enhance with card data if not already present
+                if (!cachedData.card_image && card.images) {
+                    cachedData.card_image = card.images.large || card.images.small;
+                    cachedData.card_set = card.set?.name || '';
+                    cachedData.card_number = card.number || '';
+                    cachedData.card_rarity = card.rarity || '';
+                }
+                renderFlipResults(cachedData);
+                return;
+            }
+            
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Calculating ROI...</div>';
+            
+            // Fetch flip calculation AND price data in parallel
+            let endpoint = `/flip/${encodeURIComponent(cardName)}?company=${company}&tier=${tier}`;
             if (price) endpoint += `&price=${price}`;
             
-            const [flipData, cardData, priceData] = await Promise.all([
+            const [flipData, priceData] = await Promise.all([
                 api(endpoint, { timeout: 5000 }),
-                fetchCardFromTCG(card),  // Get card image
-                api(`/prices/card/${encodeURIComponent(card)}`, { timeout: 5000 }).catch(() => null)  // Get real prices
+                api(`/prices/card/${encodeURIComponent(cardName)}`, { timeout: 5000 }).catch(() => null)
             ]);
             
-            // Enhance flip data with card image
-            if (cardData?.images?.small) {
-                flipData.card_image = cardData.images.small;
-                flipData.card_set = cardData.set?.name || '';
-                flipData.card_number = cardData.number || '';
-                flipData.card_rarity = cardData.rarity || '';
+            // Enhance flip data with card image and info
+            if (card.images) {
+                flipData.card_image = card.images.large || card.images.small;
+                flipData.card_set = card.set?.name || '';
+                flipData.card_number = card.number || '';
+                flipData.card_rarity = card.rarity || '';
             }
             
             // Use real prices if available (more accurate than estimates)
             if (priceData?.raw?.price && !price) {
                 flipData.real_raw_price = priceData.raw.price;
+                flipData.raw_price = priceData.raw.price;
             }
             if (priceData?.graded) {
                 flipData.real_graded_prices = priceData.graded;
@@ -7029,42 +7295,45 @@
             
             results.innerHTML = `
                 <div class="card" style="margin-bottom: 1rem;">
-                    <div style="display: flex; gap: 1.5rem; align-items: flex-start;">
-                        <!-- Card Image Preview -->
+                    <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem; align-items: start;">
+                        <!-- Card Image Preview (similar to card lookup) -->
                         ${data.card_image ? `
-                            <div style="flex-shrink: 0;">
+                            <div style="text-align: center; position: sticky; top: 1rem;">
                                 <img src="${data.card_image}" alt="${data.card_name}" 
-                                    style="width: 120px; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-                                <div style="text-align: center; margin-top: 0.5rem;">
-                                    <div style="font-size: 0.625rem; color: var(--text-muted);">${data.card_set || ''}</div>
-                                    ${data.card_rarity ? `<div style="font-size: 0.5rem; color: var(--accent);">${data.card_rarity}</div>` : ''}
+                                    style="width: 100%; max-width: 180px; height: auto; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
+                                <div style="text-align: center; margin-top: 0.75rem;">
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">${data.card_set || ''}</div>
+                                    ${data.card_number ? `<div style="font-size: 0.625rem; color: var(--text-secondary);">${data.card_number}</div>` : ''}
+                                    ${data.card_rarity ? `<div style="font-size: 0.625rem; color: var(--accent); margin-top: 0.25rem; font-weight: 500;">${data.card_rarity}</div>` : ''}
                                 </div>
                             </div>
                         ` : ''}
                         
                         <!-- Stats Grid -->
-                        <div style="flex: 1;">
-                            <h2 style="font-size: 1rem; margin-bottom: 0.75rem;">${data.card_name || 'Card Analysis'}</h2>
-                            <div class="grid grid-2" style="gap: 0.75rem;">
-                                <div class="stat" style="padding: 0.5rem;">
-                                    <div class="stat-value" style="font-size: 1.25rem;">$${data.raw_price || 0}</div>
+                        <div>
+                            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">${data.card_name || 'Card Analysis'}</h2>
+                            ${data.card_set ? `<div style="color: var(--text-secondary); margin-bottom: 1rem;">${data.card_set}</div>` : ''}
+                            <div class="grid grid-2" style="gap: 0.75rem; margin-bottom: 1rem;">
+                                <div class="stat" style="padding: 0.75rem;">
+                                    <div class="stat-value" style="font-size: 1.5rem;">$${formatPrice(data.raw_price || 0)}</div>
                                     <div class="stat-label">Raw Price</div>
                                 </div>
-                                <div class="stat" style="padding: 0.5rem;">
-                                    <div class="stat-value" style="font-size: 1.25rem;">$${data.total_cost || 0}</div>
+                                <div class="stat" style="padding: 0.75rem;">
+                                    <div class="stat-value" style="font-size: 1.5rem;">$${formatPrice(data.total_cost || 0)}</div>
                                     <div class="stat-label">Total Cost</div>
                                 </div>
-                                <div class="stat" style="padding: 0.5rem;">
-                                    <div class="stat-value ${roiClass}" style="font-size: 1.25rem;">$${data.expected_profit || 0}</div>
+                                <div class="stat" style="padding: 0.75rem;">
+                                    <div class="stat-value ${roiClass}" style="font-size: 1.5rem;">$${formatPrice(data.expected_profit || 0)}</div>
                                     <div class="stat-label">Expected Profit</div>
                                 </div>
-                                <div class="stat" style="padding: 0.5rem;">
-                                    <div class="stat-value ${roiClass}" style="font-size: 1.25rem;">${roi}%</div>
+                                <div class="stat" style="padding: 0.75rem;">
+                                    <div class="stat-value ${roiClass}" style="font-size: 1.5rem;">${roi.toFixed(1)}%</div>
                                     <div class="stat-label">Expected ROI</div>
                                 </div>
                             </div>
-                            <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem;">
-                                ${data.grading_company} ${data.grading_tier} ($${data.grading_cost}) + Shipping ($${data.shipping_cost})
+                            <div style="font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem; background: var(--bg); border-radius: 6px;">
+                                <strong>Grading:</strong> ${data.grading_company} ${data.grading_tier || 'economy'} ($${data.grading_cost || 0})<br>
+                                <strong>Shipping:</strong> $${data.shipping_cost || 0}
                             </div>
                         </div>
                     </div>
