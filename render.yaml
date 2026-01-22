@@ -3,7 +3,8 @@ services:
     name: poke-agent-api
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn agents.agents_server:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    startCommand: gunicorn agents.agents_server:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --preload
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"

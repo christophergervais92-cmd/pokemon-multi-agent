@@ -83,6 +83,16 @@ def add_cors_headers(response):
     
     return response
 
+@app.get("/")
+def root():
+    """Root endpoint - redirects to health check."""
+    return jsonify({
+        "status": "ok",
+        "service": "pokemon-multi-agent",
+        "docs": "/agents",
+        "health": "/health"
+    })
+
 @app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
 @app.route('/<path:path>', methods=['OPTIONS'])
 def handle_options(path):
