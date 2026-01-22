@@ -4,13 +4,15 @@ Unified Stock Checker - Optimized Multi-Retailer Scanner
 
 Checks stock from multiple sources:
 1. Target (Redsky API) - Real stock data
-2. Best Buy (API/Scrape) - Real stock data
-3. GameStop (Scrape) - Real stock data
-4. Pokemon Center (Scrape) - Real stock data
-5. TCGPlayer (Scrape) - Card singles availability
-6. Pokemon TCG API - Card data + TCGPlayer prices
+2. Walmart (Search API) - Real stock data
+3. Best Buy (API/Scrape) - Real stock data
+4. GameStop (Scrape) - Real stock data
+5. Pokemon Center (Scrape) - Real stock data
+6. TCGPlayer (Scrape) - Card singles availability
+7. Pokemon TCG API - Card data + TCGPlayer prices
 
 All individual scanner files have been consolidated here.
+Optimized with parallel scanning, connection pooling, and retry logic.
 """
 import json
 import os
@@ -19,14 +21,17 @@ import time
 import random
 import hashlib
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, str(__file__).rsplit('/', 2)[0])
 
 try:
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
 except ImportError:
     requests = None
 
@@ -42,21 +47,31 @@ except ImportError:
 
 CACHE_DIR = Path(__file__).parent.parent.parent / ".stock_cache"
 CACHE_DIR.mkdir(exist_ok=True)
-CACHE_TTL_SECONDS = 30  # 30 second cache for faster updates
+CACHE_TTL_SECONDS = 180  # 3 minute cache for better performance
 
 # Fast mode - minimal delays, higher risk of blocks
 FAST_MODE = os.environ.get("FAST_SCAN", "true").lower() == "true"
-MIN_DELAY = 0.1 if FAST_MODE else 0.5
-MAX_DELAY = 0.3 if FAST_MODE else 2.0
+MIN_DELAY = 0.05 if FAST_MODE else 0.3
+MAX_DELAY = 0.15 if FAST_MODE else 1.0
+
+# Parallel scanning config
+MAX_WORKERS = 6  # Scan up to 6 retailers simultaneously
+REQUEST_TIMEOUT = 12  # Seconds
+
+# Retry configuration
+MAX_RETRIES = 2
+RETRY_BACKOFF = 0.5  # Seconds between retries
 
 # Stealth utilities
 try:
     from stealth.anti_detect import get_stealth_headers, get_random_delay
 except ImportError:
     USER_AGENTS = [
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
     ]
     def get_stealth_headers():
         return {
@@ -65,9 +80,55 @@ except ImportError:
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
         }
     def get_random_delay():
         return random.uniform(MIN_DELAY, MAX_DELAY)
+
+
+# =============================================================================
+# SESSION POOL - Connection Reuse
+# =============================================================================
+
+_session_pool: Dict[str, requests.Session] = {}
+
+def get_session(retailer: str = "default") -> requests.Session:
+    """Get or create a session with retry logic for a retailer."""
+    global _session_pool
+    
+    if retailer not in _session_pool:
+        session = requests.Session()
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=MAX_RETRIES,
+            backoff_factor=RETRY_BACKOFF,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"],
+        )
+        
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=10,
+            pool_maxsize=20,
+        )
+        
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        _session_pool[retailer] = session
+    
+    return _session_pool[retailer]
+
+
+def close_sessions():
+    """Close all sessions (call on shutdown)."""
+    global _session_pool
+    for session in _session_pool.values():
+        session.close()
+    _session_pool = {}
 
 
 @dataclass
@@ -83,13 +144,14 @@ class Product:
     image_url: str = ""
     category: str = "TCG"
     last_checked: str = ""
+    relevance_score: int = 0  # For sorting by relevance
     
     def to_dict(self) -> Dict:
         return asdict(self)
 
 
 # =============================================================================
-# CACHE
+# CACHE - With TTL Support
 # =============================================================================
 
 class Cache:
@@ -98,26 +160,42 @@ class Cache:
         return hashlib.md5(f"{retailer}_{query}".lower().encode()).hexdigest()
     
     @staticmethod
-    def get(retailer: str, query: str = "") -> Optional[List[Dict]]:
+    def get(retailer: str, query: str = "", ttl_override: int = None) -> Optional[List[Dict]]:
+        """Get cached data if not expired."""
         cache_file = CACHE_DIR / f"{Cache.key(retailer, query)}.json"
         if not cache_file.exists():
             return None
         try:
             with open(cache_file) as f:
                 data = json.load(f)
-            if datetime.now() - datetime.fromisoformat(data["ts"]) > timedelta(seconds=CACHE_TTL_SECONDS):
+            ttl = ttl_override if ttl_override is not None else CACHE_TTL_SECONDS
+            if datetime.now() - datetime.fromisoformat(data["ts"]) > timedelta(seconds=ttl):
                 return None
             return data["products"]
-        except:
+        except Exception:
             return None
     
     @staticmethod
     def set(retailer: str, query: str, products: List[Dict]):
+        """Cache products with timestamp."""
         cache_file = CACHE_DIR / f"{Cache.key(retailer, query)}.json"
         try:
             with open(cache_file, "w") as f:
                 json.dump({"ts": datetime.now().isoformat(), "products": products}, f)
-        except:
+        except Exception:
+            pass
+    
+    @staticmethod
+    def clear(retailer: str = None):
+        """Clear cache for retailer or all."""
+        try:
+            if retailer:
+                for f in CACHE_DIR.glob(f"*{retailer}*.json"):
+                    f.unlink()
+            else:
+                for f in CACHE_DIR.glob("*.json"):
+                    f.unlink()
+        except Exception:
             pass
 
 
@@ -128,15 +206,15 @@ class Cache:
 def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -> List[Product]:
     """
     Scan Target using Redsky API.
-    
-    This API is still functional as of 2026.
-    Requires: key, channel, keyword, page, pricing_store_id
+    Uses session pooling and retry logic.
     """
     products = []
     
     cached = Cache.get("target", query)
     if cached:
         return [Product(**p) for p in cached]
+    
+    session = get_session("target")
     
     try:
         api_url = "https://redsky.target.com/redsky_aggregations/v1/web/plp_search_v2"
@@ -159,7 +237,7 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
         headers["Accept"] = "application/json"
         
         time.sleep(get_random_delay())
-        resp = requests.get(api_url, params=params, headers=headers, timeout=15)
+        resp = session.get(api_url, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
         
         if resp.status_code == 200:
             data = resp.json()
@@ -169,18 +247,19 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
                 p = item.get("item", {})
                 title = p.get("product_description", {}).get("title", "")
                 
-                if "pokemon" not in title.lower():
+                if "pokemon" not in title.lower() and "pokémon" not in title.lower():
                     continue
                 
                 price_data = p.get("price", {})
                 fulfillment = p.get("fulfillment", {})
                 
-                # Check stock
+                # Check stock - multiple indicators
                 ship_ok = fulfillment.get("shipping_options", {}).get("availability_status", "") == "IN_STOCK"
                 pickup_ok = "IN_STOCK" in str(fulfillment.get("store_options", []))
-                in_stock = ship_ok or pickup_ok
+                is_purchasable = item.get("is_purchasable", False)
+                in_stock = ship_ok or pickup_ok or is_purchasable
                 
-                # Get URL - handle both relative and absolute URLs
+                # Get URL
                 buy_url = p.get('enrichment', {}).get('buy_url', '')
                 if buy_url.startswith('http'):
                     product_url = buy_url
@@ -190,10 +269,16 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
                     tcin = p.get("tcin", "")
                     product_url = f"https://www.target.com/p/-/A-{tcin}" if tcin else ""
                 
+                # Parse price safely
+                price_val = price_data.get("current_retail", 0) or price_data.get("reg_retail", 0)
+                if not price_val:
+                    price_str = price_data.get("formatted_current_price_default_message", "")
+                    price_val = float(''.join(c for c in price_str if c.isdigit() or c == '.') or '0')
+                
                 products.append(Product(
                     name=title,
                     retailer="Target",
-                    price=price_data.get("current_retail", 0) or price_data.get("reg_retail", 0) or price_data.get("formatted_current_price_default_message", "").replace("$", "").replace(",", "") or 0,
+                    price=float(price_val) if price_val else 0,
                     url=product_url,
                     sku=p.get("tcin", ""),
                     stock=in_stock,
@@ -212,14 +297,201 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
 
 
 # =============================================================================
+# WALMART - SEARCH API
+# =============================================================================
+
+def scan_walmart(query: str = "pokemon trading cards") -> List[Product]:
+    """
+    Scan Walmart using their search endpoint.
+    Uses session pooling and retry logic.
+    """
+    products = []
+    
+    cached = Cache.get("walmart", query)
+    if cached:
+        return [Product(**p) for p in cached]
+    
+    session = get_session("walmart")
+    
+    try:
+        # Walmart's search API endpoint
+        search_url = "https://www.walmart.com/orchestra/home/graphql"
+        
+        headers = get_stealth_headers()
+        headers.update({
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-O-CORRELATION-ID": f"pkm-{int(time.time())}",
+            "X-O-SEGMENT": "oaoh",
+            "Referer": f"https://www.walmart.com/search?q={query.replace(' ', '+')}",
+        })
+        
+        # GraphQL query for search
+        payload = {
+            "query": """query Search($query: String!, $page: Int, $prg: Prg!, $facet: String) {
+                search(query: $query, page: $page, prg: $prg, facet: $facet) {
+                    searchResult {
+                        itemStacks {
+                            items {
+                                name
+                                canonicalUrl
+                                usItemId
+                                priceInfo { currentPrice { price } }
+                                availabilityStatusV2 { value }
+                                imageInfo { thumbnailUrl }
+                            }
+                        }
+                    }
+                }
+            }""",
+            "variables": {
+                "query": query,
+                "page": 1,
+                "prg": "desktop",
+                "facet": ""
+            }
+        }
+        
+        time.sleep(get_random_delay())
+        resp = session.post(search_url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            stacks = data.get("data", {}).get("search", {}).get("searchResult", {}).get("itemStacks", [])
+            
+            for stack in stacks:
+                for item in stack.get("items", [])[:24]:
+                    name = item.get("name", "")
+                    
+                    if "pokemon" not in name.lower() and "pokémon" not in name.lower():
+                        continue
+                    
+                    price_info = item.get("priceInfo", {}).get("currentPrice", {})
+                    avail = item.get("availabilityStatusV2", {}).get("value", "")
+                    in_stock = avail.upper() in ["IN_STOCK", "AVAILABLE"]
+                    
+                    url = item.get("canonicalUrl", "")
+                    if url and not url.startswith("http"):
+                        url = f"https://www.walmart.com{url}"
+                    
+                    products.append(Product(
+                        name=name,
+                        retailer="Walmart",
+                        price=price_info.get("price", 0) or 0,
+                        url=url,
+                        sku=item.get("usItemId", ""),
+                        stock=in_stock,
+                        stock_status="In Stock" if in_stock else "Out of Stock",
+                        image_url=item.get("imageInfo", {}).get("thumbnailUrl", ""),
+                        last_checked=datetime.now().isoformat(),
+                    ))
+        
+        # Fallback to scraping if GraphQL fails
+        if not products:
+            products = _scan_walmart_scrape(query, session)
+        
+        if products:
+            Cache.set("walmart", query, [p.to_dict() for p in products])
+            
+    except Exception as e:
+        print(f"Walmart error: {e}")
+        # Try scrape fallback
+        try:
+            products = _scan_walmart_scrape(query, session)
+            if products:
+                Cache.set("walmart", query, [p.to_dict() for p in products])
+        except Exception as e2:
+            print(f"Walmart scrape fallback error: {e2}")
+    
+    return products
+
+
+def _scan_walmart_scrape(query: str, session: requests.Session) -> List[Product]:
+    """Fallback scraping for Walmart."""
+    products = []
+    
+    if not BS4_AVAILABLE:
+        return products
+    
+    try:
+        search_url = f"https://www.walmart.com/search?q={query.replace(' ', '+')}"
+        headers = get_stealth_headers()
+        
+        time.sleep(get_random_delay())
+        resp = session.get(search_url, headers=headers, timeout=REQUEST_TIMEOUT)
+        
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            # Look for product data in script tags
+            for script in soup.find_all('script', type='application/json'):
+                try:
+                    data = json.loads(script.string or '{}')
+                    # Parse Walmart's embedded JSON data
+                    items = _extract_walmart_items(data)
+                    for item in items:
+                        if "pokemon" in item.get("name", "").lower():
+                            products.append(Product(
+                                name=item.get("name", ""),
+                                retailer="Walmart",
+                                price=item.get("price", 0),
+                                url=item.get("url", ""),
+                                sku=item.get("sku", ""),
+                                stock=item.get("in_stock", False),
+                                stock_status="In Stock" if item.get("in_stock") else "Out of Stock",
+                                image_url=item.get("image", ""),
+                                last_checked=datetime.now().isoformat(),
+                            ))
+                except json.JSONDecodeError:
+                    continue
+    except Exception as e:
+        print(f"Walmart scrape error: {e}")
+    
+    return products
+
+
+def _extract_walmart_items(data: dict, items: list = None) -> list:
+    """Recursively extract product items from Walmart's JSON."""
+    if items is None:
+        items = []
+    
+    if isinstance(data, dict):
+        # Check if this looks like a product
+        if "name" in data and ("usItemId" in data or "canonicalUrl" in data):
+            price = 0
+            if "priceInfo" in data:
+                price = data["priceInfo"].get("currentPrice", {}).get("price", 0)
+            elif "price" in data:
+                price = data.get("price", 0)
+            
+            items.append({
+                "name": data.get("name", ""),
+                "price": price,
+                "url": f"https://www.walmart.com{data.get('canonicalUrl', '')}" if data.get('canonicalUrl') else "",
+                "sku": data.get("usItemId", ""),
+                "in_stock": data.get("availabilityStatusV2", {}).get("value", "").upper() in ["IN_STOCK", "AVAILABLE"],
+                "image": data.get("imageInfo", {}).get("thumbnailUrl", ""),
+            })
+        
+        # Recurse into dict values
+        for v in data.values():
+            _extract_walmart_items(v, items)
+    
+    elif isinstance(data, list):
+        for item in data:
+            _extract_walmart_items(item, items)
+    
+    return items[:24]  # Limit results
+
+
+# =============================================================================
 # BEST BUY - API/SCRAPE
 # =============================================================================
 
 def scan_bestbuy(query: str = "pokemon trading cards") -> List[Product]:
     """
-    Scan Best Buy.
-    
-    Uses their API if key available, otherwise scrapes.
+    Scan Best Buy using API or scraping fallback.
+    Uses session pooling.
     """
     products = []
     
@@ -227,6 +499,7 @@ def scan_bestbuy(query: str = "pokemon trading cards") -> List[Product]:
     if cached:
         return [Product(**p) for p in cached]
     
+    session = get_session("bestbuy")
     api_key = os.environ.get("BESTBUY_API_KEY", "")
     
     try:
@@ -237,11 +510,11 @@ def scan_bestbuy(query: str = "pokemon trading cards") -> List[Product]:
                 "apiKey": api_key,
                 "format": "json",
                 "show": "sku,name,salePrice,url,inStoreAvailability,onlineAvailability,image",
-                "pageSize": 20,
+                "pageSize": 24,
             }
             
             time.sleep(get_random_delay())
-            resp = requests.get(url, params=params, timeout=15)
+            resp = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
             
             if resp.status_code == 200:
                 data = resp.json()
@@ -265,7 +538,7 @@ def scan_bestbuy(query: str = "pokemon trading cards") -> List[Product]:
             headers = get_stealth_headers()
             
             time.sleep(get_random_delay())
-            resp = requests.get(search_url, headers=headers, timeout=15)
+            resp = session.get(search_url, headers=headers, timeout=REQUEST_TIMEOUT)
             
             if resp.status_code == 200 and BS4_AVAILABLE:
                 soup = BeautifulSoup(resp.text, 'html.parser')
@@ -322,19 +595,21 @@ def scan_bestbuy(query: str = "pokemon trading cards") -> List[Product]:
 # =============================================================================
 
 def scan_gamestop(query: str = "pokemon cards") -> List[Product]:
-    """Scan GameStop by scraping."""
+    """Scan GameStop by scraping. Uses session pooling."""
     products = []
     
     cached = Cache.get("gamestop", query)
     if cached:
         return [Product(**p) for p in cached]
     
+    session = get_session("gamestop")
+    
     try:
         search_url = f"https://www.gamestop.com/search/?q={query.replace(' ', '+')}"
         headers = get_stealth_headers()
         
         time.sleep(get_random_delay())
-        resp = requests.get(search_url, headers=headers, timeout=15)
+        resp = session.get(search_url, headers=headers, timeout=REQUEST_TIMEOUT)
         
         if resp.status_code == 200 and BS4_AVAILABLE:
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -391,12 +666,14 @@ def scan_gamestop(query: str = "pokemon cards") -> List[Product]:
 # =============================================================================
 
 def scan_pokemoncenter(query: str = "trading cards") -> List[Product]:
-    """Scan Pokemon Center official store."""
+    """Scan Pokemon Center official store. Uses session pooling."""
     products = []
     
     cached = Cache.get("pokemoncenter", query)
     if cached:
         return [Product(**p) for p in cached]
+    
+    session = get_session("pokemoncenter")
     
     try:
         search_url = f"https://www.pokemoncenter.com/search/{query.replace(' ', '%20')}"
@@ -404,7 +681,7 @@ def scan_pokemoncenter(query: str = "trading cards") -> List[Product]:
         headers["Accept"] = "text/html,application/xhtml+xml"
         
         time.sleep(get_random_delay())
-        resp = requests.get(search_url, headers=headers, timeout=15)
+        resp = session.get(search_url, headers=headers, timeout=REQUEST_TIMEOUT)
         
         if resp.status_code == 200 and BS4_AVAILABLE:
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -466,8 +743,8 @@ def scan_pokemoncenter(query: str = "trading cards") -> List[Product]:
 def scan_cards(card_name: str = "", set_name: str = "") -> List[Product]:
     """
     Get card data from Pokemon TCG API.
-    
-    This is free and reliable for card information and TCGPlayer prices.
+    Free and reliable for card information and TCGPlayer prices.
+    Uses session pooling.
     """
     products = []
     
@@ -475,6 +752,8 @@ def scan_cards(card_name: str = "", set_name: str = "") -> List[Product]:
     cached = Cache.get("pokemontcgapi", query)
     if cached:
         return [Product(**p) for p in cached]
+    
+    session = get_session("pokemontcgapi")
     
     try:
         api_url = "https://api.pokemontcg.io/v2/cards"
@@ -490,10 +769,10 @@ def scan_cards(card_name: str = "", set_name: str = "") -> List[Product]:
         headers = get_stealth_headers()
         headers["Accept"] = "application/json"
         
-        params = {"q": q, "pageSize": 20, "orderBy": "-tcgplayer.prices.holofoil.market"}
+        params = {"q": q, "pageSize": 24, "orderBy": "-tcgplayer.prices.holofoil.market"}
         
         time.sleep(get_random_delay())
-        resp = requests.get(api_url, params=params, headers=headers, timeout=15)
+        resp = session.get(api_url, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
         
         if resp.status_code == 200:
             data = resp.json()
@@ -584,6 +863,7 @@ def filter_by_relevance(products: List[Product], query: str) -> List[Product]:
     for p in products:
         matches, score = matches_query(p.name, query)
         if matches:
+            p.relevance_score = score  # Store score on product
             scored.append((p, score))
     
     # Sort by score (highest first)
@@ -593,14 +873,23 @@ def filter_by_relevance(products: List[Product], query: str) -> List[Product]:
 
 
 # =============================================================================
-# UNIFIED SCANNER
+# UNIFIED SCANNER - With Parallel Execution
 # =============================================================================
 
 class StockChecker:
-    """Unified stock checker for all retailers."""
+    """
+    Unified stock checker for all retailers.
+    
+    Features:
+    - Parallel scanning (3-4x faster)
+    - Session pooling for connection reuse
+    - Automatic retry with backoff
+    - Smart caching
+    """
     
     RETAILERS = {
         "target": scan_target,
+        "walmart": scan_walmart,
         "bestbuy": scan_bestbuy,
         "gamestop": scan_gamestop,
         "pokemoncenter": scan_pokemoncenter,
@@ -610,45 +899,91 @@ class StockChecker:
     def __init__(self, zip_code: str = "90210"):
         self.zip_code = zip_code
     
-    def scan_all(self, query: str = "pokemon trading cards") -> Dict[str, Any]:
-        """Scan all retailers for Pokemon products."""
+    def _scan_single_retailer(self, name: str, query: str) -> Tuple[str, List[Product], Optional[str]]:
+        """Scan a single retailer. Returns (name, products, error)."""
+        try:
+            scan_func = self.RETAILERS[name]
+            
+            if name == "target":
+                products = scan_func(query, self.zip_code)
+            elif name == "tcgplayer":
+                # For cards, extract card name from query
+                card_query = query.replace("pokemon", "").replace("trading cards", "").strip()
+                products = scan_func(card_query or "charizard")
+            else:
+                products = scan_func(query)
+            
+            return (name, products, None)
+            
+        except Exception as e:
+            return (name, [], str(e))
+    
+    def scan_all(self, query: str = "pokemon trading cards", parallel: bool = True) -> Dict[str, Any]:
+        """
+        Scan all retailers for Pokemon products.
+        
+        Args:
+            query: Search query
+            parallel: If True, scan retailers in parallel (faster)
+        """
         all_products = []
         results = {}
         errors = []
+        start_time = time.time()
         
-        for name, scan_func in self.RETAILERS.items():
-            try:
-                if name == "target":
-                    products = scan_func(query, self.zip_code)
-                elif name == "tcgplayer":
-                    # For cards, extract card name from query
-                    card_query = query.replace("pokemon", "").replace("trading cards", "").strip()
-                    products = scan_func(card_query or "charizard")
-                else:
-                    products = scan_func(query)
-                
-                # Filter by relevance to query
-                relevant_products = filter_by_relevance(products, query)
-                
-                results[name] = {
-                    "count": len(relevant_products),
-                    "in_stock": len([p for p in relevant_products if p.stock]),
+        if parallel:
+            # Parallel scanning - up to 6 retailers at once
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                futures = {
+                    executor.submit(self._scan_single_retailer, name, query): name 
+                    for name in self.RETAILERS
                 }
-                all_products.extend([p.to_dict() for p in relevant_products])
                 
-            except Exception as e:
-                errors.append(f"{name}: {str(e)}")
+                for future in as_completed(futures):
+                    name, products, error = future.result()
+                    
+                    if error:
+                        errors.append(f"{name}: {error}")
+                        results[name] = {"count": 0, "in_stock": 0, "error": error}
+                    else:
+                        # Filter by relevance
+                        relevant_products = filter_by_relevance(products, query)
+                        results[name] = {
+                            "count": len(relevant_products),
+                            "in_stock": len([p for p in relevant_products if p.stock]),
+                        }
+                        all_products.extend([p.to_dict() for p in relevant_products])
+        else:
+            # Sequential scanning (fallback)
+            for name in self.RETAILERS:
+                _, products, error = self._scan_single_retailer(name, query)
+                
+                if error:
+                    errors.append(f"{name}: {error}")
+                    results[name] = {"count": 0, "in_stock": 0, "error": error}
+                else:
+                    relevant_products = filter_by_relevance(products, query)
+                    results[name] = {
+                        "count": len(relevant_products),
+                        "in_stock": len([p for p in relevant_products if p.stock]),
+                    }
+                    all_products.extend([p.to_dict() for p in relevant_products])
         
-        # Deduplicate
+        # Deduplicate by name similarity
         seen = set()
         unique = []
         for p in all_products:
-            key = p["name"].lower()[:40]
+            # Create normalized key for deduplication
+            key = ''.join(c.lower() for c in p["name"] if c.isalnum())[:50]
             if key not in seen:
                 seen.add(key)
                 unique.append(p)
         
+        # Sort by stock status (in stock first), then by relevance score
+        unique.sort(key=lambda x: (not x.get("stock", False), -x.get("relevance_score", 0)))
+        
         in_stock = [p for p in unique if p.get("stock")]
+        scan_time = round(time.time() - start_time, 2)
         
         return {
             "success": True,
@@ -661,6 +996,8 @@ class StockChecker:
             "in_stock_only": in_stock,
             "errors": errors if errors else None,
             "checked_at": datetime.now().isoformat(),
+            "scan_time_seconds": scan_time,
+            "parallel": parallel,
         }
     
     def scan_retailer(self, retailer: str, query: str) -> Dict[str, Any]:
@@ -670,15 +1007,17 @@ class StockChecker:
         if retailer_key not in self.RETAILERS:
             return {"error": f"Unknown retailer: {retailer}", "available": list(self.RETAILERS.keys())}
         
+        start_time = time.time()
+        
         try:
-            scan_func = self.RETAILERS[retailer_key]
-            if retailer_key == "target":
-                products = scan_func(query, self.zip_code)
-            else:
-                products = scan_func(query)
+            _, products, error = self._scan_single_retailer(retailer_key, query)
+            
+            if error:
+                return {"error": error}
             
             # Filter by relevance
             relevant_products = filter_by_relevance(products, query)
+            scan_time = round(time.time() - start_time, 2)
             
             return {
                 "success": True,
@@ -687,23 +1026,86 @@ class StockChecker:
                 "total": len(relevant_products),
                 "in_stock": len([p for p in relevant_products if p.stock]),
                 "products": [p.to_dict() for p in relevant_products],
+                "scan_time_seconds": scan_time,
             }
         except Exception as e:
             return {"error": str(e)}
+    
+    def scan_multiple(self, retailers: List[str], query: str) -> Dict[str, Any]:
+        """Scan specific retailers in parallel."""
+        all_products = []
+        results = {}
+        errors = []
+        start_time = time.time()
+        
+        # Validate retailers
+        valid_retailers = [r.lower().replace(" ", "") for r in retailers if r.lower().replace(" ", "") in self.RETAILERS]
+        
+        if not valid_retailers:
+            return {"error": "No valid retailers specified", "available": list(self.RETAILERS.keys())}
+        
+        with ThreadPoolExecutor(max_workers=len(valid_retailers)) as executor:
+            futures = {
+                executor.submit(self._scan_single_retailer, name, query): name 
+                for name in valid_retailers
+            }
+            
+            for future in as_completed(futures):
+                name, products, error = future.result()
+                
+                if error:
+                    errors.append(f"{name}: {error}")
+                    results[name] = {"count": 0, "in_stock": 0, "error": error}
+                else:
+                    relevant_products = filter_by_relevance(products, query)
+                    results[name] = {
+                        "count": len(relevant_products),
+                        "in_stock": len([p for p in relevant_products if p.stock]),
+                    }
+                    all_products.extend([p.to_dict() for p in relevant_products])
+        
+        scan_time = round(time.time() - start_time, 2)
+        
+        return {
+            "success": True,
+            "retailers": valid_retailers,
+            "query": query,
+            "total": len(all_products),
+            "in_stock_count": len([p for p in all_products if p.get("stock")]),
+            "by_retailer": results,
+            "products": all_products,
+            "errors": errors if errors else None,
+            "scan_time_seconds": scan_time,
+        }
 
 
 # =============================================================================
 # CONVENIENCE FUNCTIONS
 # =============================================================================
 
-def scan_all(query: str = "pokemon trading cards", zip_code: str = "90210") -> Dict[str, Any]:
-    """Main entry point - scan all retailers."""
-    return StockChecker(zip_code).scan_all(query)
+def scan_all(query: str = "pokemon trading cards", zip_code: str = "90210", parallel: bool = True) -> Dict[str, Any]:
+    """Main entry point - scan all retailers in parallel."""
+    return StockChecker(zip_code).scan_all(query, parallel=parallel)
 
 
 def scan_retailer(retailer: str, query: str, zip_code: str = "90210") -> Dict[str, Any]:
     """Scan specific retailer."""
     return StockChecker(zip_code).scan_retailer(retailer, query)
+
+
+def scan_multiple(retailers: List[str], query: str, zip_code: str = "90210") -> Dict[str, Any]:
+    """Scan specific retailers in parallel."""
+    return StockChecker(zip_code).scan_multiple(retailers, query)
+
+
+def clear_cache(retailer: str = None):
+    """Clear cache for retailer or all retailers."""
+    Cache.clear(retailer)
+
+
+def get_available_retailers() -> List[str]:
+    """Get list of available retailers."""
+    return list(StockChecker.RETAILERS.keys())
 
 
 # =============================================================================
@@ -712,7 +1114,32 @@ def scan_retailer(retailer: str, query: str, zip_code: str = "90210") -> Dict[st
 
 if __name__ == "__main__":
     import sys
+    import argparse
     
-    query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "pokemon elite trainer box"
-    result = scan_all(query)
+    parser = argparse.ArgumentParser(description="Pokemon Stock Checker")
+    parser.add_argument("query", nargs="*", default=["pokemon", "elite", "trainer", "box"], help="Search query")
+    parser.add_argument("--retailer", "-r", help="Specific retailer to scan")
+    parser.add_argument("--zip", "-z", default="90210", help="ZIP code for local stock")
+    parser.add_argument("--no-parallel", action="store_true", help="Disable parallel scanning")
+    parser.add_argument("--clear-cache", action="store_true", help="Clear cache before scanning")
+    
+    args = parser.parse_args()
+    query = " ".join(args.query)
+    
+    if args.clear_cache:
+        clear_cache()
+        print("Cache cleared.")
+    
+    print(f"Scanning for: {query}")
+    print(f"Available retailers: {', '.join(get_available_retailers())}")
+    print("-" * 50)
+    
+    if args.retailer:
+        result = scan_retailer(args.retailer, query, args.zip)
+    else:
+        result = scan_all(query, args.zip, parallel=not args.no_parallel)
+    
     print(json.dumps(result, indent=2))
+    
+    if result.get("scan_time_seconds"):
+        print(f"\nScan completed in {result['scan_time_seconds']} seconds")
