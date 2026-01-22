@@ -240,12 +240,14 @@
         /* Navigation */
         .desktop-nav {
             display: flex;
-            gap: 0.375rem;
+            justify-content: center;
+            gap: 0.5rem;
             margin-bottom: 2rem;
-            padding: 0.375rem;
+            padding: 0.5rem;
             background: var(--bg-card);
             border-radius: var(--radius);
             border: 1px solid var(--border);
+            flex-wrap: wrap;
         }
         
         .mobile-nav {
@@ -1533,7 +1535,7 @@
             <button class="nav-btn" data-section="assistant">AI Assistant</button>
             <button class="nav-btn" data-section="portfolio">Portfolio</button>
             <button class="nav-btn" data-section="grade">Grading</button>
-            <button class="nav-btn" data-section="flip">Flip Calc</button>
+            <button class="nav-btn" data-section="flip">Flip Calculator</button>
             <button class="nav-btn" data-section="analytics">Analytics</button>
             <button class="nav-btn" data-section="settings">Settings</button>
         </nav>
@@ -6435,6 +6437,18 @@
             const lowPrice = raw.low || prices.holofoil?.low || prices.normal?.low || 0;
             const highPrice = raw.high || prices.holofoil?.high || prices.normal?.high || 0;
             
+            // Populate allGradePrices for chart (fallback)
+            if (marketPrice > 0) {
+                allGradePrices = {
+                    'raw': marketPrice,
+                    'PSA 10': marketPrice * 2.5,
+                    'PSA 9': marketPrice * 1.8,
+                    'CGC 10': marketPrice * 2.0,
+                    'CGC 9.5': marketPrice * 1.7,
+                    'BGS 10': marketPrice * 3.5
+                };
+            }
+            
             let pricesHTML = `
                 <div class="price-item">
                     <span class="price-label">Raw (Market)</span>
@@ -6617,7 +6631,18 @@
             
             displayBuyLinks(product);
             generateProductPriceHistory({ ...product, price: msrp });
-            drawPriceChart();
+            
+            // Wait for next frame to ensure canvas is visible and sized
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    try {
+                        drawPriceChart();
+                        console.log('Product chart drawn successfully');
+                    } catch (e) {
+                        console.error('Error drawing product chart:', e);
+                    }
+                });
+            });
         }
         
         function displayCardPrices(card) {
@@ -6870,11 +6895,27 @@
         
         // Price Chart Functions
         function generatePriceHistory(card) {
-            // allGradePrices is already populated by displayCardPrices()
-            // Just use the stored prices
+            // Get raw price from various sources
+            const prices = card.tcgplayer?.prices || {};
             const rawPrice = allGradePrices['raw'] || 
-                              card.tcgplayer?.prices?.holofoil?.market || 
-                              card.tcgplayer?.prices?.normal?.market || 10;
+                              prices.holofoil?.market || 
+                              prices.normal?.market || 
+                              prices.reverseHolofoil?.market ||
+                              card.priceData?.raw?.price ||
+                              10;
+            
+            // Ensure allGradePrices has at least the raw price
+            if (!allGradePrices['raw'] || Object.keys(allGradePrices).length === 0) {
+                const basePrice = rawPrice;
+                allGradePrices = {
+                    'raw': basePrice,
+                    'PSA 10': basePrice * 2.5,
+                    'PSA 9': basePrice * 1.8,
+                    'CGC 10': basePrice * 2.0,
+                    'CGC 9.5': basePrice * 1.7,
+                    'BGS 10': basePrice * 3.5
+                };
+            }
             
             // Reset to raw and generate data
             currentChartGrade = 'raw';
@@ -6882,6 +6923,7 @@
             if (gradeSelect) gradeSelect.value = 'raw';
             
             generatePriceHistoryForGrade(rawPrice);
+            console.log('Generated price history with raw price:', rawPrice);
         }
         
         function generatePriceHistoryForGrade(basePrice) {
