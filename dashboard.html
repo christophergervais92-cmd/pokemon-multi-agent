@@ -1550,7 +1550,12 @@
 
             <!-- Confirmed Drops -->
             <div id="confirmedDropsSection">
-                <h2 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text);">Confirmed Drops</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <h2 style="font-size: 1rem; margin: 0; color: var(--text);">Confirmed Drops</h2>
+                    <button class="btn btn-sm" onclick="checkDropStock(); showNotification('Checking stock for upcoming drops...', 'info');" style="font-size: 0.75rem;">
+                        🔄 Refresh Stock
+                    </button>
+                </div>
                 <div id="upcomingDrops"></div>
             </div>
             
@@ -2139,6 +2144,20 @@
         <section id="settings">
             <h1>Settings</h1>
             
+            <div class="card" style="border: 2px solid var(--accent); background: linear-gradient(135deg, var(--bg-card) 0%, rgba(52, 102, 175, 0.1) 100%);">
+                <h2 style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🔌</span> API Configuration
+                </h2>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Change the backend API URL. Use <code style="background: var(--bg); padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.7rem;">http://127.0.0.1:5001</code> for local server or <code style="background: var(--bg); padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.7rem;">https://pokemon-multi-agent.onrender.com</code> for deployed version.
+                </p>
+                <div class="search-bar" style="margin-bottom: 0.5rem;">
+                    <input type="text" id="settingsApi" placeholder="http://127.0.0.1:5001" style="flex: 1; font-family: 'Space Mono', monospace; font-size: 0.875rem;">
+                    <button class="btn" onclick="testApi()" style="min-width: 80px;">Test & Save</button>
+                </div>
+                <div id="apiStatus" style="font-size: 0.75rem; margin-top: 0.5rem; padding: 0.5rem; border-radius: 6px; display: none;"></div>
+            </div>
+            
             <div class="card">
                 <h2>Notifications</h2>
                 <div class="toggle-row">
@@ -2266,14 +2285,6 @@
             </div>
 
             <div class="card">
-                <h2>API</h2>
-                <div class="search-bar">
-                    <input type="text" id="settingsApi" value="http://127.0.0.1:5001">
-                    <button class="btn btn-outline" onclick="testApi()">Test</button>
-                </div>
-            </div>
-            
-            <div class="card">
                 <h2>Data Backup & Sync</h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
                     Your data syncs automatically when logged in with Discord. You can also export/import backups manually.
@@ -2329,6 +2340,19 @@
         
         let API = getDefaultAPI();
         let settings = optimizedLocalStorageGet('settings', {});
+        
+        // Load API setting if it exists
+        if (settings.api) {
+            API = settings.api;
+        } else {
+            // Check localStorage for legacy 'api' key
+            const savedApi = localStorage.getItem('api');
+            if (savedApi) {
+                API = savedApi;
+                settings.api = savedApi;
+                optimizedLocalStorageSet('settings', settings);
+            }
+        }
         let cache = new Map();
         const CACHE_TTL = 15000; // 15 second cache for faster updates
         const CACHE_TTL_LONG = 300000; // 5 min cache for static data (sets, card info)
@@ -2889,6 +2913,17 @@
             // Sync mobile dropdown
             const mobileSelect = document.getElementById('mobileNavSelect');
             if (mobileSelect) mobileSelect.value = name;
+            
+            // Initialize drops when switching to drops section
+            if (name === 'search') {
+                setTimeout(() => {
+                    const container = document.getElementById('upcomingDrops');
+                    if (container && (!container.innerHTML.trim() || container.innerHTML.includes('empty'))) {
+                        console.log('Switching to drops section, initializing...');
+                        initDrops();
+                    }
+                }, 100);
+            }
             
             // Initialize vending map when switching to vending section (lazy load Leaflet)
             if (name === 'vending') {
@@ -3472,16 +3507,123 @@
         let liveInstagramPosts = [];
         let liveTikTokPosts = [];
         let rumorsData = [];
+        let dropStockStatus = {}; // Store stock status for each drop
         
         function initDrops() {
-            document.getElementById('dropUpdateTime').textContent = new Date().toLocaleTimeString();
+            try {
+                const dropUpdateTimeEl = document.getElementById('dropUpdateTime');
+                if (dropUpdateTimeEl) {
+                    dropUpdateTimeEl.textContent = new Date().toLocaleTimeString();
+                }
+                
+                console.log('Initializing drops, data count:', upcomingDropsData?.length || 0);
+                
+                // Render drops immediately (don't wait for API calls)
+                renderUpcomingDrops();
+                
+                // Load set logos from Pokemon TCG API (non-blocking)
+                setTimeout(() => loadDropSetLogos(), 100);
+                
+                // Load live intel from all sources (non-blocking, with timeout)
+                setTimeout(() => loadLiveIntel(), 200);
+                
+                // Load rumors (non-blocking)
+                setTimeout(() => loadRumors(), 300);
+                
+                // Check stock for upcoming drops (non-blocking)
+                setTimeout(() => checkDropStock(), 500);
+            } catch (e) {
+                console.error('Error initializing drops:', e);
+                // Still try to render drops even if there's an error
+                renderUpcomingDrops();
+            }
+        }
+        
+        async function checkDropStock() {
+            const now = new Date();
+            const oneWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
+            // Only check stock for drops happening today or within the next week
+            const relevantDrops = upcomingDropsData.filter(d => {
+                const daysUntil = Math.ceil((d.date - now) / (1000 * 60 * 60 * 24));
+                return daysUntil >= -1 && daysUntil <= 7; // Check drops from yesterday to 7 days out
+            });
+            
+            if (relevantDrops.length === 0) {
+                showNotification('No upcoming drops to check stock for', 'info');
+                return;
+            }
+            
+            // Get user's zip code
+            const zip = settings.zip || '90210';
+            
+            let checkedCount = 0;
+            
+            // Check stock for each drop
+            for (const drop of relevantDrops) {
+                try {
+                    // Build search query from drop name and products
+                    const query = `${drop.name} ${drop.products.join(' ')}`.toLowerCase();
+                    
+                    // Add cache-busting
+                    const cacheBuster = new Date().getTime();
+                    const response = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&_=${cacheBuster}`, {
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-cache'
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const products = data.products || [];
+                        
+                        // Group products by retailer and check stock
+                        const retailerStock = {};
+                        drop.retailers.forEach(retailer => {
+                            retailerStock[retailer] = {
+                                inStock: false,
+                                count: 0,
+                                products: []
+                            };
+                        });
+                        
+                        products.forEach(product => {
+                            const retailer = product.retailer || '';
+                            if (retailerStock[retailer] && product.stock) {
+                                retailerStock[retailer].inStock = true;
+                                retailerStock[retailer].count++;
+                                retailerStock[retailer].products.push({
+                                    name: product.name,
+                                    price: product.price,
+                                    url: product.url
+                                });
+                            }
+                        });
+                        
+                        // Store stock status for this drop
+                        dropStockStatus[drop.name] = {
+                            checked: new Date().toISOString(),
+                            retailers: retailerStock,
+                            totalInStock: Object.values(retailerStock).filter(r => r.inStock).length,
+                            totalRetailers: drop.retailers.length
+                        };
+                        
+                        checkedCount++;
+                    }
+                } catch (e) {
+                    console.log(`Stock check failed for ${drop.name}:`, e.message);
+                }
+            }
+            
+            // Re-render drops with stock info
             renderUpcomingDrops();
-            // Load set logos from Pokemon TCG API
-            loadDropSetLogos();
-            // Load live intel from all sources
-            loadLiveIntel();
-            // Load rumors
-            loadRumors();
+            
+            // Update timestamp
+            document.getElementById('dropUpdateTime').textContent = new Date().toLocaleTimeString();
+            
+            if (checkedCount > 0) {
+                const totalInStock = Object.values(dropStockStatus).reduce((sum, status) => sum + status.totalInStock, 0);
+                showNotification(`Stock checked for ${checkedCount} drops. ${totalInStock} retailers have stock available.`, 'success');
+            }
         }
         
         function toggleDropType(type) {
@@ -3617,9 +3759,24 @@
         }
         
         async function loadLiveIntel() {
+            const liveIntelContainer = document.getElementById('liveIntel');
+            if (!liveIntelContainer) return;
+            
+            // Set timeout for all requests
+            const timeout = 5000; // 5 seconds per request
+            
+            const fetchWithTimeout = (url, timeoutMs) => {
+                return Promise.race([
+                    fetch(url),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+                    )
+                ]);
+            };
+            
             // Fetch Reddit intel (for backend processing, not displayed)
             try {
-                const redditRes = await fetch(`${API}/drops/reddit`);
+                const redditRes = await fetchWithTimeout(`${API}/drops/reddit`, timeout);
                 if (redditRes.ok) {
                     const data = await redditRes.json();
                     liveRedditPosts = data.posts || [];
@@ -3631,7 +3788,7 @@
             
             // Fetch PokeBeach news
             try {
-                const pbRes = await fetch(`${API}/drops/pokebeach`);
+                const pbRes = await fetchWithTimeout(`${API}/drops/pokebeach`, timeout);
                 if (pbRes.ok) {
                     const data = await pbRes.json();
                     livePokeBeachNews = data.news || [];
@@ -3643,7 +3800,7 @@
             
             // Fetch Twitter/X intel
             try {
-                const twitterRes = await fetch(`${API}/drops/twitter`);
+                const twitterRes = await fetchWithTimeout(`${API}/drops/twitter`, timeout);
                 if (twitterRes.ok) {
                     const data = await twitterRes.json();
                     liveTwitterPosts = data.posts || [];
@@ -3655,7 +3812,7 @@
             
             // Fetch Instagram intel
             try {
-                const igRes = await fetch(`${API}/drops/instagram`);
+                const igRes = await fetchWithTimeout(`${API}/drops/instagram`, timeout);
                 if (igRes.ok) {
                     const data = await igRes.json();
                     liveInstagramPosts = data.posts || [];
@@ -3667,7 +3824,7 @@
             
             // Fetch TikTok intel
             try {
-                const ttRes = await fetch(`${API}/drops/tiktok`);
+                const ttRes = await fetchWithTimeout(`${API}/drops/tiktok`, timeout);
                 if (ttRes.ok) {
                     const data = await ttRes.json();
                     liveTikTokPosts = data.posts || [];
@@ -3677,9 +3834,21 @@
                 console.log('TikTok fetch skipped:', e.message);
             }
             
-            // Render live intel section
+            // Render live intel section (even if some requests failed)
             renderLiveIntel();
         }
+        
+        // Fallback: if live intel fails to load, show a message after timeout
+        setTimeout(() => {
+            const liveIntelContainer = document.getElementById('liveIntel');
+            if (liveIntelContainer && (liveIntelContainer.innerHTML.includes('Loading live intel...') || liveIntelContainer.innerHTML.trim() === '')) {
+                liveIntelContainer.innerHTML = `
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 1rem;">
+                        Live intel temporarily unavailable. Check back later for updates from PokeBeach, X, Instagram & TikTok.
+                    </div>
+                `;
+            }
+        }, 8000); // After 8 seconds, show fallback message
         
         function getPlatformColor(type) {
             const colors = {
@@ -3798,18 +3967,40 @@
         
         function renderUpcomingDrops() {
             const container = document.getElementById('upcomingDrops');
+            if (!container) {
+                console.error('upcomingDrops container not found');
+                return;
+            }
+            
             const now = new Date();
             const oneWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
             const oneMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            
+            if (!upcomingDropsData || upcomingDropsData.length === 0) {
+                container.innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon"></div>
+                        <div>No drops data available</div>
+                    </div>
+                `;
+                return;
+            }
             
             let drops = [...upcomingDropsData].sort((a, b) => a.date - b.date);
             
             // Apply filter
             if (currentDropFilter === 'thisweek') {
-                drops = drops.filter(d => d.date <= oneWeek && d.date >= now);
+                drops = drops.filter(d => {
+                    const daysUntil = Math.ceil((d.date - now) / (1000 * 60 * 60 * 24));
+                    return daysUntil >= -1 && daysUntil <= 7;
+                });
             } else if (currentDropFilter === 'thismonth') {
-                drops = drops.filter(d => d.date <= oneMonth && d.date >= now);
+                drops = drops.filter(d => {
+                    const daysUntil = Math.ceil((d.date - now) / (1000 * 60 * 60 * 24));
+                    return daysUntil >= -1 && daysUntil <= 30;
+                });
             }
+            // If filter is 'all', show all drops (including past ones)
             
             if (!drops.length) {
                 container.innerHTML = `
@@ -3879,9 +4070,32 @@
                                         ${statusBadge}
                                     </div>
                                 </div>
-                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0;">
-                                    ${drop.retailers.map(r => `<span style="font-size: 0.875rem; padding: 0.25rem 0.5rem; background: var(--bg); border-radius: 6px; font-weight: 500;">${r}</span>`).join('')}
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; align-items: center;">
+                                    ${drop.retailers.map(r => {
+                                        const stockInfo = dropStockStatus[drop.name]?.retailers[r];
+                                        const hasStock = stockInfo?.inStock;
+                                        const stockCount = stockInfo?.count || 0;
+                                        return `<span style="font-size: 0.875rem; padding: 0.25rem 0.5rem; background: ${hasStock ? 'var(--green)' : 'var(--bg)'}; color: ${hasStock ? 'white' : 'var(--text)'}; border-radius: 6px; font-weight: 500; border: ${hasStock ? '1px solid var(--green)' : '1px solid var(--border)'};">
+                                            ${r}${hasStock ? ` <span style="font-size: 0.7rem; opacity: 0.9;">✓ ${stockCount}</span>` : ''}
+                                        </span>`;
+                                    }).join('')}
                                 </div>
+                                ${dropStockStatus[drop.name] ? `
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; padding: 0.5rem; background: ${dropStockStatus[drop.name].totalInStock > 0 ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg)'}; border-radius: 6px; border-left: 3px solid ${dropStockStatus[drop.name].totalInStock > 0 ? 'var(--green)' : 'var(--border)'};">
+                                        <span style="font-size: 0.75rem; font-weight: 600; color: ${dropStockStatus[drop.name].totalInStock > 0 ? 'var(--green)' : 'var(--text-muted)'};">
+                                            ${dropStockStatus[drop.name].totalInStock > 0 
+                                                ? `✅ ${dropStockStatus[drop.name].totalInStock}/${dropStockStatus[drop.name].totalRetailers} retailers have stock` 
+                                                : '⏳ Checking stock...'}
+                                        </span>
+                                        <span style="font-size: 0.625rem; color: var(--text-muted); margin-left: auto;">
+                                            Updated: ${new Date(dropStockStatus[drop.name].checked).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                ` : `
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin: 0.5rem 0; padding: 0.5rem; background: var(--bg); border-radius: 6px;">
+                                        <span style="opacity: 0.7;">⏳ Stock check pending...</span>
+                                    </div>
+                                `}
                                 <div style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 0.25rem;">
                                     ${drop.products.join(', ')}
                                 </div>
@@ -3895,14 +4109,46 @@
         
         // Initialize drops and stock on load
         document.addEventListener('DOMContentLoaded', () => {
-            initDrops();
+            console.log('DOM loaded, initializing drops...');
+            console.log('upcomingDropsData length:', upcomingDropsData?.length || 0);
+            
+            // Wait a bit for DOM to be fully ready
+            setTimeout(() => {
+                initDrops();
+            }, 100);
+            
             // Auto-load stock when switching to stock tab
             setTimeout(() => {
                 if (document.getElementById('stockZip')) {
                     document.getElementById('stockZip').value = settings.zip || '90210';
                 }
-            }, 100);
+            }, 200);
+            
+            // Auto-refresh drop stock every 5 minutes if drops section is visible
+            setInterval(() => {
+                const dropsSection = document.getElementById('search');
+                if (dropsSection && dropsSection.classList.contains('active')) {
+                    checkDropStock();
+                }
+            }, 5 * 60 * 1000); // 5 minutes
         });
+        
+        // Also initialize when drops section becomes visible
+        const originalSwitchSection = window.switchSection;
+        if (typeof originalSwitchSection === 'function') {
+            window.switchSection = function(name) {
+                originalSwitchSection(name);
+                if (name === 'search') {
+                    setTimeout(() => {
+                        const container = document.getElementById('upcomingDrops');
+                        if (container && (!container.innerHTML.trim() || container.innerHTML.includes('empty'))) {
+                            console.log('Drops section shown but empty, re-initializing...');
+                            initDrops();
+                        }
+                    }, 100);
+                }
+            };
+        }
 
         // Stock Map - With Retailer Filters
         let allStockStores = [];
@@ -4176,21 +4422,59 @@
             
             try {
                 console.log('Calling real backend scrapers...');
-                const response = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&limit=50`, {
-                    headers: { 'Accept': 'application/json' }
+                // Add cache-busting parameter
+                const cacheBuster = new Date().getTime();
+                const response = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&limit=50&_=${cacheBuster}`, {
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache'
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
-                    realProducts = data.products || data.results || [];
-                    console.log('Real scraped products:', realProducts.length, realProducts);
-                    
-                    if (realProducts.length > 0) {
-                        useRealData = true;
+                    if (data.error) {
+                        console.error('Stock checker error:', data.error);
+                        // Don't show webdriver errors - they're from old cached code
+                        if (data.error.includes('webdriver')) {
+                            console.warn('Ignoring cached webdriver error - server code is fixed');
+                            // Try again without cache
+                            const retryResponse = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&_=${Date.now()}`, {
+                                headers: { 'Accept': 'application/json' },
+                                cache: 'no-store'
+                            });
+                            if (retryResponse.ok) {
+                                const retryData = await retryResponse.json();
+                                if (!retryData.error) {
+                                    realProducts = retryData.products || retryData.results || [];
+                                    if (realProducts.length > 0) {
+                                        useRealData = true;
+                                    }
+                                }
+                            }
+                        } else {
+                            showNotification(`Stock checker error: ${data.error}`, 'error');
+                        }
+                    } else {
+                        realProducts = data.products || data.results || [];
+                        console.log('Real scraped products:', realProducts.length, realProducts);
+                        
+                        if (realProducts.length > 0) {
+                            useRealData = true;
+                        }
+                    }
+                } else {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    console.error('Stock checker HTTP error:', response.status, errorData);
+                    // Don't show webdriver errors
+                    if (!errorData.error || !errorData.error.includes('webdriver')) {
+                        showNotification(`Unable to fetch stock data: ${errorData.error || 'Server error'}`, 'error');
                     }
                 }
             } catch (e) {
-                console.log('Backend scraper failed, using simulated data:', e.message);
+                console.error('Backend scraper failed:', e);
+                // Don't show webdriver errors
+                if (!e.message || !e.message.includes('webdriver')) {
+                    showNotification(`Unable to fetch stock data: ${e.message}`, 'error');
+                }
             }
             
             // Generate stores - use real data if available, otherwise simulated
@@ -6768,8 +7052,23 @@
                 document.getElementById('stockZip').value = settings.zip;
             }
             if (settings.api) {
-                document.getElementById('settingsApi').value = settings.api;
+                const apiInput = document.getElementById('settingsApi');
+                if (apiInput) {
+                    apiInput.value = settings.api;
+                }
                 API = settings.api;
+            } else {
+                // Check localStorage for 'api' key (legacy)
+                const savedApi = localStorage.getItem('api');
+                if (savedApi) {
+                    const apiInput = document.getElementById('settingsApi');
+                    if (apiInput) {
+                        apiInput.value = savedApi;
+                    }
+                    settings.api = savedApi;
+                    API = savedApi;
+                    optimizedLocalStorageSet('settings', settings);
+                }
             }
             if (settings.notif === false) document.getElementById('toggleNotif').classList.remove('active');
             if (settings.sound === false) document.getElementById('toggleSound').classList.remove('active');
@@ -7817,16 +8116,73 @@
         }
 
         async function testApi() {
-            const url = document.getElementById('settingsApi').value;
+            const urlInput = document.getElementById('settingsApi');
+            const statusDiv = document.getElementById('apiStatus');
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                statusDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                statusDiv.style.color = 'var(--red)';
+                statusDiv.innerHTML = '✗ Please enter an API URL';
+                return;
+            }
+            
+            // Show testing status
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+            statusDiv.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+            statusDiv.style.color = 'var(--blue)';
+            statusDiv.innerHTML = '🔄 Testing connection...';
+            
             try {
-                const res = await fetch(`${url}/`);
-                const data = await res.json();
-                settings.api = url;
-                API = url;
-                optimizedLocalStorageSet('settings', settings);
-                alert('✓ Connected to ' + (data.name || 'API'));
+                // Test with health endpoint
+                const testUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+                
+                // Create timeout promise
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000)
+                );
+                
+                // Race between fetch and timeout
+                const res = await Promise.race([
+                    fetch(`${testUrl}/health`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-cache'
+                    }),
+                    timeoutPromise
+                ]);
+                
+                if (res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    const serviceName = data.service || data.name || 'API Server';
+                    
+                    settings.api = url;
+                    API = url;
+                    optimizedLocalStorageSet('settings', settings);
+                    localStorage.setItem('api', url);
+                    
+                    statusDiv.style.background = 'rgba(34, 197, 94, 0.1)';
+                    statusDiv.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+                    statusDiv.style.color = 'var(--green)';
+                    statusDiv.innerHTML = `✓ Connected successfully to ${serviceName}<br><small style="opacity: 0.8;">API URL: ${url}<br>All requests will now use this server.</small>`;
+                    
+                    // Show notification
+                    showNotification(`✓ Connected to ${serviceName}`, 'success');
+                } else {
+                    throw new Error(`Server returned status ${res.status}`);
+                }
             } catch (e) {
-                alert('✗ Connection failed: ' + e.message);
+                // Handle timeout or network errors
+                const errorMsg = e.message || 'Unknown error';
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                statusDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                statusDiv.style.color = 'var(--red)';
+                statusDiv.innerHTML = `✗ Connection failed: ${e.message}<br><small style="opacity: 0.8;">Make sure the server is running at ${url}</small>`;
+                
+                showNotification(`API connection failed: ${e.message}`, 'error');
             }
         }
 

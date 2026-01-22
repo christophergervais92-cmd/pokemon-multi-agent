@@ -36,6 +36,19 @@ try:
 except ImportError:
     BS4_AVAILABLE = False
 
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+CACHE_DIR = Path(__file__).parent.parent.parent / ".stock_cache"
+CACHE_DIR.mkdir(exist_ok=True)
+CACHE_TTL_SECONDS = 30  # 30 second cache for faster updates
+
+# Fast mode - minimal delays, higher risk of blocks
+FAST_MODE = os.environ.get("FAST_SCAN", "true").lower() == "true"
+MIN_DELAY = 0.1 if FAST_MODE else 0.5
+MAX_DELAY = 0.3 if FAST_MODE else 2.0
+
 # Stealth utilities
 try:
     from stealth.anti_detect import get_stealth_headers, get_random_delay
@@ -55,20 +68,6 @@ except ImportError:
         }
     def get_random_delay():
         return random.uniform(MIN_DELAY, MAX_DELAY)
-
-
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
-
-CACHE_DIR = Path(__file__).parent.parent.parent / ".stock_cache"
-CACHE_DIR.mkdir(exist_ok=True)
-CACHE_TTL_SECONDS = 30  # 30 second cache for faster updates
-
-# Fast mode - minimal delays, higher risk of blocks
-FAST_MODE = os.environ.get("FAST_SCAN", "true").lower() == "true"
-MIN_DELAY = 0.1 if FAST_MODE else 0.5
-MAX_DELAY = 0.3 if FAST_MODE else 2.0
 
 
 @dataclass

@@ -208,7 +208,7 @@ def background_scanner():
             # Run unified scanner
             from scanners.stock_checker import StockChecker
             checker = StockChecker()
-            results = checker.check_stock_unified("pokemon")
+            results = checker.scan_all("pokemon trading cards")
             
             products = results.get("products", [])
             
@@ -511,9 +511,29 @@ def unified_stock_check():
         return jsonify(result)
         
     except ImportError as e:
-        return jsonify({"error": f"Import error: {e}"})
+        import traceback
+        error_msg = f"Import error: {e}"
+        print(f"Stock checker import error: {error_msg}")
+        print(traceback.format_exc())
+        return jsonify({"error": error_msg, "type": "import_error"}), 500
+    except AttributeError as e:
+        import traceback
+        error_msg = f"Method error: {e}"
+        print(f"Stock checker attribute error: {error_msg}")
+        print(traceback.format_exc())
+        return jsonify({"error": error_msg, "type": "attribute_error"}), 500
+    except NameError as e:
+        import traceback
+        error_msg = f"Name error: {e}"
+        print(f"Stock checker name error: {error_msg}")
+        print(traceback.format_exc())
+        return jsonify({"error": error_msg, "type": "name_error"}), 500
     except Exception as e:
-        return jsonify({"error": str(e)})
+        import traceback
+        error_msg = f"Stock checker error: {str(e)}"
+        print(f"Stock checker exception: {error_msg}")
+        print(traceback.format_exc())
+        return jsonify({"error": error_msg, "type": "exception"}), 500
 
 
 @app.post("/scanner/local")
