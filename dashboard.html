@@ -2184,13 +2184,13 @@
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Or Upload File</label>
-                        <input type="file" id="gradeImageFile" accept="image/*" style="padding: 0.5rem;">
+                        <input type="file" id="gradeImageFile" accept="image/*" style="padding: 0.5rem;" onchange="handleGradeFileSelect(this)">
                     </div>
                 </div>
                 
-                <div style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem;" id="dropZone">
+                <div style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem; cursor: pointer;" id="dropZone" onclick="document.getElementById('gradeImageFile').click()">
                     <div style="font-size: 2rem; margin-bottom: 0.5rem;">📸</div>
-                    <div style="color: var(--text-secondary);">Drag & drop card image here</div>
+                    <div style="color: var(--text-secondary);">Drag & drop card image here or click to browse</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">or paste from clipboard (Ctrl+V)</div>
                 </div>
                 
@@ -10519,6 +10519,23 @@
                 showImagePreview(selectedImageData);
             };
             reader.readAsDataURL(file);
+        }
+        
+        // Handle file select from input
+        function handleGradeFileSelect(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = e => {
+                    selectedImageData = e.target.result;
+                    showImagePreview(selectedImageData);
+                };
+                reader.readAsDataURL(file);
+            }
         }
         
         function showImagePreview(src) {
