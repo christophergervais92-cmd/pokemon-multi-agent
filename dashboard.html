@@ -94,38 +94,103 @@
 
         /* Light theme - applied via data-theme attribute */
         body[data-theme="light"] {
-            --bg: #fafafa;
+            --bg: #f8fafc;
             --bg-card: #ffffff;
-            --bg-card-elevated: #ffffff;
-            --bg-hover: #f4f4f5;
-            --text: #09090b;
-            --text-secondary: #52525b;
-            --text-muted: #a1a1aa;
-            --border: #e4e4e7;
-            --border-subtle: #d4d4d8;
+            --bg-card-elevated: #f1f5f9;
+            --bg-hover: #e2e8f0;
+            --text: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --border-subtle: #94a3b8;
             --accent: #7c3aed;
             --accent-hover: #6d28d9;
-            --accent-muted: rgba(124, 58, 237, 0.1);
+            --accent-muted: rgba(124, 58, 237, 0.15);
+            --green: #15803d;
+            --red: #dc2626;
+            --gold: #b45309;
+            --purple: #7c3aed;
             --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
             --shadow: 0 8px 32px rgba(0,0,0,0.1);
             --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.08);
         }
         
         /* Auto-apply light theme if system prefers it (unless user has manually set) */
+        /* Light mode specific overrides */
+        body[data-theme="light"] .nav-btn {
+            color: var(--text);
+        }
+        body[data-theme="light"] .nav-btn:hover {
+            color: var(--text);
+            background: var(--bg-hover);
+        }
+        body[data-theme="light"] .nav-btn.active {
+            color: #ffffff;
+        }
+        body[data-theme="light"] h1 {
+            color: var(--text);
+        }
+        body[data-theme="light"] .card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        body[data-theme="light"] .stat-card {
+            background: var(--bg-card);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        body[data-theme="light"] input,
+        body[data-theme="light"] select {
+            background: var(--bg-card);
+            border-color: var(--border);
+            color: var(--text);
+        }
+        body[data-theme="light"] input::placeholder {
+            color: var(--text-muted);
+        }
+        body[data-theme="light"] .btn-outline {
+            color: var(--text);
+            border-color: var(--border);
+        }
+        body[data-theme="light"] .btn-outline:hover {
+            background: var(--bg-hover);
+            color: var(--text);
+        }
+        body[data-theme="light"] .store-header {
+            background: var(--bg-card);
+        }
+        body[data-theme="light"] .price-cell {
+            background: var(--bg-card);
+        }
+        body[data-theme="light"] .mobile-nav select {
+            color: var(--text);
+            background: var(--bg-card);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E");
+        }
+        body[data-theme="light"] .chase-card {
+            background: var(--bg-card) !important;
+        }
+        body[data-theme="light"] code {
+            background: var(--bg-hover);
+            color: var(--text);
+        }
+
         @media (prefers-color-scheme: light) {
             body:not([data-theme]) {
-                --bg: #fafafa;
+                --bg: #f8fafc;
                 --bg-card: #ffffff;
-                --bg-card-elevated: #ffffff;
-                --bg-hover: #f4f4f5;
-                --text: #09090b;
-                --text-secondary: #52525b;
-                --text-muted: #a1a1aa;
-                --border: #e4e4e7;
-                --border-subtle: #d4d4d8;
+                --bg-card-elevated: #f1f5f9;
+                --bg-hover: #e2e8f0;
+                --text: #0f172a;
+                --text-secondary: #334155;
+                --text-muted: #64748b;
+                --border: #cbd5e1;
+                --border-subtle: #94a3b8;
                 --accent: #7c3aed;
                 --accent-hover: #6d28d9;
-                --accent-muted: rgba(124, 58, 237, 0.1);
+                --accent-muted: rgba(124, 58, 237, 0.15);
+                --green: #15803d;
+                --red: #dc2626;
+                --gold: #b45309;
+                --purple: #7c3aed;
                 --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
                 --shadow: 0 8px 32px rgba(0,0,0,0.1);
                 --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.08);
