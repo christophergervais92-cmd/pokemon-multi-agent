@@ -19,30 +19,15 @@ python-dotenv>=1.0.0
 cryptography>=41.0.0
 
 # Secure Payment Processing (cards never touch our servers)
-stripe>=7.0.0                  # Stripe SDK for card payments
+stripe>=7.0.0
 
 # Web scraping (for stock checking)
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
 
-# Optional: AI Visual Grading
-# openai>=1.0.0        # For GPT-4 Vision
-# anthropic>=0.8.0     # For Claude Vision
-
-# Optional: Multi-Channel Notifications
-# twilio>=8.0.0        # For SMS notifications
-# pushbullet.py>=0.12  # For Pushbullet push notifications
-# python-telegram-bot>=20.0  # For Telegram notifications
-
-# Browser Automation (for hybrid approach - fallback when requests blocked)
-undetected-chromedriver>=3.5.0
-selenium>=4.15.0
-
 # Signal system (event-driven stock checking)
 blinker>=1.7.0
 
-# CAPTCHA Solving (optional - add API keys to .env)
-# 2Captcha: https://2captcha.com (recommended)
-# twocaptcha>=1.1.0
-# Anti-Captcha: https://anti-captcha.com
-# python3-anticaptcha>=1.0.0
+# Optional packages (comment out if deploy fails):
+# undetected-chromedriver>=3.5.0  # Needs Chrome installed
+# selenium>=4.15.0                 # Needs Chrome installed
