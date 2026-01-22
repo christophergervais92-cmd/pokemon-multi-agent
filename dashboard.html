@@ -91,8 +91,28 @@
             --shadow-glow: 0 0 40px rgba(167, 139, 250, 0.15);
         }
 
+        /* Light theme - applied via class */
+        body.light-theme {
+            --bg: #fafafa;
+            --bg-card: #ffffff;
+            --bg-card-elevated: #ffffff;
+            --bg-hover: #f4f4f5;
+            --text: #09090b;
+            --text-secondary: #52525b;
+            --text-muted: #a1a1aa;
+            --border: #e4e4e7;
+            --border-subtle: #d4d4d8;
+            --accent: #7c3aed;
+            --accent-hover: #6d28d9;
+            --accent-muted: rgba(124, 58, 237, 0.1);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow: 0 8px 32px rgba(0,0,0,0.1);
+            --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.08);
+        }
+        
+        /* Auto-apply light theme if system prefers it (unless user has manually set) */
         @media (prefers-color-scheme: light) {
-            :root {
+            body:not([data-theme]) {
                 --bg: #fafafa;
                 --bg-card: #ffffff;
                 --bg-card-elevated: #ffffff;
@@ -1471,6 +1491,9 @@
         <header>
             <div class="logo">PokeAgent</div>
             <div style="display: flex; align-items: center; gap: 1rem;">
+                <button id="themeToggle" class="btn btn-sm" onclick="toggleTheme()" style="padding: 0.5rem; min-width: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; background: var(--bg-card); border: 1px solid var(--border);">
+                    <span id="themeIcon">☀️</span>
+                </button>
                 <div class="status">
                     <span class="status-dot" id="statusDot"></span>
                     <span id="statusText">Connecting...</span>
@@ -2356,6 +2379,30 @@
                 optimizedLocalStorageSet('settings', settings);
             }
         }
+        
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            applyTheme(savedTheme);
+        }
+        
+        function applyTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+            const themeIcon = document.getElementById('themeIcon');
+            if (themeIcon) {
+                themeIcon.textContent = theme === 'light' ? '🌙' : '☀️';
+            }
+            localStorage.setItem('theme', theme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+        }
+        
+        // Initialize theme on load
+        initTheme();
         let cache = new Map();
         const CACHE_TTL = 15000; // 15 second cache for faster updates
         const CACHE_TTL_LONG = 300000; // 5 min cache for static data (sets, card info)
@@ -4112,6 +4159,9 @@
         
         // Initialize drops and stock on load
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize theme first
+            initTheme();
+            
             console.log('DOM loaded, initializing drops...');
             console.log('upcomingDropsData length:', upcomingDropsData?.length || 0);
             
