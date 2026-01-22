@@ -66,6 +66,15 @@ except ImportError:
         return None
     STEALTH_AVAILABLE = False
 
+# Advanced stealth (optional - may not be installed)
+try:
+    from stealth.advanced_anti_detect import AdvancedStealthSession, BrowsingPattern
+    ADVANCED_STEALTH_AVAILABLE = True
+except ImportError:
+    AdvancedStealthSession = None
+    BrowsingPattern = None
+    ADVANCED_STEALTH_AVAILABLE = False
+
 # Global flag for fast initial scan mode
 _fast_initial_scan = False
 
