@@ -1614,6 +1614,21 @@
         <section id="stock">
             <h1>Local Stock Map</h1>
             
+            <!-- Quick Search Buttons -->
+            <div class="card" style="margin-bottom: 1rem; padding: 1rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">QUICK SEARCH</div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('Target', 'pokemon etb')" style="background: #cc0000; color: white;">Target ETBs</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('Walmart', 'pokemon booster')" style="background: #0071ce; color: white;">Walmart Boosters</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('Best Buy', 'pokemon cards')" style="background: #0046be; color: white;">Best Buy Pokemon</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('GameStop', 'pokemon tcg')" style="background: #000; color: white;">GameStop TCG</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('Pokemon Center', 'pokemon')" style="background: #ffcb05; color: #000;">Pokemon Center</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('Costco', 'pokemon')" style="background: #e31837; color: white;">Costco Pokemon</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('Amazon', 'pokemon etb')" style="background: #ff9900; color: #000;">Amazon ETBs</button>
+                    <button class="btn btn-sm" onclick="quickRetailerSearch('all', 'prismatic evolutions')" style="background: var(--accent); color: #000;">Prismatic Evolutions</button>
+                </div>
+            </div>
+            
             <div class="search-bar">
                 <input type="text" id="stockZip" placeholder="ZIP Code" style="flex: 0 0 120px;">
                 <input type="text" id="stockQuery" placeholder="Search products (etb, booster, etc.)">
@@ -1621,7 +1636,8 @@
             </div>
             
             <!-- Retailer Filter - Main Retailers Only -->
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 0.75rem; color: var(--text-muted); margin-right: 0.25rem;">Filter:</span>
                 <button class="btn btn-sm retailer-btn active" data-retailer="all" onclick="filterRetailer('all')">All</button>
                 <button class="btn btn-sm retailer-btn" data-retailer="Target" onclick="filterRetailer('Target')" style="background: #cc0000; color: white;">Target</button>
                 <button class="btn btn-sm retailer-btn" data-retailer="Walmart" onclick="filterRetailer('Walmart')" style="background: #0071ce; color: white;">Walmart</button>
@@ -4607,6 +4623,28 @@
                     vendingMap.invalidateSize();
                 }
             }, 100);
+        }
+        
+        // Quick Retailer Search - one-click search for specific retailer + product
+        function quickRetailerSearch(retailer, query) {
+            // Set the search query
+            document.getElementById('stockQuery').value = query;
+            
+            // Filter to retailer (or all)
+            currentRetailerFilter = retailer;
+            document.querySelectorAll('.retailer-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.retailer === retailer);
+            });
+            
+            // Show loading state
+            const results = document.getElementById('stockResults');
+            results.innerHTML = `<div class="loading"><div class="spinner"></div>Searching ${retailer === 'all' ? 'all retailers' : retailer} for "${query}"...</div>`;
+            
+            // Perform the search
+            findStock();
+            
+            // Log for analytics
+            console.log(`Quick search: ${retailer} - ${query}`);
         }
         
         function filterRetailer(retailer) {
