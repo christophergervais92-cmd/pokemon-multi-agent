@@ -2468,7 +2468,7 @@ try:
     )
     AUTH_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"Auth module not loaded: {e}", extra={"error": str(e)})
+    print(f"⚠️ Auth module not loaded: {e}")
     AUTH_AVAILABLE = False
 
 
