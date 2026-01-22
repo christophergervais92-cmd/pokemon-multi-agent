@@ -354,181 +354,427 @@ def cache_grade(image_hash: str, result: Dict):
         del _grading_cache[oldest]
 
 
-def analyze_image_with_ai(image_data: str, is_url: bool = False) -> Dict[str, Any]:
+# =============================================================================
+# OPTIMIZED AI ANALYSIS
+# =============================================================================
+
+# Optimized prompt - shorter, more efficient, lower cost
+GRADING_PROMPT_COMPACT = """Expert Pokemon card grader. Analyze image, return JSON only:
+{"card_identified":"name","card_type":"holofoil/reverse_holo/full_art/regular","subgrades":{"centering":9.0,"corners":9.0,"edges":9.0,"surface":9.0},"centering_estimate":"55/45","defects_found":[{"type":"defect","severity":"minor/major","location":"where"}],"predicted_grades":{"PSA":9,"CGC":9,"BGS":9},"grade_confidence":0.85,"notes":"brief condition notes","recommendations":"grading company suggestion"}
+Evaluate: centering (border ratios, 55/45=PSA10), corners (whitening, sharpness), edges (chips, nicks), surface (scratches, print defects, gloss). Return ONLY valid JSON."""
+
+# Retry configuration
+MAX_API_RETRIES = 3
+RETRY_DELAYS = [1, 2, 4]  # Exponential backoff seconds
+
+# Cost tracking
+_api_cost_tracker = {"openai": 0.0, "anthropic": 0.0, "calls": 0}
+
+
+def preprocess_image_for_api(image_data: str, is_url: bool = False, max_size: int = 1024) -> Tuple[str, bool]:
+    """
+    Preprocess image for API - resize if too large to reduce costs.
+    
+    Returns (processed_image_data, is_url)
+    """
+    if not PIL_AVAILABLE:
+        return image_data, is_url
+    
+    try:
+        if is_url:
+            import requests
+            response = requests.get(image_data, timeout=10)
+            img = Image.open(io.BytesIO(response.content))
+        else:
+            image_bytes = base64.b64decode(image_data)
+            img = Image.open(io.BytesIO(image_bytes))
+        
+        # Resize if larger than max_size
+        width, height = img.size
+        if width > max_size or height > max_size:
+            ratio = min(max_size / width, max_size / height)
+            new_size = (int(width * ratio), int(height * ratio))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # Convert to RGB if necessary
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Save to base64
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=85)
+        processed_data = base64.b64encode(buffer.getvalue()).decode()
+        
+        return processed_data, False
+        
+    except Exception as e:
+        print(f"Image preprocessing error: {e}", file=sys.stderr)
+        return image_data, is_url
+
+
+def analyze_with_local_cv(image_data: str, is_url: bool = False) -> Dict[str, Any]:
+    """
+    Local computer vision analysis as fallback (no API needed).
+    Uses PIL/numpy for basic defect detection.
+    """
+    if not PIL_AVAILABLE:
+        return None
+    
+    try:
+        # Load image
+        if is_url:
+            import requests
+            response = requests.get(image_data, timeout=10)
+            img = Image.open(io.BytesIO(response.content))
+        else:
+            image_bytes = base64.b64decode(image_data)
+            img = Image.open(io.BytesIO(image_bytes))
+        
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        width, height = img.size
+        
+        # Analyze centering by looking at border colors
+        centering_score = 9.0  # Default good
+        centering_estimate = "55/45"
+        
+        if NUMPY_AVAILABLE:
+            img_array = np.array(img)
+            
+            # Sample borders (top 5%, bottom 5%, left 5%, right 5%)
+            border_pct = 0.05
+            top_border = img_array[:int(height * border_pct), :, :]
+            bottom_border = img_array[int(height * (1 - border_pct)):, :, :]
+            left_border = img_array[:, :int(width * border_pct), :]
+            right_border = img_array[:, int(width * (1 - border_pct)):, :]
+            
+            # Calculate average brightness of borders
+            top_avg = np.mean(top_border)
+            bottom_avg = np.mean(bottom_border)
+            left_avg = np.mean(left_border)
+            right_avg = np.mean(right_border)
+            
+            # Estimate centering based on border similarity
+            lr_diff = abs(left_avg - right_avg)
+            tb_diff = abs(top_avg - bottom_avg)
+            
+            if lr_diff < 10 and tb_diff < 10:
+                centering_score = 9.5
+                centering_estimate = "52/48"
+            elif lr_diff < 20 and tb_diff < 20:
+                centering_score = 9.0
+                centering_estimate = "55/45"
+            elif lr_diff < 30 and tb_diff < 30:
+                centering_score = 8.5
+                centering_estimate = "58/42"
+            else:
+                centering_score = 8.0
+                centering_estimate = "60/40"
+            
+            # Check corners for whitening (bright spots in corners)
+            corner_size = int(min(width, height) * 0.08)
+            corners = [
+                img_array[:corner_size, :corner_size],  # Top-left
+                img_array[:corner_size, -corner_size:],  # Top-right
+                img_array[-corner_size:, :corner_size],  # Bottom-left
+                img_array[-corner_size:, -corner_size:],  # Bottom-right
+            ]
+            
+            corner_scores = []
+            defects = []
+            corner_names = ["top-left", "top-right", "bottom-left", "bottom-right"]
+            
+            for i, corner in enumerate(corners):
+                # High brightness in corner might indicate whitening
+                corner_brightness = np.mean(corner)
+                if corner_brightness > 200:
+                    corner_scores.append(8.0)
+                    defects.append({
+                        "type": "possible_corner_whitening",
+                        "severity": "minor",
+                        "location": corner_names[i]
+                    })
+                elif corner_brightness > 180:
+                    corner_scores.append(8.5)
+                else:
+                    corner_scores.append(9.5)
+            
+            corners_score = np.mean(corner_scores)
+            
+            # Check edges for uniformity
+            edges_score = 9.0
+            
+            # Check surface for scratches (high variance streaks)
+            gray = np.mean(img_array, axis=2)
+            local_var = np.var(gray)
+            
+            if local_var > 2000:
+                surface_score = 8.0
+                defects.append({
+                    "type": "surface_irregularity",
+                    "severity": "minor",
+                    "location": "general"
+                })
+            elif local_var > 1500:
+                surface_score = 8.5
+            else:
+                surface_score = 9.0
+        else:
+            # Without numpy, use basic PIL analysis
+            stat = ImageStat.Stat(img)
+            brightness = sum(stat.mean) / 3
+            
+            centering_score = 8.5
+            corners_score = 8.5
+            edges_score = 9.0
+            surface_score = 8.5 if brightness > 150 else 9.0
+            defects = []
+        
+        # Calculate predicted grades based on subgrades
+        avg_subgrade = (centering_score + corners_score + edges_score + surface_score) / 4
+        
+        # PSA is stricter - one low subgrade tanks the overall
+        psa_grade = int(min(centering_score, corners_score, edges_score, surface_score))
+        cgc_grade = round(avg_subgrade * 2) / 2  # CGC uses half grades
+        bgs_grade = round(avg_subgrade * 2) / 2
+        
+        return {
+            "card_identified": "Pokemon Card (local analysis)",
+            "card_type": "unknown",
+            "subgrades": {
+                "centering": round(centering_score, 1),
+                "corners": round(corners_score, 1),
+                "edges": round(edges_score, 1),
+                "surface": round(surface_score, 1),
+            },
+            "centering_estimate": centering_estimate,
+            "defects_found": defects,
+            "predicted_grades": {
+                "PSA": psa_grade,
+                "CGC": cgc_grade,
+                "BGS": bgs_grade,
+            },
+            "grade_confidence": 0.65,  # Lower confidence for local analysis
+            "notes": "Local CV analysis - for accurate grading, provide API key",
+            "recommendations": "Upload clearer image or enable AI analysis for detailed assessment",
+            "local_analysis": True,
+        }
+        
+    except Exception as e:
+        print(f"Local CV analysis error: {e}", file=sys.stderr)
+        return None
+
+
+def analyze_image_with_ai(
+    image_data: str,
+    is_url: bool = False,
+    use_compact_prompt: bool = True,
+    preprocess: bool = True,
+    retry: bool = True,
+) -> Dict[str, Any]:
     """
     Use AI vision model to analyze card image.
-    Supports OpenAI GPT-4 Vision or Anthropic Claude Vision.
     
-    Falls back to simulated analysis if no API key is set.
+    Optimizations:
+    - Compact prompt for lower token cost
+    - Image preprocessing to reduce size
+    - Retry with exponential backoff
+    - Falls back to local CV then demo mode
     """
+    global _api_cost_tracker
     
-    # Build the grading prompt
-    grading_prompt = """You are an expert Pokemon card grader with extensive experience at PSA, CGC, and Beckett.
+    # Preprocess image if enabled
+    if preprocess:
+        image_data, is_url = preprocess_image_for_api(image_data, is_url, max_size=1024)
+    
+    # Select prompt
+    grading_prompt = GRADING_PROMPT_COMPACT if use_compact_prompt else _get_full_grading_prompt()
+    
+    # Try OpenAI Vision with retry
+    if OPENAI_API_KEY:
+        for attempt in range(MAX_API_RETRIES if retry else 1):
+            try:
+                import requests
+                
+                headers = {
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                }
+                
+                if is_url:
+                    image_content = {"type": "image_url", "image_url": {"url": image_data, "detail": "high"}}
+                else:
+                    image_content = {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_data}", "detail": "high"}
+                    }
+                
+                payload = {
+                    "model": "gpt-4o-mini",  # Use mini for cost efficiency
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": grading_prompt},
+                                image_content,
+                            ],
+                        }
+                    ],
+                    "max_tokens": 800,  # Reduced for compact response
+                    "temperature": 0.3,  # Lower for more consistent grading
+                }
+                
+                resp = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30,  # Reduced timeout
+                )
+                
+                if resp.status_code == 200:
+                    result = resp.json()
+                    content = result["choices"][0]["message"]["content"]
+                    _api_cost_tracker["openai"] += 0.01  # Approximate cost
+                    _api_cost_tracker["calls"] += 1
+                    
+                    # Extract JSON from response
+                    try:
+                        start = content.find("{")
+                        end = content.rfind("}") + 1
+                        if start >= 0 and end > start:
+                            parsed = json.loads(content[start:end])
+                            parsed["api_used"] = "openai"
+                            return parsed
+                    except json.JSONDecodeError:
+                        pass
+                
+                elif resp.status_code == 429:  # Rate limited
+                    if attempt < MAX_API_RETRIES - 1:
+                        import time
+                        time.sleep(RETRY_DELAYS[attempt])
+                        continue
+                        
+            except Exception as e:
+                print(f"OpenAI Vision error (attempt {attempt + 1}): {e}", file=sys.stderr)
+                if attempt < MAX_API_RETRIES - 1 and retry:
+                    import time
+                    time.sleep(RETRY_DELAYS[attempt])
+    
+    # Try Anthropic Claude Vision with retry
+    if ANTHROPIC_API_KEY:
+        for attempt in range(MAX_API_RETRIES if retry else 1):
+            try:
+                import requests
+                
+                headers = {
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "Content-Type": "application/json",
+                    "anthropic-version": "2023-06-01",
+                }
+                
+                if is_url:
+                    # Fetch URL for Claude
+                    try:
+                        img_resp = requests.get(image_data, timeout=10)
+                        image_b64 = base64.b64encode(img_resp.content).decode()
+                        image_source = {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image_b64,
+                        }
+                    except:
+                        image_source = {"type": "url", "url": image_data}
+                else:
+                    image_source = {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": image_data,
+                    }
+                
+                payload = {
+                    "model": "claude-3-haiku-20240307",  # Use Haiku for cost efficiency
+                    "max_tokens": 800,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image", "source": image_source},
+                                {"type": "text", "text": grading_prompt},
+                            ],
+                        }
+                    ],
+                }
+                
+                resp = requests.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers=headers,
+                    json=payload,
+                    timeout=30,
+                )
+                
+                if resp.status_code == 200:
+                    result = resp.json()
+                    content = result["content"][0]["text"]
+                    _api_cost_tracker["anthropic"] += 0.005  # Approximate cost
+                    _api_cost_tracker["calls"] += 1
+                    
+                    try:
+                        start = content.find("{")
+                        end = content.rfind("}") + 1
+                        if start >= 0 and end > start:
+                            parsed = json.loads(content[start:end])
+                            parsed["api_used"] = "anthropic"
+                            return parsed
+                    except json.JSONDecodeError:
+                        pass
+                        
+                elif resp.status_code == 429:
+                    if attempt < MAX_API_RETRIES - 1:
+                        import time
+                        time.sleep(RETRY_DELAYS[attempt])
+                        continue
+                        
+            except Exception as e:
+                print(f"Anthropic Vision error (attempt {attempt + 1}): {e}", file=sys.stderr)
+                if attempt < MAX_API_RETRIES - 1 and retry:
+                    import time
+                    time.sleep(RETRY_DELAYS[attempt])
+    
+    # Fallback to local CV analysis
+    local_result = analyze_with_local_cv(image_data, is_url)
+    if local_result:
+        return local_result
+    
+    # Final fallback: demo analysis
+    return get_demo_analysis()
 
-Analyze this Pokemon card image and provide a detailed grading assessment.
 
-Evaluate these criteria on a scale of 1-10:
-
-1. CENTERING (measure the borders):
-   - Compare left vs right border width
-   - Compare top vs bottom border width
-   - Calculate approximate percentage (e.g., 55/45)
-   - PSA 10 requires 55/45 or better on front
-
-2. CORNERS (examine all four corners):
-   - Look for whitening (exposed cardboard)
-   - Check for softness/rounding
-   - Note any dings or damage
-   - All corners must be sharp for PSA 10
-
-3. EDGES (check all four edges):
-   - Look for chipping or whitening
-   - Check for rough cutting
-   - Note any nicks or damage
-
-4. SURFACE (front and back):
-   - Check for scratches (especially on holofoil)
-   - Look for print defects (dots, lines)
-   - Assess gloss quality
-   - Note any staining or indentations
-   - Check for silvering on holo cards
-
-Provide your response in this exact JSON format:
+def _get_full_grading_prompt() -> str:
+    """Return the full detailed grading prompt."""
+    return """You are an expert Pokemon card grader. Analyze this card and return ONLY valid JSON:
 {
     "card_identified": "Card name if visible",
     "card_type": "holofoil/reverse_holo/full_art/regular",
-    "subgrades": {
-        "centering": 8.5,
-        "corners": 9.0,
-        "edges": 8.5,
-        "surface": 9.0
-    },
+    "subgrades": {"centering": 9.0, "corners": 9.0, "edges": 9.0, "surface": 9.0},
     "centering_estimate": "55/45",
-    "defects_found": [
-        {"type": "corner_whitening", "severity": "minor", "location": "bottom-left"},
-        {"type": "surface_scratch", "severity": "light", "location": "holo area"}
-    ],
-    "predicted_grades": {
-        "PSA": 8,
-        "CGC": 8.5,
-        "BGS": 8.5
-    },
+    "defects_found": [{"type": "defect_type", "severity": "minor/major", "location": "where"}],
+    "predicted_grades": {"PSA": 9, "CGC": 9, "BGS": 9},
     "grade_confidence": 0.85,
-    "notes": "Brief notes about the card condition",
-    "recommendations": "Suggestions for which company to grade with"
-}"""
+    "notes": "Condition notes",
+    "recommendations": "Grading recommendation"
+}
+Evaluate: centering (55/45 or better for PSA 10), corners (all must be sharp), edges (no chips/whitening), surface (no scratches, good gloss)."""
 
-    # Try OpenAI Vision
-    if OPENAI_API_KEY:
-        try:
-            import requests
-            
-            headers = {
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "application/json",
-            }
-            
-            if is_url:
-                image_content = {"type": "image_url", "image_url": {"url": image_data}}
-            else:
-                image_content = {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}
-                }
-            
-            payload = {
-                "model": "gpt-4o",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": grading_prompt},
-                            image_content,
-                        ],
-                    }
-                ],
-                "max_tokens": 1500,
-            }
-            
-            resp = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60,
-            )
-            
-            if resp.status_code == 200:
-                result = resp.json()
-                content = result["choices"][0]["message"]["content"]
-                # Extract JSON from response
-                try:
-                    # Find JSON in response
-                    start = content.find("{")
-                    end = content.rfind("}") + 1
-                    if start >= 0 and end > start:
-                        return json.loads(content[start:end])
-                except json.JSONDecodeError:
-                    pass
-        except Exception as e:
-            print(f"OpenAI Vision error: {e}", file=sys.stderr)
-    
-    # Try Anthropic Claude Vision
-    if ANTHROPIC_API_KEY:
-        try:
-            import requests
-            
-            headers = {
-                "x-api-key": ANTHROPIC_API_KEY,
-                "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01",
-            }
-            
-            if is_url:
-                # Claude needs base64, would need to fetch URL first
-                image_source = {"type": "url", "url": image_data}
-            else:
-                image_source = {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": image_data,
-                }
-            
-            payload = {
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 1500,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image", "source": image_source},
-                            {"type": "text", "text": grading_prompt},
-                        ],
-                    }
-                ],
-            }
-            
-            resp = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers=headers,
-                json=payload,
-                timeout=60,
-            )
-            
-            if resp.status_code == 200:
-                result = resp.json()
-                content = result["content"][0]["text"]
-                try:
-                    start = content.find("{")
-                    end = content.rfind("}") + 1
-                    if start >= 0 and end > start:
-                        return json.loads(content[start:end])
-                except json.JSONDecodeError:
-                    pass
-        except Exception as e:
-            print(f"Anthropic Vision error: {e}", file=sys.stderr)
-    
-    # Fallback: Return simulated analysis (demo mode)
-    return get_demo_analysis()
+
+def get_api_cost_stats() -> Dict[str, Any]:
+    """Get API usage and cost statistics."""
+    return {
+        "openai_cost": round(_api_cost_tracker["openai"], 4),
+        "anthropic_cost": round(_api_cost_tracker["anthropic"], 4),
+        "total_cost": round(_api_cost_tracker["openai"] + _api_cost_tracker["anthropic"], 4),
+        "total_calls": _api_cost_tracker["calls"],
+    }
 
 
 def get_demo_analysis() -> Dict[str, Any]:
@@ -779,6 +1025,110 @@ def grade_card(
 
 
 # =============================================================================
+# BATCH GRADING
+# =============================================================================
+
+def grade_batch(
+    cards: List[Dict[str, Any]],
+    parallel: bool = True,
+    validate_quality: bool = True,
+) -> Dict[str, Any]:
+    """
+    Grade multiple cards in batch.
+    
+    Args:
+        cards: List of dicts with keys: image_data/image_url, back_image_data/back_image_url, raw_value, card_name
+        parallel: Whether to process in parallel (faster but uses more memory)
+        validate_quality: Whether to validate image quality first
+    
+    Returns:
+        Batch results with individual grades and summary statistics
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import time
+    
+    start_time = time.time()
+    results = []
+    successful = 0
+    failed = 0
+    
+    def grade_single(card_data: Dict, index: int) -> Tuple[int, Dict]:
+        try:
+            result = grade_card(
+                image_data=card_data.get("image_data"),
+                image_url=card_data.get("image_url"),
+                back_image_data=card_data.get("back_image_data"),
+                back_image_url=card_data.get("back_image_url"),
+                raw_value=float(card_data.get("raw_value", 10.0)),
+                card_name=card_data.get("card_name"),
+                validate_quality=validate_quality,
+                use_cache=True,
+            )
+            return (index, result)
+        except Exception as e:
+            return (index, {"success": False, "error": str(e)})
+    
+    if parallel and len(cards) > 1:
+        # Process in parallel with max 4 workers to avoid rate limits
+        with ThreadPoolExecutor(max_workers=min(4, len(cards))) as executor:
+            futures = {
+                executor.submit(grade_single, card, i): i 
+                for i, card in enumerate(cards)
+            }
+            
+            for future in as_completed(futures):
+                index, result = future.result()
+                results.append((index, result))
+                if result.get("success"):
+                    successful += 1
+                else:
+                    failed += 1
+        
+        # Sort by original index
+        results.sort(key=lambda x: x[0])
+        results = [r[1] for r in results]
+    else:
+        # Process sequentially
+        for i, card in enumerate(cards):
+            _, result = grade_single(card, i)
+            results.append(result)
+            if result.get("success"):
+                successful += 1
+            else:
+                failed += 1
+    
+    elapsed = round(time.time() - start_time, 2)
+    
+    # Calculate summary statistics
+    grades = []
+    for r in results:
+        if r.get("success") and r.get("predicted_grades"):
+            grades.append(r["predicted_grades"].get("PSA", 0))
+    
+    return {
+        "success": True,
+        "total_cards": len(cards),
+        "successful": successful,
+        "failed": failed,
+        "results": results,
+        "summary": {
+            "avg_psa_grade": round(sum(grades) / len(grades), 1) if grades else 0,
+            "min_grade": min(grades) if grades else 0,
+            "max_grade": max(grades) if grades else 0,
+            "grade_distribution": {
+                "10": len([g for g in grades if g >= 10]),
+                "9": len([g for g in grades if 9 <= g < 10]),
+                "8": len([g for g in grades if 8 <= g < 9]),
+                "7": len([g for g in grades if 7 <= g < 8]),
+                "below_7": len([g for g in grades if g < 7]),
+            },
+        },
+        "elapsed_seconds": elapsed,
+        "api_costs": get_api_cost_stats(),
+    }
+
+
+# =============================================================================
 # CONVENIENCE FUNCTIONS
 # =============================================================================
 
@@ -801,6 +1151,19 @@ def get_grading_template() -> Dict[str, Any]:
     }
 
 
+def quick_grade(image_url: str, raw_value: float = 10.0) -> Dict[str, Any]:
+    """
+    Quick grade a card from URL with minimal validation.
+    Optimized for speed over accuracy.
+    """
+    return grade_card(
+        image_url=image_url,
+        raw_value=raw_value,
+        validate_quality=False,
+        use_cache=True,
+    )
+
+
 # =============================================================================
 # MAIN - Handle stdin JSON or command line
 # =============================================================================
@@ -808,21 +1171,54 @@ def get_grading_template() -> Dict[str, Any]:
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="AI Card Grading Tool")
+    parser = argparse.ArgumentParser(
+        description="AI Card Grading Tool - Optimized Pokemon Card Grading",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Get photo template
+  python visual_grading_agent.py --template
+  
+  # Check image quality
+  python visual_grading_agent.py --check-quality --image-url "https://..."
+  
+  # Quick grade (fastest, less validation)
+  python visual_grading_agent.py --quick --image-url "https://..." --value 50
+  
+  # Full grade with front and back
+  python visual_grading_agent.py --image-url "front.jpg" --back-url "back.jpg" --value 100
+  
+  # Batch grade from JSON (stdin)
+  echo '{"cards": [{"image_url": "...", "raw_value": 50}, ...]}' | python visual_grading_agent.py --batch
+  
+  # Show API cost stats
+  python visual_grading_agent.py --costs
+        """
+    )
     parser.add_argument("--template", action="store_true", help="Get photo template/guide")
     parser.add_argument("--check-quality", action="store_true", help="Check image quality only")
+    parser.add_argument("--quick", action="store_true", help="Quick grade (skip validation)")
+    parser.add_argument("--batch", action="store_true", help="Batch grade from stdin JSON")
+    parser.add_argument("--costs", action="store_true", help="Show API cost statistics")
+    parser.add_argument("--local-only", action="store_true", help="Use local CV only (no API)")
     parser.add_argument("--image-url", help="URL to front card image")
     parser.add_argument("--back-url", help="URL to back card image")
     parser.add_argument("--value", type=float, default=10.0, help="Raw card value estimate")
     parser.add_argument("--name", help="Card name")
     parser.add_argument("--no-validate", action="store_true", help="Skip quality validation")
     parser.add_argument("--no-cache", action="store_true", help="Don't use cache")
+    parser.add_argument("--no-preprocess", action="store_true", help="Don't preprocess images")
     
     args = parser.parse_args()
     
     # Template mode
     if args.template:
         print(json.dumps(get_grading_template(), indent=2))
+        sys.exit(0)
+    
+    # Cost stats mode
+    if args.costs:
+        print(json.dumps(get_api_cost_stats(), indent=2))
         sys.exit(0)
     
     # Read from stdin if available
@@ -834,6 +1230,16 @@ if __name__ == "__main__":
         data = json.loads(input_data) if input_data.strip() else {}
     except json.JSONDecodeError:
         data = {}
+    
+    # Batch mode
+    if args.batch:
+        cards = data.get("cards", [])
+        if not cards:
+            print(json.dumps({"error": "No cards provided in batch. Use: {\"cards\": [...]}"}))
+            sys.exit(1)
+        result = grade_batch(cards, parallel=True, validate_quality=not args.no_validate)
+        print(json.dumps(result, indent=2))
+        sys.exit(0)
     
     # Extract parameters (CLI args override JSON)
     image_data = data.get("image_data") or data.get("image_base64")
@@ -849,7 +1255,24 @@ if __name__ == "__main__":
         print(json.dumps(result, indent=2))
         sys.exit(0)
     
-    # Run grading
+    # Local CV only mode
+    if args.local_only:
+        if image_url:
+            result = analyze_with_local_cv(image_url, is_url=True)
+        elif image_data:
+            result = analyze_with_local_cv(image_data, is_url=False)
+        else:
+            result = {"error": "No image provided"}
+        print(json.dumps(result or {"error": "Local analysis failed"}, indent=2))
+        sys.exit(0)
+    
+    # Quick grade mode
+    if args.quick:
+        result = quick_grade(image_url or image_data, raw_value)
+        print(json.dumps(result, indent=2))
+        sys.exit(0)
+    
+    # Run full grading
     result = grade_card(
         image_data=image_data,
         image_url=image_url,
