@@ -2371,6 +2371,10 @@
     <div class="alerts" id="alertsContainer"></div>
 
     <script>
+        // Global variables - declare early to avoid initialization errors
+        let allCardResults = [];
+        let selectedCard = null;
+        
         // Config - Auto-detect API URL
         // Change this to your deployed backend URL after deploying to Render
         const DEPLOYED_API = 'https://pokemon-multi-agent.onrender.com';
@@ -5267,8 +5271,7 @@
         const cardLookupCache = new Map();
         
         // Card Lookup - Shows grid of all matches, detail view when single card selected
-        let allCardResults = [];
-        let selectedCard = null;
+        // allCardResults and selectedCard are declared at the top of the script
         
         async function lookupCard() {
             const name = document.getElementById('cardName').value?.trim();
@@ -5357,6 +5360,8 @@
         
         // Display grid of all matching cards
         function displayCardGrid(cards, query) {
+            // Update allCardResults to match the cards being displayed
+            allCardResults = cards || [];
             const results = document.getElementById('cardResults');
             
             results.innerHTML = `
@@ -5364,8 +5369,10 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem;">
                     ${cards.map((card, i) => {
                         const price = card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market || card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+                        // Use the card directly instead of allCardResults index to avoid initialization issues
+                        const cardJson = JSON.stringify(card).replace(/"/g, '&quot;');
                         return `
-                            <div class="card-grid-item" onclick="selectCardForDetail(allCardResults[${i}])" style="cursor: pointer;">
+                            <div class="card-grid-item" onclick="selectCardForDetailFromGrid(${i})" style="cursor: pointer;">
                                 <img src="${card.images?.small || ''}" 
                                      alt="${card.name}"
                                      style="width: 100%; height: 160px; object-fit: contain;"
@@ -5379,6 +5386,13 @@
                     }).join('')}
                 </div>
             `;
+        }
+        
+        // Helper function to select card from grid (avoids allCardResults initialization issues)
+        function selectCardForDetailFromGrid(index) {
+            if (allCardResults && allCardResults[index]) {
+                selectCardForDetail(allCardResults[index]);
+            }
         }
         
         // Select a single card to show detailed view
@@ -5617,7 +5631,7 @@
             const fallbackImg = `https://images.pokemontcg.io/base1/4.png`; // Classic Charizard as placeholder
             
             // Back button if we came from grid view
-            const backButton = allCardResults.length > 1 ? `
+            const backButton = (allCardResults && allCardResults.length > 1) ? `
                 <button onclick="displayCardGrid(allCardResults, '${name}')" class="btn btn-outline" style="margin-bottom: 1rem;">
                     ← Back to All Results (${allCardResults.length} cards)
                 </button>
@@ -5998,7 +6012,7 @@
                     }));
                     
                     // Merge real products with demo (real first)
-                    allCardResults = [...realProducts, ...allCardResults.filter(d => !realProducts.some(r => r.name === d.name))].slice(0, 30);
+                    allCardResults = [...realProducts, ...(allCardResults || []).filter(d => !realProducts.some(r => r.name === d.name))].slice(0, 30);
                     displayCardGrid(allCardResults);
                     console.log('Updated with real data:', realProducts.length);
                 }
@@ -6055,7 +6069,12 @@
         }
         
         async function selectCardFromGrid(index) {
-            selectedCard = allCardResults[index];
+            if (allCardResults && allCardResults[index]) {
+                selectedCard = allCardResults[index];
+            } else {
+                console.error('allCardResults not initialized or index out of bounds');
+                return;
+            }
             
             document.getElementById('cardGrid').style.display = 'none';
             document.getElementById('cardDetail').style.display = 'block';
@@ -6067,7 +6086,7 @@
             }
             
             // Find all variations of this card (same name, different sets)
-            allVariations = allCardResults.filter(c => 
+            allVariations = (allCardResults || []).filter(c => 
                 c.name.toLowerCase() === selectedCard.name.toLowerCase() && !c.isProduct
             );
             
