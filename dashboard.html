@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>PokeAgent</title>
+    <title>PokeAgent v2.1</title>
     <!-- EMERGENCY: Clear all old service workers and caches -->
     <script>
     (function() {
@@ -6156,7 +6156,7 @@
                     await searchProducts(query);
                 }
             } catch (e) {
-                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${e.message}</div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>Error: ${e.message}<br><small style="opacity:0.5">v2.1 - ${e.stack ? e.stack.split('\n')[1] : 'no stack'}</small></div>`;
             }
         }
         
@@ -8990,6 +8990,7 @@
             POKEAGENT 2026 by 
             <a href="https://twitter.com/demi_hl" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: none; font-weight: 600;">DEMI</a>
         </p>
+        <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem; opacity: 0.5;">v2.1 - Build Jan 22 2026</p>
     </footer>
 </body>
 </html>
