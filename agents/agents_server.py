@@ -104,25 +104,27 @@ def handle_options(path):
 # =============================================================================
 
 @app.route('/health')
-@app.route('/health/detailed')
 def health_check():
+    """Simple health check endpoint."""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "2.1.0",
+        "service": "pokemon-multi-agent"
+    })
+
+@app.route('/health/detailed')
+def health_check_detailed():
     """
-    Health check endpoint with detailed status.
-    
-    Returns:
-        - Basic health: 200 if OK, 503 if unhealthy
-        - Detailed health: Component-level status
+    Detailed health check endpoint.
     """
-    from agents.utils.logger import get_error_summary
-    from agents.utils.request_queue import get_request_queue
     from pathlib import Path
     import sqlite3
     
-    is_detailed = request.path.endswith('/detailed')
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0",
+        "version": "2.1.0",
     }
     
     # Check database connections
@@ -150,6 +152,7 @@ def health_check():
     # Check request queue
     queue_status = {}
     try:
+        from agents.utils.request_queue import get_request_queue
         queue = get_request_queue()
         queue_stats = queue.get_stats()
         queue_status = {
@@ -169,11 +172,15 @@ def health_check():
         health_status["status"] = "degraded"
     
     # Check error rate
-    error_summary = get_error_summary()
-    error_status = {
-        "total_recent": error_summary.get("total_errors", 0),
-        "error_types": error_summary.get("error_types", {}),
-    }
+    try:
+        from agents.utils.logger import get_error_summary
+        error_summary = get_error_summary()
+        error_status = {
+            "total_recent": error_summary.get("total_errors", 0),
+            "error_types": error_summary.get("error_types", {}),
+        }
+    except Exception:
+        error_status = {"total_recent": 0, "error_types": {}}
     
     # High error rate = degraded
     if error_status["total_recent"] > 50:
