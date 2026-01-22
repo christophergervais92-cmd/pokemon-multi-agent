@@ -54,8 +54,17 @@ except ImportError:
     NUMPY_AVAILABLE = False
 
 # OpenAI API for vision analysis (optional - falls back to rule-based if not set)
+# Can be overridden by passing openai_api_key in the request payload
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
+def set_api_key_from_payload(payload: Dict[str, Any]) -> None:
+    """Allow API key to be passed in payload for client-side key storage."""
+    global OPENAI_API_KEY, ANTHROPIC_API_KEY
+    if payload.get("openai_api_key"):
+        OPENAI_API_KEY = payload["openai_api_key"]
+    if payload.get("anthropic_api_key"):
+        ANTHROPIC_API_KEY = payload["anthropic_api_key"]
 
 # =============================================================================
 # IMAGE QUALITY DETECTION
@@ -1230,6 +1239,9 @@ Examples:
         data = json.loads(input_data) if input_data.strip() else {}
     except json.JSONDecodeError:
         data = {}
+    
+    # Set API key from payload if provided (allows client-side key storage)
+    set_api_key_from_payload(data)
     
     # Batch mode
     if args.batch:
