@@ -2506,25 +2506,28 @@
         // Initialize theme immediately
         initTheme();
         
-        // Global click handler for card grid items
-        window.handleCardClick = function(index, isProduct) {
+        // Global click handler for card grid items - uses data stored in DOM
+        window.handleCardClick = function(cardDataJson) {
             try {
-                // Show immediate feedback
-                var card = window.allCardResults && window.allCardResults[index];
-                if (!card) {
-                    alert('ERROR: No card at index ' + index + '. Cards loaded: ' + (window.allCardResults ? window.allCardResults.length : 0));
+                var card = JSON.parse(decodeURIComponent(cardDataJson));
+                if (!card || !card.name) {
+                    alert('ERROR: Invalid card data');
                     return;
                 }
                 
-                // Show which card was clicked
-                alert('Clicked: ' + card.name + '\nLoading details...');
-                
-                if (isProduct && typeof selectCardFromGrid === 'function') {
-                    selectCardFromGrid(index);
-                } else if (!isProduct && typeof selectCardForDetail === 'function') {
-                    selectCardForDetail(card);
+                // Handle products vs cards differently
+                if (card.isProduct) {
+                    if (typeof displayProductDetail === 'function') {
+                        displayProductDetail(card);
+                    } else {
+                        alert('Product: ' + card.name + '\nPrice: $' + (card.price || 'N/A'));
+                    }
                 } else {
-                    alert('ERROR: Handler function not found');
+                    if (typeof selectCardForDetail === 'function') {
+                        selectCardForDetail(card);
+                    } else {
+                        alert('Loading card: ' + card.name);
+                    }
                 }
             } catch(e) {
                 alert('ERROR: ' + e.message);
@@ -5638,30 +5641,41 @@
         function displayCardGrid(cards, query) {
             const results = document.getElementById('cardResults');
             
-            // Store cards globally for click access
-            window.allCardResults = cards;
-            console.log('displayCardGrid: Stored', cards.length, 'cards in window.allCardResults');
+            // Build HTML with card data embedded in each item
+            let html = `<h2 style="margin-bottom: 1rem;">SEARCH RESULTS <span style="color: var(--text-muted);">(${cards.length} RESULTS)</span></h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem;" id="cardGridContainer">`;
             
-            results.innerHTML = `
-                <h2 style="margin-bottom: 1rem;">SEARCH RESULTS <span style="color: var(--text-muted);">(${cards.length} RESULTS)</span></h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem;" id="cardGridContainer">
-                    ${cards.map((card, i) => {
-                        const price = card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market || card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
-                        return `
-                            <div class="card-grid-item" onclick="window.handleCardClick(${i}, false)" style="cursor: pointer;">
-                                <img src="${card.images?.small || ''}" 
-                                     alt="${card.name}"
-                                     style="width: 100%; height: 160px; object-fit: contain; pointer-events: none;"
-                                     loading="lazy"
-                                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22160%22><rect fill=%22%23171717%22 width=%22120%22 height=%22160%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22></text></svg>'">
-                                <div class="card-title" style="pointer-events: none;">${card.name}</div>
-                                <div class="card-set" style="pointer-events: none;">${card.set?.name || ''}</div>
-                                <div class="card-price" style="pointer-events: none;">${price > 0 ? '$' + price.toFixed(2) : ''}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
+                const price = card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market || card.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+                
+                // Store minimal card data needed for detail view
+                const cardData = {
+                    id: card.id,
+                    name: card.name,
+                    set: card.set,
+                    rarity: card.rarity,
+                    images: card.images,
+                    tcgplayer: card.tcgplayer
+                };
+                const encodedData = encodeURIComponent(JSON.stringify(cardData));
+                
+                html += `
+                    <div class="card-grid-item" onclick="window.handleCardClick('${encodedData}')" style="cursor: pointer;">
+                        <img src="${card.images?.small || ''}" 
+                             alt="${card.name}"
+                             style="width: 100%; height: 160px; object-fit: contain; pointer-events: none;"
+                             loading="lazy"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22160%22><rect fill=%22%23171717%22 width=%22120%22 height=%22160%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22></text></svg>'">
+                        <div class="card-title" style="pointer-events: none;">${card.name}</div>
+                        <div class="card-set" style="pointer-events: none;">${card.set?.name || ''}</div>
+                        <div class="card-price" style="pointer-events: none;">${price > 0 ? '$' + price.toFixed(2) : ''}</div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            results.innerHTML = html;
         }
         
         // Select a single card to show detailed view
@@ -5899,12 +5913,13 @@
             // Generate a search-based image fallback URL
             const fallbackImg = `https://images.pokemontcg.io/base1/4.png`; // Classic Charizard as placeholder
             
-            // Back button if we came from grid view
-            const backButton = window.allCardResults && window.allCardResults.length > 1 ? `
-                <button onclick="displayCardGrid(window.allCardResults, '${name}')" class="btn btn-outline" style="margin-bottom: 1rem;">
-                    ← Back to All Results (${window.allCardResults.length} cards)
+            // Back button - re-runs the search
+            const searchQuery = document.getElementById('cardName')?.value || name;
+            const backButton = `
+                <button onclick="searchCardsOrProducts()" class="btn btn-outline" style="margin-bottom: 1rem;">
+                    ← Back to Search Results
                 </button>
-            ` : '';
+            `;
             
             results.innerHTML = `
                 ${backButton}
@@ -6158,11 +6173,9 @@
                 return;
             }
             
-            window.allCardResults = data.data;
-            // Use displayCardGrid for cards (not displayCardGridProducts)
+            // Display the card grid - data is embedded in each card's onclick
             displayCardGrid(data.data, query);
-            // Debug: confirm cards loaded
-            console.log('Cards loaded:', window.allCardResults.length);
+            console.log('Cards displayed:', data.data.length);
         }
         
         async function searchProducts(query) {
@@ -6296,10 +6309,6 @@
         // Old searchProducts function removed - using instant demo data now
         
         function displayCardGridProducts(cards) {
-            // Store globally for click handlers
-            window.allCardResults = cards;
-            console.log('displayCardGridProducts: Stored', cards.length, 'cards in window.allCardResults');
-            
             const results = document.getElementById('cardResults');
             const grid = document.getElementById('cardGrid');
             const gridItems = document.getElementById('cardGridItems');
@@ -6311,7 +6320,9 @@
             
             document.getElementById('resultCount').textContent = `(${cards.length} results)`;
             
-            gridItems.innerHTML = cards.map((card, index) => {
+            let html = '';
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
                 let price = null;
                 
                 if (card.isProduct && card.price) {
@@ -6326,8 +6337,22 @@
                 const priceNum = parseFloat(price);
                 const priceDisplay = !isNaN(priceNum) && priceNum > 0 ? '$' + priceNum.toFixed(2) : 'See Price';
                 
-                return `
-                    <div class="card-grid-item" onclick="window.handleCardClick(${index}, true)" style="cursor: pointer;">
+                // Embed card data in onclick
+                const cardData = {
+                    id: card.id,
+                    name: card.name,
+                    set: card.set,
+                    rarity: card.rarity,
+                    images: card.images,
+                    tcgplayer: card.tcgplayer,
+                    isProduct: card.isProduct,
+                    price: card.price,
+                    retailer: card.retailer
+                };
+                const encodedData = encodeURIComponent(JSON.stringify(cardData));
+                
+                html += `
+                    <div class="card-grid-item" onclick="window.handleCardClick('${encodedData}')" style="cursor: pointer;">
                         <img src="${imgUrl}" 
                              loading="lazy"
                              style="pointer-events: none;"
@@ -6337,7 +6362,8 @@
                         <div class="card-price" style="pointer-events: none;">${priceDisplay}</div>
                     </div>
                 `;
-            }).join('');
+            }
+            gridItems.innerHTML = html;
         }
         
         function backToGrid() {
