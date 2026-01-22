@@ -492,7 +492,18 @@ def scan_bestbuy(query: str = "pokemon trading cards") -> List[Product]:
     """
     Scan Best Buy using API or scraping fallback.
     Uses session pooling.
+    
+    NOTE: Best Buy blocks cloud server IPs (Render, AWS, etc.).
+    Disabled to prevent timeout spam. Re-enable with BESTBUY_API_KEY or proxy.
     """
+    # Check if Best Buy scanning is explicitly enabled (API key or proxy configured)
+    api_key = os.environ.get("BESTBUY_API_KEY", "")
+    proxy_url = os.environ.get("PROXY_SERVICE_URL", "")
+    
+    if not api_key and not proxy_url:
+        # Skip Best Buy - blocked without API key or proxy
+        return []
+    
     products = []
     
     cached = Cache.get("bestbuy", query)

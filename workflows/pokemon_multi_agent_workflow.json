@@ -20,7 +20,7 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 1
+              "minutesInterval": 5
             }
           ]
         }
@@ -34,7 +34,7 @@
       "position": [420, 400],
       "parameters": {
         "method": "GET",
-        "url": "http://127.0.0.1:5001/scanner/unified",
+        "url": "https://pokemon-multi-agent.onrender.com/scanner/unified",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -49,7 +49,7 @@
           ]
         },
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       }
     },
@@ -71,12 +71,12 @@
       "position": [900, 400],
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5001/agent/price",
+        "url": "https://pokemon-multi-agent.onrender.com/agent/price",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 60000
         }
       }
     },
@@ -88,12 +88,12 @@
       "position": [1120, 400],
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5001/agent/grading",
+        "url": "https://pokemon-multi-agent.onrender.com/agent/grading",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 60000
         }
       }
     },
@@ -105,12 +105,12 @@
       "position": [1340, 400],
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5001/agent/autobuy",
+        "url": "https://pokemon-multi-agent.onrender.com/agent/autobuy",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 60000
         }
       }
     },
@@ -124,7 +124,7 @@
         "resource": "message",
         "operation": "send",
         "channelId": "={{ $env.DISCORD_CHANNEL_ID || '1404800573206827139' }}",
-        "message": "📦 **Pokemon Stock Scan Complete**\n\n🔍 Query: {{ $json.query || 'pokemon' }}\n📊 Products: {{ $json.total_products || $json.products?.length || 0 }} | ✅ In Stock: {{ $json.in_stock_count || 0 }}\n\n{{ $json.products?.filter(p => p.stock).slice(0, 5).map(p => `🟢 **${p.name}**\\n🏪 ${p.retailer} - $${p.price}\\n🔗 ${p.url || 'N/A'}`).join('\\n\\n') || 'No products in stock' }}\n\n_⏱️ {{ new Date().toLocaleString() }} | Next scan in 1 min_"
+        "message": "📦 **Pokemon Stock Scan Complete**\n\n🔍 Query: {{ $json.query || 'pokemon' }}\n📊 Products: {{ $json.total_products || $json.products?.length || 0 }} | ✅ In Stock: {{ $json.in_stock_count || 0 }}\n\n{{ $json.products?.filter(p => p.stock).slice(0, 5).map(p => `🟢 **${p.name}**\\n🏪 ${p.retailer} - $${p.price}\\n🔗 ${p.url || 'N/A'}`).join('\\n\\n') || 'No products in stock' }}\n\n_⏱️ {{ new Date().toLocaleString() }} | Next scan in 5 min_"
       }
     },
     {
@@ -176,12 +176,12 @@
       "position": [1780, 560],
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5001/users/notify",
+        "url": "https://pokemon-multi-agent.onrender.com/users/notify",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ products: $json.products?.filter(p => p.stock && p.evaluation?.should_buy) || [] }) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 60000
         }
       }
     },
@@ -234,9 +234,9 @@
       "position": [420, 700],
       "parameters": {
         "method": "GET",
-        "url": "http://127.0.0.1:5001/market/analysis",
+        "url": "https://pokemon-multi-agent.onrender.com/market/analysis",
         "options": {
-          "timeout": 30000
+          "timeout": 60000
         }
       }
     },
@@ -275,12 +275,12 @@
       "position": [420, 900],
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5001/grader/analyze",
+        "url": "https://pokemon-multi-agent.onrender.com/grader/analyze",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.body || $json) }}",
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       }
     },
@@ -307,6 +307,63 @@
         "respondWith": "json",
         "responseBody": "={{ $json }}",
         "options": {}
+      }
+    },
+    {
+      "id": "webhook-ai-chat",
+      "name": "🤖 AI Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 1100],
+      "parameters": {
+        "path": "ai-chat",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "ai-chat-webhook"
+    },
+    {
+      "id": "ai-assistant",
+      "name": "🤖 AI Pokemon Assistant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 1100],
+      "parameters": {
+        "method": "POST",
+        "url": "https://pokemon-multi-agent.onrender.com/ai/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.body?.message || $json.message || 'Hello' }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "ai-chat-response",
+      "name": "📤 Return AI Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [660, 1100],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "health-check",
+      "name": "❤️ Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pokemon-multi-agent.onrender.com/health",
+        "options": {
+          "timeout": 30000
+        }
       }
     }
   ],
@@ -398,6 +455,20 @@
       "main": [
         [
           { "node": "📤 Return Grading Result", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🤖 AI Chat Webhook": {
+      "main": [
+        [
+          { "node": "🤖 AI Pokemon Assistant", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "🤖 AI Pokemon Assistant": {
+      "main": [
+        [
+          { "node": "📤 Return AI Response", "type": "main", "index": 0 }
         ]
       ]
     }
