@@ -4803,96 +4803,113 @@
             const query = document.getElementById('stockQuery').value || 'pokemon';
             const results = document.getElementById('stockResults');
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Scanning retailers for real stock data...</div>';
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching retailers...</div>';
             
-            // Try to get REAL stock data from backend scrapers
+            // Try to get REAL stock data from backend scrapers with timeout
             let realProducts = [];
             let useRealData = false;
             
             try {
-                console.log('Calling real backend scrapers...');
-                // Add cache-busting parameter
-                const cacheBuster = new Date().getTime();
-                const response = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&limit=50&_=${cacheBuster}`, {
+                console.log('Calling backend scrapers...');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+                
+                const response = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&limit=50&_=${Date.now()}`, {
                     headers: { 'Accept': 'application/json' },
-                    cache: 'no-cache'
+                    cache: 'no-cache',
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.error) {
-                        console.error('Stock checker error:', data.error);
-                        // Don't show webdriver errors - they're from old cached code
-                        if (data.error.includes('webdriver')) {
-                            console.warn('Ignoring cached webdriver error - server code is fixed');
-                            // Try again without cache
-                            const retryResponse = await fetch(`${API}/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&_=${Date.now()}`, {
-                                headers: { 'Accept': 'application/json' },
-                                cache: 'no-store'
-                            });
-                            if (retryResponse.ok) {
-                                const retryData = await retryResponse.json();
-                                if (!retryData.error) {
-                                    realProducts = retryData.products || retryData.results || [];
-                                    if (realProducts.length > 0) {
-                                        useRealData = true;
-                                    }
-                                }
-                            }
-                        } else {
-                            showNotification(`Stock checker error: ${data.error}`, 'error');
-                        }
-                    } else {
+                    if (!data.error) {
                         realProducts = data.products || data.results || [];
-                        console.log('Real scraped products:', realProducts.length, realProducts);
-                        
+                        console.log('Real scraped products:', realProducts.length);
                         if (realProducts.length > 0) {
                             useRealData = true;
                         }
-                    }
-                } else {
-                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                    console.error('Stock checker HTTP error:', response.status, errorData);
-                    // Don't show webdriver errors
-                    if (!errorData.error || !errorData.error.includes('webdriver')) {
-                        showNotification(`Unable to fetch stock data: ${errorData.error || 'Server error'}`, 'error');
+                    } else {
+                        console.warn('Backend error:', data.error);
                     }
                 }
             } catch (e) {
-                console.error('Backend scraper failed:', e);
-                // Don't show webdriver errors
-                if (!e.message || !e.message.includes('webdriver')) {
-                    showNotification(`Unable to fetch stock data: ${e.message}`, 'error');
+                if (e.name === 'AbortError') {
+                    console.log('Backend timeout');
+                    results.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 2rem;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">⏱️</div>
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">Backend Timeout</div>
+                            <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                                The stock checker is taking too long to respond. The backend may be starting up.
+                            </div>
+                            <button class="btn" onclick="findStock()">Try Again</button>
+                        </div>
+                    `;
+                    return;
+                } else {
+                    console.warn('Backend unavailable:', e.message);
+                    results.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 2rem;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">🔌</div>
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">Backend Unavailable</div>
+                            <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                                Cannot connect to stock checker. Make sure the backend is running at:<br>
+                                <code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${API}</code>
+                            </div>
+                            <button class="btn" onclick="findStock()">Retry</button>
+                        </div>
+                    `;
+                    return;
                 }
             }
             
-            // Generate stores - use real data if available, otherwise simulated
-            if (useRealData) {
+            // Only show results if we have real data
+            if (useRealData && realProducts.length > 0) {
                 allStockStores = convertRealProductsToStores(realProducts, zip, query);
                 console.log('Using REAL scraped data:', allStockStores.length, 'stores');
+                
+                // Apply current filter
+                const filteredStores = currentRetailerFilter === 'all' 
+                    ? allStockStores 
+                    : allStockStores.filter(s => s.chain === currentRetailerFilter);
+                
+                const totalUnits = allStockStores.reduce((sum, s) => sum + (s.total_quantity || 0), 0);
+                const storesWithStock = allStockStores.filter(s => s.has_stock).length;
+                const totalProducts = allStockStores.reduce((sum, s) => sum + (s.products?.length || 0), 0);
+                
+                // Update stats
+                document.getElementById('statStores').textContent = filteredStores.length;
+                document.getElementById('statInStock').textContent = storesWithStock;
+                document.getElementById('statProducts').textContent = totalProducts;
+                document.getElementById('statUnits').textContent = totalUnits;
+                
+                // Render results
+                renderStockResults(filteredStores);
             } else {
-                // Fallback to simulated data
-                allStockStores = generateAllRetailerStores(zip, query);
-                console.log('Using simulated data:', allStockStores.length, 'stores');
+                // No real data available - show message
+                results.innerHTML = `
+                    <div class="card" style="text-align: center; padding: 2rem;">
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">📦</div>
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">No Products Found</div>
+                        <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                            No stock data found for "<strong>${query}</strong>" near ${zip}.<br>
+                            Try a different search term or check back later.
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                            <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='pokemon etb'; findStock();">Search ETBs</button>
+                            <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='pokemon booster'; findStock();">Search Boosters</button>
+                            <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='prismatic evolutions'; findStock();">Prismatic Evolutions</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Reset stats
+                document.getElementById('statStores').textContent = '0';
+                document.getElementById('statInStock').textContent = '0';
+                document.getElementById('statProducts').textContent = '0';
+                document.getElementById('statUnits').textContent = '0';
             }
-            
-            // Apply current filter
-            const filteredStores = currentRetailerFilter === 'all' 
-                ? allStockStores 
-                : allStockStores.filter(s => s.chain === currentRetailerFilter);
-            
-            const totalUnits = allStockStores.reduce((sum, s) => sum + (s.total_quantity || 0), 0);
-            const storesWithStock = allStockStores.filter(s => s.has_stock).length;
-            const totalProducts = allStockStores.reduce((sum, s) => sum + (s.products?.length || 0), 0);
-            
-            // Update stats
-            document.getElementById('statStores').textContent = filteredStores.length;
-            document.getElementById('statInStock').textContent = storesWithStock;
-            document.getElementById('statProducts').textContent = totalProducts;
-            document.getElementById('statUnits').textContent = totalUnits;
-            
-            // Render results
-            renderStockResults(filteredStores);
         }
         
         // Convert real scraped products to store format for display
