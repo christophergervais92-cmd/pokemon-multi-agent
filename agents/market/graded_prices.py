@@ -49,6 +49,9 @@ except ImportError:
         import random
         return random.uniform(1, 3)
 
+# Pokemon TCG API timeout (can be slow)
+POKEMON_TCG_API_TIMEOUT = int(os.environ.get("POKEMON_TCG_API_TIMEOUT", "45"))
+
 
 # =============================================================================
 # CONFIGURATION
@@ -299,7 +302,7 @@ def get_raw_price_from_api(card_name: str, set_name: str = "") -> Optional[Dict]
         
         time.sleep(get_random_delay())
         
-        resp = requests.get(api_url, params=params, headers=headers, timeout=15)
+        resp = requests.get(api_url, params=params, headers=headers, timeout=POKEMON_TCG_API_TIMEOUT)
         
         if resp.status_code == 200:
             data = resp.json()
