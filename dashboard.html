@@ -4855,33 +4855,40 @@
         // Vending Map Variables
         let vendingMap = null;
         let vendingMarkers = [];
-        
-        // Custom Pokemon-themed marker icon
-        const pokemonIcon = L.divIcon({
-            className: 'pokemon-marker',
-            html: `<div style="
-                width: 32px; height: 32px; 
-                background: linear-gradient(135deg, #ffcb05 0%, #3466af 100%); 
-                border-radius: 50% 50% 50% 0; 
-                transform: rotate(-45deg); 
-                border: 3px solid white; 
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                display: flex; align-items: center; justify-content: center;
-            "><div style="
-                transform: rotate(45deg); 
-                font-size: 14px; 
-                font-weight: bold;
-            ">V</div></div>`,
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-        });
+        let pokemonIcon = null;
         
         function initVendingMap() {
             if (vendingMap) return; // Already initialized
+            if (typeof L === 'undefined') {
+                console.log('Leaflet not loaded yet');
+                return;
+            }
             
             const mapContainer = document.getElementById('vendingMap');
             if (!mapContainer) return;
+            
+            // Create custom Pokemon-themed marker icon
+            if (!pokemonIcon) {
+                pokemonIcon = L.divIcon({
+                    className: 'pokemon-marker',
+                    html: `<div style="
+                        width: 32px; height: 32px; 
+                        background: linear-gradient(135deg, #ffcb05 0%, #3466af 100%); 
+                        border-radius: 50% 50% 50% 0; 
+                        transform: rotate(-45deg); 
+                        border: 3px solid white; 
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        display: flex; align-items: center; justify-content: center;
+                    "><div style="
+                        transform: rotate(45deg); 
+                        font-size: 14px; 
+                        font-weight: bold;
+                    ">V</div></div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    popupAnchor: [0, -32]
+                });
+            }
             
             // Initialize map centered on US
             vendingMap = L.map('vendingMap').setView([39.8283, -98.5795], 4);
