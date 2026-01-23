@@ -7377,12 +7377,21 @@
                     return priceB - priceA;
                 });
                 
-                // Log top 5 prices for debugging
-                console.log('Top 5 card prices:', sortedCards.slice(0, 5).map(c => ({
-                    name: c.name,
-                    price: getBestCardPrice(c),
-                    rarity: c.rarity
-                })));
+                // Log top 10 prices for debugging
+                console.log('Top 10 cards by price:');
+                sortedCards.slice(0, 10).forEach((c, i) => {
+                    const price = getBestCardPrice(c);
+                    const cat = getRarityCategory(c.rarity);
+                    console.log(`  ${i+1}. ${c.name} - $${price.toFixed(2)} - ${c.rarity} (${cat})`);
+                });
+                
+                // Show rarity distribution
+                const rarityCounts = {};
+                sortedCards.forEach(c => {
+                    const r = c.rarity || 'Unknown';
+                    rarityCounts[r] = (rarityCounts[r] || 0) + 1;
+                });
+                console.log('Rarity distribution:', rarityCounts);
                 
                 // Take top 50 cards by price (already sorted)
                 const chaseCards = sortedCards.slice(0, 50);
@@ -7532,26 +7541,33 @@
         
         function getRarityCategory(rarity) {
             const rarityLower = (rarity || '').toLowerCase();
-            // Illustration Rare category
-            if (rarityLower.includes('illustration')) return 'illustration';
-            // Special Art category (alternate arts, secret rares, hyper rares, full arts)
-            if (rarityLower.includes('special') || 
-                rarityLower.includes('alternate') || 
+            
+            // Illustration Rare category (SV era)
+            if (rarityLower === 'illustration rare' || 
+                rarityLower.includes('illustration rare')) return 'illustration';
+            
+            // Special Art category (SIR, Full Art, Secret, Hyper, Rainbow, Gold)
+            if (rarityLower === 'special illustration rare' ||
+                rarityLower.includes('special illustration') ||
                 rarityLower.includes('secret') ||
                 rarityLower.includes('hyper') ||
                 rarityLower.includes('rainbow') ||
                 rarityLower.includes('gold') ||
-                rarityLower.includes('full art') ||
-                rarityLower.includes('art rare')) return 'special';
-            // Holo category (all holos, Vs, VMAXs, VSTARs, ex, etc.)
-            if (rarityLower.includes('holo') ||
-                rarityLower.includes('ultra') ||
-                rarityLower.includes('double') ||
-                rarityLower.includes(' v') ||
+                rarityLower === 'rare ultra' ||
+                rarityLower === 'rare secret' ||
+                rarityLower === 'rare rainbow') return 'special';
+            
+            // Holo/Ultra category (Double Rare, Ultra Rare, V, VMAX, VSTAR, ex, GX)
+            if (rarityLower === 'double rare' ||
+                rarityLower === 'ultra rare' ||
+                rarityLower.includes('rare holo v') ||
                 rarityLower.includes('vmax') ||
                 rarityLower.includes('vstar') ||
+                rarityLower.includes('holo') ||
+                rarityLower === 'rare' ||
                 rarityLower.includes(' ex') ||
                 rarityLower.includes(' gx')) return 'holo';
+            
             return 'other';
         }
         
