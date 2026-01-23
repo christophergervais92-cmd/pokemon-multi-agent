@@ -356,6 +356,11 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
         h1 {
             font-size: 2rem;
             font-weight: 600;
@@ -7253,7 +7258,16 @@
                 console.error('chaseCardsGrid not found');
                 return;
             }
-            chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem;"><div class="spinner"></div> Loading cards...</div>';
+            // Show skeleton loaders while fetching
+            chaseGrid.innerHTML = Array(12).fill(0).map(() => `
+                <div style="background: var(--bg-card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border);">
+                    <div style="width: 100%; aspect-ratio: 245/342; background: linear-gradient(90deg, var(--bg) 25%, var(--surface) 50%, var(--bg) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite;"></div>
+                    <div style="padding: 0.75rem;">
+                        <div style="height: 14px; background: var(--bg); border-radius: 4px; margin-bottom: 0.5rem;"></div>
+                        <div style="height: 10px; background: var(--bg); border-radius: 4px; width: 60%;"></div>
+                    </div>
+                </div>
+            `).join('');
             
             // Show info cards
             const setInfoCard = document.getElementById('setInfoCard');
@@ -7264,9 +7278,23 @@
             if (setStatsCard) setStatsCard.style.display = 'block';
             
             try {
-                // Fetch all cards from the set
+                // Check cache first
+                const cacheKey = `set_cards_${setId}`;
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) {
+                    console.log('Using cached cards for', setId);
+                    const data = JSON.parse(cached);
+                    currentSetCards = data.data;
+                    const setInfo = data.data[0]?.set || { id: setId, name: setId };
+                    displaySetInfo(setInfo);
+                    displayChaseCards(currentSetCards, setInfo);
+                    displaySetStats(currentSetCards, setInfo);
+                    return;
+                }
+                
+                // Fetch cards - only 50 cards, ordered by rarity (chase cards first)
                 console.log('Fetching cards from API for set:', setId);
-                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=100`, {
+                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=50&orderBy=-rarity`, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
                 });
@@ -7277,6 +7305,13 @@
                 
                 const data = await response.json();
                 console.log('API response:', data.data?.length, 'cards');
+                
+                // Cache the results
+                try {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(data));
+                } catch (e) {
+                    console.log('Cache storage failed:', e.message);
+                }
                 
                 if (data.data && data.data.length > 0) {
                     currentSetCards = data.data;
