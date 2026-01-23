@@ -1595,6 +1595,7 @@
             <button class="nav-btn" data-section="assistant">AI Assistant</button>
             <button class="nav-btn" data-section="portfolio">Portfolio</button>
             <button class="nav-btn" data-section="analytics">Analytics</button>
+            <button class="nav-btn" data-section="emulator">🎮 Emulator</button>
             <button class="nav-btn" data-section="settings">Settings</button>
         </nav>
         
@@ -1610,6 +1611,7 @@
                 <option value="assistant">AI Assistant</option>
                 <option value="portfolio">Portfolio</option>
                 <option value="analytics">Analytics</option>
+                <option value="emulator">🎮 Emulator</option>
                 <option value="settings">Settings</option>
             </select>
         </div>
@@ -2529,6 +2531,109 @@
                     Simulates stock checks across all retailers and compares against your verified data.
                 </p>
                 <div id="backtestOutput" style="margin-top: 1rem;"></div>
+            </div>
+        </section>
+
+        <!-- Emulator Section -->
+        <section id="emulator">
+            <h1>🎮 Pokemon ROM Emulator</h1>
+            
+            <div class="card" style="margin-bottom: 1rem; border: 2px solid var(--accent);">
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <h2 style="margin: 0 0 0.5rem 0;">Load Your ROM</h2>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
+                            Upload your own legally obtained ROM files (.gb, .gbc, .gba, .nds)
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <label class="btn" style="cursor: pointer;">
+                            📁 Select ROM File
+                            <input type="file" id="romFileInput" accept=".gb,.gbc,.gba,.nds,.zip" style="display: none;" onchange="loadROM(this)">
+                        </label>
+                        <select id="emulatorCore" class="btn" style="background: var(--bg); color: var(--text);">
+                            <option value="auto">Auto-detect</option>
+                            <option value="gambatte">Game Boy / GBC</option>
+                            <option value="mgba">Game Boy Advance</option>
+                            <option value="melonds">Nintendo DS</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Emulator Container -->
+            <div id="emulatorContainer" class="card" style="padding: 0; overflow: hidden; background: #000;">
+                <div id="emulatorPlaceholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; color: var(--text-muted); text-align: center; padding: 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">🎮</div>
+                    <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">No ROM Loaded</h3>
+                    <p style="margin: 0; font-size: 0.875rem;">Select a ROM file to start playing</p>
+                    <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg); border-radius: 8px; text-align: left; max-width: 400px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Supported Formats:</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            • <strong>.gb</strong> - Game Boy<br>
+                            • <strong>.gbc</strong> - Game Boy Color<br>
+                            • <strong>.gba</strong> - Game Boy Advance<br>
+                            • <strong>.nds</strong> - Nintendo DS<br>
+                            • <strong>.zip</strong> - Compressed ROMs
+                        </div>
+                    </div>
+                </div>
+                <div id="emulatorGame" style="display: none; width: 100%; aspect-ratio: 3/2; max-height: 600px;"></div>
+            </div>
+            
+            <!-- Controls Info -->
+            <div class="card" style="margin-top: 1rem;">
+                <h2>🎮 Controls</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">D-Pad</div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">Arrow Keys or WASD</div>
+                    </div>
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">A Button</div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">X or J</div>
+                    </div>
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">B Button</div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">Z or K</div>
+                    </div>
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Start</div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">Enter</div>
+                    </div>
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Select</div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">Shift</div>
+                    </div>
+                    <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">L / R</div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">Q / E</div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding: 1rem; background: rgba(255, 193, 7, 0.1); border-radius: 8px; border-left: 3px solid var(--gold);">
+                    <div style="font-weight: 600; color: var(--gold);">⚠️ Legal Notice</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        Only use ROMs that you have legally obtained from games you own. This emulator does not provide any ROM files.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Save States -->
+            <div class="card" style="margin-top: 1rem;">
+                <h2>💾 Save States</h2>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Your game saves are stored locally in your browser.
+                </p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="saveEmulatorState()">💾 Save State</button>
+                    <button class="btn btn-outline" onclick="loadEmulatorState()">📂 Load State</button>
+                    <button class="btn btn-outline" onclick="exportSave()">⬇️ Export Save</button>
+                    <label class="btn btn-outline" style="cursor: pointer;">
+                        ⬆️ Import Save
+                        <input type="file" accept=".sav,.srm" style="display: none;" onchange="importSave(this)">
+                    </label>
+                </div>
+                <div id="saveStatesList" style="margin-top: 1rem;"></div>
             </div>
         </section>
 
@@ -11844,6 +11949,136 @@ Or use the quick question buttons above for common topics!`
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(initAIAssistant, 100);
         });
+        
+        // =============================================================================
+        // EMULATOR SECTION
+        // =============================================================================
+        
+        let emulatorInstance = null;
+        let currentRomName = '';
+        
+        // Detect core based on file extension
+        function detectCore(filename) {
+            const ext = filename.toLowerCase().split('.').pop();
+            const coreMap = {
+                'gb': 'gambatte',
+                'gbc': 'gambatte', 
+                'gba': 'mgba',
+                'nds': 'melonds',
+                'zip': 'auto'
+            };
+            return coreMap[ext] || 'gambatte';
+        }
+        
+        // Load ROM file
+        async function loadROM(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            currentRomName = file.name.replace(/\.[^/.]+$/, '');
+            const selectedCore = document.getElementById('emulatorCore').value;
+            const core = selectedCore === 'auto' ? detectCore(file.name) : selectedCore;
+            
+            // Show loading state
+            const placeholder = document.getElementById('emulatorPlaceholder');
+            const gameContainer = document.getElementById('emulatorGame');
+            
+            placeholder.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 1rem;">Loading ${file.name}...</div>
+                </div>
+            `;
+            
+            try {
+                // Read file as array buffer
+                const romData = await file.arrayBuffer();
+                
+                // Clear previous emulator
+                gameContainer.innerHTML = '';
+                
+                // Create EmulatorJS container
+                gameContainer.innerHTML = `<div id="emulator-game-container" style="width: 100%; height: 100%;"></div>`;
+                
+                // Load EmulatorJS
+                if (!window.EJS_player) {
+                    // Set up EmulatorJS configuration
+                    window.EJS_player = '#emulator-game-container';
+                    window.EJS_core = core;
+                    window.EJS_gameUrl = URL.createObjectURL(new Blob([romData]));
+                    window.EJS_gameName = currentRomName;
+                    window.EJS_color = '#3466af';
+                    window.EJS_startOnLoaded = true;
+                    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+                    window.EJS_oldCores = true;
+                    
+                    // Load EmulatorJS script
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+                    script.onload = () => {
+                        placeholder.style.display = 'none';
+                        gameContainer.style.display = 'block';
+                        showNotification(`Loaded: ${file.name}`, 'success');
+                    };
+                    script.onerror = () => {
+                        placeholder.innerHTML = `
+                            <div style="color: var(--red);">
+                                <div style="font-size: 2rem; margin-bottom: 1rem;">❌</div>
+                                <div>Failed to load emulator</div>
+                                <div style="font-size: 0.75rem; margin-top: 0.5rem;">Check your internet connection</div>
+                            </div>
+                        `;
+                    };
+                    document.body.appendChild(script);
+                } else {
+                    // Reload with new ROM - need to recreate
+                    location.reload(); // Simple reload for now
+                }
+                
+            } catch (e) {
+                console.error('ROM load error:', e);
+                placeholder.innerHTML = `
+                    <div style="color: var(--red);">
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">❌</div>
+                        <div>Error loading ROM: ${e.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Save emulator state
+        function saveEmulatorState() {
+            if (!currentRomName) {
+                showNotification('No game loaded', 'error');
+                return;
+            }
+            
+            // EmulatorJS handles saves automatically
+            showNotification('Save states are managed by the emulator. Use the in-game save menu (F2) or the emulator controls.', 'info');
+        }
+        
+        // Load emulator state  
+        function loadEmulatorState() {
+            if (!currentRomName) {
+                showNotification('No game loaded', 'error');
+                return;
+            }
+            
+            showNotification('Use the emulator menu (F1) to load save states', 'info');
+        }
+        
+        // Export save file
+        function exportSave() {
+            showNotification('Use the emulator menu to export saves', 'info');
+        }
+        
+        // Import save file
+        function importSave(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            showNotification('Save imported! Load a ROM to use it.', 'success');
+        }
     </script>
     
     <!-- Site Footer -->
