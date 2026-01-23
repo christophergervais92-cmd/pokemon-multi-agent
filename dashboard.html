@@ -7248,18 +7248,25 @@
             if (setStatsCard) setStatsCard.style.display = 'block';
             
             try {
-                // Check cache first
+                // Check cache first - but validate it has enough cards
                 const cacheKey = `set_cards_${setId}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
-                    console.log('Using cached cards for', setId);
                     const data = JSON.parse(cached);
-                    currentSetCards = data.data;
-                    const setInfo = data.data[0]?.set || { id: setId, name: setId };
-                    displaySetInfo(setInfo);
-                    displayChaseCards(currentSetCards, setInfo);
-                    displaySetStats(currentSetCards, setInfo);
-                    return;
+                    const cardCount = data.data?.length || 0;
+                    // Only use cache if it has enough cards (invalidate old incomplete caches)
+                    if (cardCount >= 150) {
+                        console.log('Using cached cards for', setId, '- count:', cardCount);
+                        currentSetCards = data.data;
+                        const setInfo = data.data[0]?.set || { id: setId, name: setId };
+                        displaySetInfo(setInfo);
+                        displayChaseCards(currentSetCards, setInfo);
+                        displaySetStats(currentSetCards, setInfo);
+                        return;
+                    } else {
+                        console.log('Cache incomplete (' + cardCount + ' cards), clearing and fetching fresh');
+                        sessionStorage.removeItem(cacheKey);
+                    }
                 }
                 
                 // Fetch cards with retry logic
