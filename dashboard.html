@@ -2822,6 +2822,73 @@
         const DB_VERSION = 1;
         const DB_STORE = 'images';
         
+        // Debug mode - set to true to see all console logs
+        const DEBUG_MODE = true;
+        function debugLog(...args) {
+            if (DEBUG_MODE) console.log('[DEBUG]', ...args);
+        }
+        
+        // Global error handler
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('GLOBAL ERROR:', msg, 'at line', line);
+            return false;
+        };
+        
+        // Unhandled promise rejection handler
+        window.onunhandledrejection = function(event) {
+            console.error('UNHANDLED PROMISE:', event.reason);
+        };
+        
+        // DIAGNOSTIC TEST - Run this from console: runDiagnostics()
+        window.runDiagnostics = async function() {
+            console.log('=== RUNNING DIAGNOSTICS ===');
+            const results = [];
+            
+            // Test 1: Check global variables
+            console.log('1. Checking global variables...');
+            results.push({ test: 'allSetsData', pass: Array.isArray(allSetsData), value: allSetsData?.length });
+            results.push({ test: 'currentSetCards', pass: Array.isArray(currentSetCards), value: currentSetCards?.length });
+            results.push({ test: 'showChaseCardDetail', pass: typeof showChaseCardDetail === 'function' });
+            results.push({ test: 'searchCards', pass: typeof searchCards === 'function' });
+            results.push({ test: 'displayCardGrid', pass: typeof displayCardGrid === 'function' });
+            
+            // Test 2: Check DOM elements
+            console.log('2. Checking DOM elements...');
+            results.push({ test: 'cardName input', pass: !!document.getElementById('cardName') });
+            results.push({ test: 'cardResults div', pass: !!document.getElementById('cardResults') });
+            results.push({ test: 'chaseCardsGrid', pass: !!document.getElementById('chaseCardsGrid') });
+            results.push({ test: 'setSelector', pass: !!document.getElementById('setSelector') });
+            
+            // Test 3: Test API connectivity
+            console.log('3. Testing Pokemon TCG API...');
+            try {
+                const testRes = await fetch('https://api.pokemontcg.io/v2/cards?q=name:pikachu&pageSize=1');
+                const testData = await testRes.json();
+                results.push({ test: 'Pokemon TCG API', pass: testData.data?.length > 0, value: testRes.status });
+            } catch (e) {
+                results.push({ test: 'Pokemon TCG API', pass: false, error: e.message });
+            }
+            
+            // Test 4: Check sessionStorage
+            console.log('4. Checking sessionStorage...');
+            const cacheKeys = Object.keys(sessionStorage).filter(k => k.startsWith('set_cards_'));
+            results.push({ test: 'Cached sets', pass: true, value: cacheKeys.length + ' sets cached' });
+            
+            // Print results
+            console.log('=== DIAGNOSTIC RESULTS ===');
+            results.forEach(r => {
+                const status = r.pass ? '✅' : '❌';
+                console.log(`${status} ${r.test}: ${r.value || r.error || (r.pass ? 'OK' : 'FAIL')}`);
+            });
+            
+            const passed = results.filter(r => r.pass).length;
+            console.log(`\n${passed}/${results.length} tests passed`);
+            
+            return results;
+        };
+        
+        console.log('💡 TIP: Run runDiagnostics() in console to test the site');
+        
         // Load API setting if it exists
         if (settings.api) {
             API = settings.api;
@@ -7909,24 +7976,35 @@
         }
         
         async function searchCards(query) {
-            // Use AbortController for timeout (faster failure)
+            console.log('searchCards called for:', query);
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
+            const timeout = setTimeout(() => controller.abort(), 45000); // 45 second timeout
             
             try {
-                // Fetch with timeout - request only needed fields for speed
-                const res = await fetch(
-                    `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer`,
-                    { signal: controller.signal }
-                );
+                console.log('Fetching cards from Pokemon TCG API...');
+                const url = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer,number`;
+                console.log('URL:', url);
+                
+                const res = await fetch(url, { 
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
                 clearTimeout(timeout);
+                
+                console.log('Response status:', res.status);
+                if (!res.ok) {
+                    throw new Error(`API returned ${res.status}`);
+                }
+                
                 const data = await res.json();
+                console.log('Cards found:', data.data?.length || 0);
                 
                 if (!data.data?.length) {
                     document.getElementById('cardResults').innerHTML = `
                         <div class="empty">
                             <div class="empty-icon">🔍</div>
                             <div>No cards found for "${query}"</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Try a different spelling or search term</div>
                         </div>`;
                     return;
                 }
@@ -7935,21 +8013,29 @@
                 const sorted = data.data.sort((a, b) => {
                     const priceA = getCardPrice(a);
                     const priceB = getCardPrice(b);
-                    return priceB - priceA; // Descending
+                    return priceB - priceA;
                 });
                 
+                console.log('Displaying', sorted.length, 'cards');
                 allCardResults = sorted;
                 displayCardGrid(allCardResults);
             } catch (e) {
                 clearTimeout(timeout);
+                console.error('Search error:', e);
                 if (e.name === 'AbortError') {
                     document.getElementById('cardResults').innerHTML = `
                         <div class="empty">
                             <div class="empty-icon">⏱️</div>
-                            <div>Search timed out. Try a more specific query.</div>
+                            <div>Search timed out - Pokemon TCG API is slow</div>
+                            <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">Try Again</button>
                         </div>`;
                 } else {
-                    throw e;
+                    document.getElementById('cardResults').innerHTML = `
+                        <div class="empty">
+                            <div class="empty-icon">❌</div>
+                            <div>Error: ${e.message}</div>
+                            <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">Try Again</button>
+                        </div>`;
                 }
             }
         }
