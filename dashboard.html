@@ -7331,59 +7331,79 @@
         }
         
         function displayChaseCards(cards, setInfo) {
+            console.log('displayChaseCards called with', cards?.length, 'cards');
             const chaseGrid = document.getElementById('chaseCardsGrid');
-            
-            // Sort by price (highest first)
-            const sortedCards = [...cards].sort((a, b) => {
-                const priceA = getBestCardPrice(a);
-                const priceB = getBestCardPrice(b);
-                return priceB - priceA;
-            });
-            
-            // Filter to chase cards (cards worth $5+ or special rarities)
-            const chaseCards = sortedCards.filter(card => {
-                const price = getBestCardPrice(card);
-                const rarity = (card.rarity || '').toLowerCase();
-                const isChase = price >= 5 || 
-                    rarity.includes('rare') || 
-                    rarity.includes('illustration') ||
-                    rarity.includes('special') ||
-                    rarity.includes('secret') ||
-                    rarity.includes('ultra') ||
-                    rarity.includes('hyper');
-                return isChase;
-            }).slice(0, 30); // Top 30 chase cards
-            
-            if (chaseCards.length === 0) {
-                chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">No chase cards found for this set</div>';
+            if (!chaseGrid) {
+                console.error('chaseCardsGrid not found');
                 return;
             }
             
-            // Calculate set value index
-            const totalChaseValue = chaseCards.reduce((sum, card) => sum + getBestCardPrice(card), 0);
-            document.getElementById('setValueIndex').textContent = '$' + totalChaseValue.toFixed(0);
-            
+            try {
+                // Sort by price (highest first)
+                const sortedCards = [...cards].sort((a, b) => {
+                    const priceA = getBestCardPrice(a);
+                    const priceB = getBestCardPrice(b);
+                    return priceB - priceA;
+                });
+                
+                // Filter to chase cards (cards worth $1+ or any rarity)
+                const chaseCards = sortedCards.filter(card => {
+                    const price = getBestCardPrice(card);
+                    const rarity = (card.rarity || '').toLowerCase();
+                    return price >= 1 || rarity.includes('rare') || rarity.includes('holo');
+                }).slice(0, 50); // Top 50 cards
+                
+                console.log('Chase cards found:', chaseCards.length);
+                
+                if (chaseCards.length === 0) {
+                    // Show all cards if no chase cards found
+                    const allCards = sortedCards.slice(0, 30);
+                    if (allCards.length === 0) {
+                        chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted);">No cards found for this set</div>';
+                        return;
+                    }
+                    renderCardGrid(allCards, setInfo, chaseGrid);
+                    return;
+                }
+                
+                // Calculate set value index
+                const totalChaseValue = chaseCards.reduce((sum, card) => sum + getBestCardPrice(card), 0);
+                const valueEl = document.getElementById('setValueIndex');
+                if (valueEl) valueEl.textContent = '$' + totalChaseValue.toFixed(0);
+                
+                renderCardGrid(chaseCards, setInfo, chaseGrid);
+                
+            } catch (error) {
+                console.error('Error in displayChaseCards:', error);
+                chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--red);">Error displaying cards: ${error.message}</div>`;
+            }
+        }
+        
+        function renderCardGrid(cards, setInfo, container) {
             // Get pull rates for this era
             const era = getSetEra(setInfo?.series);
             const pullRates = PULL_RATES[era] || PULL_RATES['default'];
             
-            chaseGrid.innerHTML = chaseCards.map((card, index) => {
+            container.innerHTML = cards.map((card, index) => {
                 const price = getBestCardPrice(card);
-                const rarity = card.rarity || 'Unknown';
+                const rarity = card.rarity || 'Common';
                 const pullOdds = getPullOddsForRarity(rarity, pullRates);
+                const cardId = card.id || '';
+                const cardName = (card.name || 'Unknown').replace(/'/g, "\\'");
+                const cardImage = card.images?.small || card.images?.large || '';
                 
                 return `
-                    <div class="chase-card" data-rarity="${getRarityCategory(rarity)}" onclick="selectCardForDetail(${JSON.stringify(card).replace(/"/g, '&quot;')})" 
+                    <div class="chase-card" data-rarity="${getRarityCategory(rarity)}" data-card-id="${cardId}"
                          style="background: var(--bg-card); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 1px solid var(--border);">
                         <div style="position: relative;">
                             ${index < 3 ? `<div style="position: absolute; top: 0.5rem; left: 0.5rem; background: ${index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : '#cd7f32'}; color: #000; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.625rem; font-weight: 700;">#${index + 1}</div>` : ''}
-                            <img src="${card.images?.small || ''}" alt="${card.name}" loading="lazy" style="width: 100%; aspect-ratio: 245/342; object-fit: cover;">
+                            <img src="${cardImage}" alt="${cardName}" loading="lazy" style="width: 100%; aspect-ratio: 245/342; object-fit: cover; background: var(--bg);" onerror="this.src='https://images.pokemontcg.io/base1/4.png'">
                         </div>
                         <div style="padding: 0.75rem;">
-                            <div style="font-weight: 600; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${card.name}</div>
+                            <div style="font-weight: 600; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cardName}</div>
                             <div style="font-size: 0.625rem; color: var(--text-muted);">${rarity}</div>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
-                                <div style="font-family: 'Space Mono', monospace; font-weight: 700; color: var(--green);">$${price.toFixed(2)}</div>
+                                <div style="font-family: 'Space Mono', monospace; font-weight: 700; color: var(--green);">${price > 0 ? '$' + price.toFixed(2) : 'N/A'}</div>
                                 <div style="font-size: 0.5rem; color: var(--purple); background: var(--bg); padding: 0.125rem 0.375rem; border-radius: 4px;">${pullOdds}</div>
                             </div>
                         </div>
@@ -7405,25 +7425,30 @@
         }
         
         function displaySetStats(cards, setInfo) {
-            const chaseCards = cards.filter(card => getBestCardPrice(card) >= 5);
-            const prices = chaseCards.map(card => getBestCardPrice(card));
-            const totalValue = prices.reduce((sum, p) => sum + p, 0);
-            const avgValue = prices.length > 0 ? totalValue / prices.length : 0;
-            const topValue = prices.length > 0 ? Math.max(...prices) : 0;
-            
-            // Estimate EV per pack (simplified)
-            const era = getSetEra(setInfo?.series);
-            const pullRates = PULL_RATES[era] || PULL_RATES['default'];
-            const chaseOdds = pullRates['Ultra Rare']?.pct || pullRates['Holo Rare']?.pct || 5;
-            const evPerPack = (avgValue * (chaseOdds / 100)).toFixed(2);
-            const packsToHit = Math.round(100 / chaseOdds);
-            
-            document.getElementById('statTotalCards').textContent = setInfo?.total || cards.length;
-            document.getElementById('statChaseCards').textContent = chaseCards.length;
-            document.getElementById('statAvgValue').textContent = '$' + avgValue.toFixed(2);
-            document.getElementById('statTopValue').textContent = '$' + topValue.toFixed(2);
-            document.getElementById('statEvPack').textContent = '$' + evPerPack;
-            document.getElementById('statPacksToHit').textContent = '~' + packsToHit;
+            try {
+                const chaseCards = cards.filter(card => getBestCardPrice(card) >= 1);
+                const prices = chaseCards.map(card => getBestCardPrice(card));
+                const totalValue = prices.reduce((sum, p) => sum + p, 0);
+                const avgValue = prices.length > 0 ? totalValue / prices.length : 0;
+                const topValue = prices.length > 0 ? Math.max(...prices) : 0;
+                
+                // Estimate EV per pack (simplified)
+                const era = getSetEra(setInfo?.series);
+                const pullRates = PULL_RATES[era] || PULL_RATES['default'];
+                const chaseOdds = pullRates['Ultra Rare']?.pct || pullRates['Holo Rare']?.pct || 5;
+                const evPerPack = (avgValue * (chaseOdds / 100)).toFixed(2);
+                const packsToHit = Math.round(100 / chaseOdds);
+                
+                const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                setEl('statTotalCards', setInfo?.total || cards.length);
+                setEl('statChaseCards', chaseCards.length);
+                setEl('statAvgValue', '$' + avgValue.toFixed(2));
+                setEl('statTopValue', '$' + topValue.toFixed(2));
+                setEl('statEvPack', '$' + evPerPack);
+                setEl('statPacksToHit', '~' + packsToHit);
+            } catch (error) {
+                console.error('Error in displaySetStats:', error);
+            }
         }
         
         function getBestCardPrice(card) {
