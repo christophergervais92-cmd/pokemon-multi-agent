@@ -12425,23 +12425,46 @@ Or use the quick question buttons above for common topics!`
                 return;
             }
             
-            container.innerHTML = games.map(game => `
-                <div class="game-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg); border-radius: 8px; border-left: 3px solid ${PLATFORM_COLORS[game.platform]};">
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            ${game.name}
-                            ${game.isHack ? '<span style="font-size: 0.625rem; background: var(--gold); color: black; padding: 0.1rem 0.3rem; border-radius: 3px; margin-left: 0.25rem;">ROM HACK</span>' : ''}
-                        </div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                            <span style="background: ${PLATFORM_COLORS[game.platform]}22; color: ${PLATFORM_COLORS[game.platform]}; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 500;">${PLATFORM_NAMES[game.platform]}</span>
-                            <span>${game.year}</span>
-                            ${game.gen > 0 ? `<span>Gen ${game.gen}</span>` : ''}
-                            ${game.region !== 'INT' && game.region !== 'HACK' ? `<span style="color: var(--accent);">${game.region}</span>` : ''}
+            container.innerHTML = games.map(game => {
+                // Generate purchase links for official games only
+                const searchQuery = encodeURIComponent(`${game.name} ${PLATFORM_NAMES[game.platform]} cartridge`);
+                const ebayUrl = `https://www.ebay.com/sch/i.html?_nkw=${searchQuery}`;
+                const amazonUrl = `https://www.amazon.com/s?k=${searchQuery}`;
+                const mercariUrl = `https://www.mercari.com/search/?keyword=${searchQuery}`;
+                
+                return `
+                <div class="game-item" style="display: flex; flex-direction: column; gap: 0.75rem; padding: 0.75rem; background: var(--bg); border-radius: 8px; border-left: 3px solid ${PLATFORM_COLORS[game.platform]};">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                ${game.name}
+                                ${game.isHack ? '<span style="font-size: 0.625rem; background: var(--gold); color: black; padding: 0.1rem 0.3rem; border-radius: 3px; margin-left: 0.25rem;">ROM HACK</span>' : ''}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                                <span style="background: ${PLATFORM_COLORS[game.platform]}22; color: ${PLATFORM_COLORS[game.platform]}; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 500;">${PLATFORM_NAMES[game.platform]}</span>
+                                <span>${game.year}</span>
+                                ${game.gen > 0 ? `<span>Gen ${game.gen}</span>` : ''}
+                                ${game.region !== 'INT' && game.region !== 'HACK' ? `<span style="color: var(--accent);">${game.region}</span>` : ''}
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">.${game.platform}</span>
+                            </div>
                         </div>
                     </div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">.${game.platform}</div>
+                    ${!game.isHack ? `
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">
+                            <a href="${ebayUrl}" target="_blank" rel="noopener" style="font-size: 0.625rem; padding: 0.25rem 0.5rem; background: var(--accent); color: white; border-radius: 4px; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                🛒 eBay
+                            </a>
+                            <a href="${amazonUrl}" target="_blank" rel="noopener" style="font-size: 0.625rem; padding: 0.25rem 0.5rem; background: #ff9900; color: white; border-radius: 4px; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                📦 Amazon
+                            </a>
+                            <a href="${mercariUrl}" target="_blank" rel="noopener" style="font-size: 0.625rem; padding: 0.25rem 0.5rem; background: #00b140; color: white; border-radius: 4px; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                💰 Mercari
+                            </a>
+                        </div>
+                    ` : ''}
                 </div>
-            `).join('');
+            `;
+            }).join('');
             
             const officialCount = games.filter(g => !g.isHack).length;
             const hackCount = games.filter(g => g.isHack).length;
