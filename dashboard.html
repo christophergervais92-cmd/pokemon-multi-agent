@@ -7292,9 +7292,9 @@
                     return;
                 }
                 
-                // Fetch cards - only 50 cards, ordered by rarity (chase cards first)
+                // Fetch cards - get 75 cards to have more to sort through
                 console.log('Fetching cards from API for set:', setId);
-                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=50&orderBy=-rarity`, {
+                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=75`, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
                 });
@@ -7370,21 +7370,24 @@
             }
             
             try {
-                // Sort by price (highest first)
+                // Sort ALL cards by price (highest first)
                 const sortedCards = [...cards].sort((a, b) => {
                     const priceA = getBestCardPrice(a);
                     const priceB = getBestCardPrice(b);
                     return priceB - priceA;
                 });
                 
-                // Filter to chase cards (cards worth $1+ or any rarity)
-                const chaseCards = sortedCards.filter(card => {
-                    const price = getBestCardPrice(card);
-                    const rarity = (card.rarity || '').toLowerCase();
-                    return price >= 1 || rarity.includes('rare') || rarity.includes('holo');
-                }).slice(0, 50); // Top 50 cards
+                // Log top 5 prices for debugging
+                console.log('Top 5 card prices:', sortedCards.slice(0, 5).map(c => ({
+                    name: c.name,
+                    price: getBestCardPrice(c),
+                    rarity: c.rarity
+                })));
                 
-                console.log('Chase cards found:', chaseCards.length);
+                // Take top 50 cards by price (already sorted)
+                const chaseCards = sortedCards.slice(0, 50);
+                
+                console.log('Showing top', chaseCards.length, 'cards by price');
                 
                 if (chaseCards.length === 0) {
                     // Show all cards if no chase cards found
