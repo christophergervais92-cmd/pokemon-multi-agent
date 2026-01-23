@@ -7144,14 +7144,13 @@
         }
         
         function populateSetSelector(sets) {
-            try {
-                const setSelector = document.getElementById('setSelector');
-                if (!setSelector) {
-                    console.error('populateSetSelector: setSelector not found');
-                    return;
-                }
-                console.log('Populating selector with', sets.length, 'sets');
-                setSelector.innerHTML = '<option value="">Select a set...</option>';
+            const setSelector = document.getElementById('setSelector');
+            if (!setSelector) {
+                console.error('populateSetSelector: setSelector not found');
+                return;
+            }
+            console.log('Populating selector with', sets.length, 'sets');
+            setSelector.innerHTML = '<option value="">Select a set...</option>';
             
             // Group by series
             const grouped = {};
