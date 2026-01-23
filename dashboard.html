@@ -3302,14 +3302,6 @@
             prefetchCommonData(); // Prefetch on load
             initAuth(); // Initialize authentication
             
-            // Pre-load sets for database section
-            setTimeout(() => {
-                if (typeof loadAllSets === 'function') {
-                    console.log('Pre-loading sets on page load...');
-                    loadAllSets();
-                }
-            }, 500);
-            
             // Nav
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.addEventListener('click', () => switchSection(btn.dataset.section));
@@ -7162,43 +7154,29 @@
             { id: 'neo4', name: 'Neo Destiny', series: 'Neo', releaseDate: '2002-02-28', total: 113, images: { logo: 'https://images.pokemontcg.io/neo4/logo.png' } },
         ];
         
-        // Load all sets from Pokemon TCG API with timeout and fallback
+        // Load all sets from Pokemon TCG API - sets are already in HTML as fallback
         async function loadAllSets() {
+            console.log('loadAllSets called - fetching from API');
+            const setSelector = document.getElementById('setSelector');
+            
+            if (!setSelector) {
+                console.error('setSelector element not found!');
+                return;
+            }
+            
+            // Sets are already in HTML, just try to update from API
             try {
-                console.log('loadAllSets called');
-                const setSelector = document.getElementById('setSelector');
+                const response = await fetch('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate');
+                const data = await response.json();
                 
-                if (!setSelector) {
-                    console.error('setSelector element not found!');
-                    return;
+                if (data.data && data.data.length > 0) {
+                    allSetsData = data.data;
+                    console.log('Loaded', allSetsData.length, 'sets from API');
+                    // Optionally update the selector with more sets
+                    // populateSetSelector(allSetsData);
                 }
-                
-                // IMMEDIATELY populate with fallback data - simple options first
-                console.log('FALLBACK_SETS length:', FALLBACK_SETS ? FALLBACK_SETS.length : 'undefined');
-                if (FALLBACK_SETS && FALLBACK_SETS.length > 0) {
-                    allSetsData = [...FALLBACK_SETS];
-                    let html = '<option value="">Select a set...</option>';
-                    allSetsData.forEach(set => {
-                        html += `<option value="${set.id}">${set.name} (${set.releaseDate || 'N/A'})</option>`;
-                    });
-                    setSelector.innerHTML = html;
-                    console.log('Populated dropdown with', allSetsData.length, 'fallback sets');
-                }
-                
-                // Then try to fetch fresh data from API (non-blocking)
-                fetch('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.data && data.data.length > 0) {
-                            allSetsData = data.data;
-                            populateSetSelector(allSetsData);
-                            console.log('Updated with', allSetsData.length, 'sets from API');
-                        }
-                    })
-                    .catch(err => console.log('API fetch failed, using fallback:', err.message));
-                    
-            } catch (error) {
-                console.error('loadAllSets error:', error);
+            } catch (err) {
+                console.log('API fetch failed, using HTML fallback sets:', err.message);
             }
         }
         
