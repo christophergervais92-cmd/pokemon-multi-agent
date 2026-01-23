@@ -3296,6 +3296,23 @@
 
         // Init
         document.addEventListener('DOMContentLoaded', async () => {
+            // CACHE VERSION - increment this to force clear all set caches
+            const CACHE_VERSION = 'v2';
+            const storedVersion = localStorage.getItem('setCacheVersion');
+            
+            if (storedVersion !== CACHE_VERSION) {
+                console.log('Cache version changed, clearing all set caches...');
+                // Clear all set_cards_ entries from sessionStorage
+                Object.keys(sessionStorage).forEach(key => {
+                    if (key.startsWith('set_cards_')) {
+                        sessionStorage.removeItem(key);
+                        console.log('Cleared cache:', key);
+                    }
+                });
+                localStorage.setItem('setCacheVersion', CACHE_VERSION);
+                console.log('Cache cleared, new version:', CACHE_VERSION);
+            }
+            
             // Initialize IndexedDB first
             try {
                 await initIndexedDB();
