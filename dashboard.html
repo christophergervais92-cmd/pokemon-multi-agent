@@ -2798,10 +2798,14 @@
         let API = getDefaultAPI();
         let settings = optimizedLocalStorageGet('settings', {});
         
-        // Database section variables (must be at top to avoid temporal dead zone)
+        // Global variables (must be at top to avoid temporal dead zone)
         let allSetsData = [];
         let currentSetCards = [];
         let currentSetId = null;
+        const productImageCache = {};
+        const DB_NAME = 'PokeAgentDB';
+        const DB_VERSION = 1;
+        const DB_STORE = 'images';
         
         // Load API setting if it exists
         if (settings.api) {
@@ -6617,8 +6621,6 @@
         // INDEXEDDB - Large data storage for images, prices, card data
         // =============================================================================
         let db = null;
-        const DB_NAME = 'PokeAgentDB';
-        const DB_VERSION = 1;
         
         async function initIndexedDB() {
             if (!('indexedDB' in window)) {
@@ -9287,8 +9289,6 @@
         }
         
         // Cached product images from TCG API (stores actual card art when available)
-        const productImageCache = {};
-        
         async function getProductImageWithCard(productName) {
             // Check memory cache first
             if (productImageCache[productName]) {

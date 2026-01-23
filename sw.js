@@ -154,11 +154,9 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // Pokemon TCG API: Stale-While-Revalidate
+    // Pokemon TCG API: Let it pass through (CORS issues with service worker caching)
     if (url.href.includes('api.pokemontcg.io')) {
-        event.respondWith(
-            staleWhileRevalidate(request, API_CACHE, CACHE_TTL.cards)
-        );
+        // Don't intercept - let browser handle directly
         return;
     }
     
