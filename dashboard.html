@@ -2798,6 +2798,11 @@
         let API = getDefaultAPI();
         let settings = optimizedLocalStorageGet('settings', {});
         
+        // Database section variables (must be at top to avoid temporal dead zone)
+        let allSetsData = [];
+        let currentSetCards = [];
+        let currentSetId = null;
+        
         // Load API setting if it exists
         if (settings.api) {
             API = settings.api;
@@ -7035,10 +7040,6 @@
         // =============================================================================
         // SET DATABASE - All Pokemon TCG sets with chase cards and pull odds
         // =============================================================================
-        
-        let allSetsData = [];
-        let currentSetCards = [];
-        let currentSetId = null;
         
         // Pull rates by era/set type (approximate odds per pack)
         const PULL_RATES = {
