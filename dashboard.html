@@ -7414,16 +7414,26 @@
             const era = getSetEra(setInfo?.series);
             const pullRates = PULL_RATES[era] || PULL_RATES['default'];
             
+            // Log rarity to category mapping for debugging
+            const rarityMapping = {};
+            cards.forEach(c => {
+                const r = c.rarity || 'Common';
+                const cat = getRarityCategory(r);
+                if (!rarityMapping[r]) rarityMapping[r] = cat;
+            });
+            console.log('Rarity -> Category mapping:', rarityMapping);
+            
             container.innerHTML = cards.map((card, index) => {
                 const price = getBestCardPrice(card);
                 const rarity = card.rarity || 'Common';
+                const category = getRarityCategory(rarity);
                 const pullOdds = getPullOddsForRarity(rarity, pullRates);
                 const cardId = card.id || '';
                 const cardName = (card.name || 'Unknown').replace(/'/g, "\\'");
                 const cardImage = card.images?.small || card.images?.large || '';
                 
                 return `
-                    <div class="chase-card" data-rarity="${getRarityCategory(rarity)}" data-card-id="${cardId}"
+                    <div class="chase-card" data-rarity="${category}" data-card-id="${cardId}"
                          style="background: var(--bg-card); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 1px solid var(--border);">
                         <div style="position: relative;">
                             ${index < 3 ? `<div style="position: absolute; top: 0.5rem; left: 0.5rem; background: ${index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : '#cd7f32'}; color: #000; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.625rem; font-weight: 700;">#${index + 1}</div>` : ''}
@@ -7569,9 +7579,12 @@
             // Filter cards
             const cards = document.querySelectorAll('.chase-card');
             let shown = 0, hidden = 0;
+            const categories = {};
             
             cards.forEach(card => {
-                const cardRarity = card.dataset.rarity;
+                const cardRarity = card.dataset.rarity || 'other';
+                categories[cardRarity] = (categories[cardRarity] || 0) + 1;
+                
                 if (filter === 'all') {
                     card.style.display = '';
                     shown++;
@@ -7584,7 +7597,22 @@
                 }
             });
             
-            console.log(`Filter result: ${shown} shown, ${hidden} hidden`);
+            console.log('Card categories found:', categories);
+            console.log(`Filter "${filter}": ${shown} shown, ${hidden} hidden`);
+            
+            // Show message if no cards match filter
+            if (shown === 0 && filter !== 'all') {
+                const grid = document.getElementById('chaseCardsGrid');
+                if (grid && !grid.querySelector('.no-match-msg')) {
+                    const msg = document.createElement('div');
+                    msg.className = 'no-match-msg';
+                    msg.style.cssText = 'grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);';
+                    msg.textContent = `No "${filter}" cards found in this set. Try "All" to see all cards.`;
+                    grid.prepend(msg);
+                }
+            } else {
+                document.querySelectorAll('.no-match-msg').forEach(m => m.remove());
+            }
         }
         
         // Initialize database when section is shown
