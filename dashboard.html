@@ -7428,6 +7428,9 @@
         }
         
         function renderCardGrid(cards, setInfo, container) {
+            // Store the displayed cards for click handler access
+            currentSetCards = cards;
+            
             // Get pull rates for this era
             const era = getSetEra(setInfo?.series);
             const pullRates = PULL_RATES[era] || PULL_RATES['default'];
@@ -7451,10 +7454,15 @@
                 const cardImage = card.images?.small || card.images?.large || '';
                 
                 return `
-                    <div class="chase-card" data-rarity="${category}" data-card-id="${cardId}"
+                    <div class="chase-card" data-rarity="${category}" data-card-id="${cardId}" data-card-index="${index}"
+                         onclick="showChaseCardDetail(${index})"
+                         title="Click for detailed pricing, PSA/Beckett grades & price history"
                          style="background: var(--bg-card); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 1px solid var(--border);">
                         <div style="position: relative;">
                             ${index < 3 ? `<div style="position: absolute; top: 0.5rem; left: 0.5rem; background: ${index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : '#cd7f32'}; color: #000; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.625rem; font-weight: 700;">#${index + 1}</div>` : ''}
+                            <div class="card-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s;">
+                                <span style="color: white; font-size: 0.75rem; font-weight: 600; text-align: center; padding: 0.5rem;">📊 View Prices<br>& Grades</span>
+                            </div>
                             <img src="${cardImage}" alt="${cardName}" loading="lazy" style="width: 100%; aspect-ratio: 245/342; object-fit: cover; background: var(--bg);" onerror="this.src='https://images.pokemontcg.io/base1/4.png'">
                         </div>
                         <div style="padding: 0.75rem;">
@@ -7469,15 +7477,18 @@
                 `;
             }).join('');
             
-            // Add hover effect
+            // Add hover effect with overlay
             document.querySelectorAll('.chase-card').forEach(card => {
+                const overlay = card.querySelector('.card-overlay');
                 card.addEventListener('mouseenter', () => {
                     card.style.transform = 'translateY(-4px)';
                     card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+                    if (overlay) overlay.style.opacity = '1';
                 });
                 card.addEventListener('mouseleave', () => {
                     card.style.transform = '';
                     card.style.boxShadow = '';
+                    if (overlay) overlay.style.opacity = '0';
                 });
             });
         }
@@ -7640,6 +7651,100 @@
                 }
             } else {
                 document.querySelectorAll('.no-match-msg').forEach(m => m.remove());
+            }
+        }
+        
+        // Show chase card detail - switches to Cards tab and shows full card info
+        async function showChaseCardDetail(index) {
+            console.log('showChaseCardDetail called with index:', index);
+            
+            // Get the card from currentSetCards (the displayed chase cards)
+            if (!currentSetCards || !currentSetCards[index]) {
+                console.error('Card not found at index:', index);
+                return;
+            }
+            
+            const card = currentSetCards[index];
+            console.log('Opening card detail for:', card.name);
+            
+            // Switch to the Cards tab
+            showSection('cards');
+            
+            // Set up the card data
+            allCardResults = [card];
+            selectedCard = card;
+            
+            // Show loading in detail view
+            const detail = document.getElementById('cardDetail');
+            const grid = document.getElementById('cardGrid');
+            const results = document.getElementById('cardResults');
+            
+            if (results) results.style.display = 'none';
+            if (grid) grid.style.display = 'none';
+            if (detail) detail.style.display = 'block';
+            
+            // Show loading state
+            const detailName = document.getElementById('detailName');
+            const detailImage = document.getElementById('detailImage');
+            const detailPrices = document.getElementById('detailPrices');
+            if (detailName) detailName.textContent = card.name || 'Loading...';
+            if (detailImage) detailImage.src = card.images?.large || card.images?.small || '';
+            if (detailPrices) detailPrices.innerHTML = '<div class="loading"><div class="spinner"></div>Loading prices...</div>';
+            
+            // Fetch all variations of this card (same name, different sets)
+            let allVariations = [card];
+            try {
+                console.log('Fetching all variations of:', card.name);
+                const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=30&orderBy=-set.releaseDate`);
+                const data = await res.json();
+                if (data.data?.length) {
+                    allVariations = data.data;
+                    console.log('Found', allVariations.length, 'variations');
+                }
+            } catch (e) {
+                console.log('Variation fetch failed:', e);
+            }
+            
+            // Fetch graded price data from backend
+            let priceData = {};
+            try {
+                console.log('Fetching graded prices...');
+                priceData = await Promise.race([
+                    api(`/prices/card/${encodeURIComponent(card.name)}`),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]).catch((e) => {
+                    console.log('Price API call failed:', e.message);
+                    return {};
+                });
+            } catch (e) {
+                console.log('Error fetching price data:', e);
+            }
+            
+            // Store price data on the card
+            if (priceData && !priceData.error) {
+                card.priceData = priceData;
+            }
+            
+            // Ensure card has basic price data from TCGPlayer
+            if (!card.priceData && card.tcgplayer?.prices) {
+                const prices = card.tcgplayer.prices;
+                card.priceData = {
+                    raw: {
+                        price: prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0,
+                        low: prices.holofoil?.low || prices.normal?.low || 0,
+                        high: prices.holofoil?.high || prices.normal?.high || 0
+                    }
+                };
+            }
+            
+            // Display the card detail
+            try {
+                displayCardDetail(card, allVariations);
+            } catch (e) {
+                console.error('Error in displayCardDetail:', e);
+                if (detailPrices) {
+                    detailPrices.innerHTML = `<div style="grid-column: 1/-1; padding: 1rem; color: #ef4444;">Error loading prices: ${e.message}</div>`;
+                }
             }
         }
         
