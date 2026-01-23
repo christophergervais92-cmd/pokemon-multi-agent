@@ -7550,22 +7550,25 @@
         function getBestCardPrice(card) {
             const prices = card.tcgplayer?.prices || {};
             
-            // Check ALL price variants and return the HIGHEST VALID one
             // Filter out placeholder prices ($9999, etc) and unrealistic values
             const MAX_VALID_PRICE = 5000; // Most raw cards don't exceed this
             
-            const allPrices = [
-                prices.holofoil?.market,
-                prices.holofoil?.mid,
-                prices.reverseHolofoil?.market,
-                prices.reverseHolofoil?.mid,
-                prices.normal?.market,
-                prices.normal?.mid,
-                prices['1stEditionHolofoil']?.market,
-                prices['1stEditionNormal']?.market,
-                prices.unlimitedHolofoil?.market,
-                prices.unlimited?.market,
-            ].filter(p => p && p > 0 && p < MAX_VALID_PRICE);
+            // Dynamically check ALL available price keys
+            const allPrices = [];
+            
+            // Loop through all price variants (holofoil, reverseHolofoil, normal, etc.)
+            Object.keys(prices).forEach(variant => {
+                const variantPrices = prices[variant];
+                if (variantPrices && typeof variantPrices === 'object') {
+                    // Check market, mid, low, high for each variant
+                    ['market', 'mid', 'low', 'high'].forEach(priceType => {
+                        const price = variantPrices[priceType];
+                        if (price && price > 0 && price < MAX_VALID_PRICE) {
+                            allPrices.push(price);
+                        }
+                    });
+                }
+            });
             
             // Return highest valid price found
             return allPrices.length > 0 ? Math.max(...allPrices) : 0;
@@ -7574,9 +7577,12 @@
         // Debug function to show all price keys for a card
         function debugCardPrices(card) {
             const prices = card.tcgplayer?.prices || {};
-            console.log(`Price keys for ${card.name}:`, Object.keys(prices));
+            const bestPrice = getBestCardPrice(card);
+            console.log(`  Price keys for ${card.name} (#${card.number}): [${Object.keys(prices).join(', ')}] -> Best: $${bestPrice.toFixed(2)}`);
             Object.entries(prices).forEach(([key, val]) => {
-                console.log(`  ${key}: market=${val?.market}, mid=${val?.mid}, high=${val?.high}`);
+                if (val?.market || val?.mid) {
+                    console.log(`    ${key}: market=$${val?.market || 'N/A'}, mid=$${val?.mid || 'N/A'}`);
+                }
             });
         }
         
@@ -7685,14 +7691,12 @@
         
         // Show chase card detail - switches to Cards tab and shows full card info
         async function showChaseCardDetail(index) {
-            alert('Card clicked! Index: ' + index); // Debug alert
             console.log('showChaseCardDetail called with index:', index);
             console.log('currentSetCards length:', currentSetCards?.length);
             
             // Get the card from currentSetCards (the displayed chase cards)
             if (!currentSetCards || !currentSetCards[index]) {
-                console.error('Card not found at index:', index);
-                alert('Error: Card not found. currentSetCards has ' + (currentSetCards?.length || 0) + ' cards');
+                console.error('Card not found at index:', index, 'currentSetCards:', currentSetCards?.length);
                 return;
             }
             
