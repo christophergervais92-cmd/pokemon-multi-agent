@@ -7523,11 +7523,13 @@
         function getBestCardPrice(card) {
             const prices = card.tcgplayer?.prices || {};
             
-            // Check ALL price variants and return the HIGHEST one
+            // Check ALL price variants and return the HIGHEST VALID one
+            // Filter out placeholder prices ($9999, etc) and unrealistic values
+            const MAX_VALID_PRICE = 5000; // Most raw cards don't exceed this
+            
             const allPrices = [
                 prices.holofoil?.market,
                 prices.holofoil?.mid,
-                prices.holofoil?.high,
                 prices.reverseHolofoil?.market,
                 prices.reverseHolofoil?.mid,
                 prices.normal?.market,
@@ -7536,9 +7538,9 @@
                 prices['1stEditionNormal']?.market,
                 prices.unlimitedHolofoil?.market,
                 prices.unlimited?.market,
-            ].filter(p => p && p > 0);
+            ].filter(p => p && p > 0 && p < MAX_VALID_PRICE);
             
-            // Return highest price found
+            // Return highest valid price found
             return allPrices.length > 0 ? Math.max(...allPrices) : 0;
         }
         
