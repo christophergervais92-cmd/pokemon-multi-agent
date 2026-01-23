@@ -7292,9 +7292,9 @@
                     return;
                 }
                 
-                // Fetch cards - get 75 cards to have more to sort through
+                // Fetch cards - get 250 cards to include all chase cards (Secret/Illustration Rares)
                 console.log('Fetching cards from API for set:', setId);
-                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=75`, {
+                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250`, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
                 });
@@ -7487,12 +7487,23 @@
         
         function getBestCardPrice(card) {
             const prices = card.tcgplayer?.prices || {};
-            return prices.holofoil?.market || 
-                   prices['1stEditionHolofoil']?.market ||
-                   prices.reverseHolofoil?.market || 
-                   prices.normal?.market || 
-                   prices.unlimited?.market || 
-                   0;
+            
+            // Check ALL price variants and return the HIGHEST one
+            const allPrices = [
+                prices.holofoil?.market,
+                prices.holofoil?.mid,
+                prices.reverseHolofoil?.market,
+                prices.reverseHolofoil?.mid,
+                prices.normal?.market,
+                prices.normal?.mid,
+                prices['1stEditionHolofoil']?.market,
+                prices['1stEditionNormal']?.market,
+                prices.unlimitedHolofoil?.market,
+                prices.unlimited?.market,
+            ].filter(p => p && p > 0);
+            
+            // Return highest price found
+            return allPrices.length > 0 ? Math.max(...allPrices) : 0;
         }
         
         function getPullOddsForRarity(rarity, pullRates) {
