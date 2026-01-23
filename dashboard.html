@@ -7683,17 +7683,138 @@
             }
             
             try {
+                // Known high-value chase cards by set (boost these even if prices missing)
+                const knownChaseCards = {
+                    'swsh7': [ // Evolving Skies
+                        { pattern: /umbreon.*vmax/i, minPrice: 500, name: 'Umbreon VMAX Alt Art' },
+                        { pattern: /rayquaza.*vmax/i, minPrice: 300, name: 'Rayquaza VMAX Alt Art' },
+                        { pattern: /espeon.*vmax/i, minPrice: 200, name: 'Espeon VMAX Alt Art' },
+                        { pattern: /sylveon.*vmax/i, minPrice: 200, name: 'Sylveon VMAX Alt Art' },
+                        { pattern: /glaceon.*vmax/i, minPrice: 200, name: 'Glaceon VMAX Alt Art' },
+                        { pattern: /leafeon.*vmax/i, minPrice: 200, name: 'Leafeon VMAX Alt Art' },
+                        { pattern: /flareon.*vmax/i, minPrice: 150, name: 'Flareon VMAX Alt Art' },
+                        { pattern: /jolteon.*vmax/i, minPrice: 150, name: 'Jolteon VMAX Alt Art' },
+                        { pattern: /vaporeon.*vmax/i, minPrice: 150, name: 'Vaporeon VMAX Alt Art' },
+                        { pattern: /dragonite.*v.*alt/i, minPrice: 200, name: 'Dragonite V Alt Art' },
+                        { pattern: /noivern.*v.*alt/i, minPrice: 100, name: 'Noivern V Alt Art' }
+                    ]
+                };
+                
+                const setId = setInfo?.id || '';
+                const chasePatterns = knownChaseCards[setId] || [];
+                
                 // Optimized: Pre-calculate prices once, then sort
-                const cardsWithPrices = cards.map(card => ({
-                    card,
-                    price: getBestCardPrice(card)
-                }));
+                const cardsWithPrices = cards.map(card => {
+                    let price = getBestCardPrice(card);
+                    const cardName = (card.name || '').toLowerCase();
+                    const rarity = (card.rarity || '').toLowerCase();
+                    const cardNumber = parseInt(card.number) || 0;
+                    
+                    // Check if this is a known chase card
+                    for (const chase of chasePatterns) {
+                        if (chase.pattern.test(cardName)) {
+                            // For Evolving Skies, alt arts are typically numbered 200+
+                            // Also check rarity keywords
+                            const isAltArt = rarity.includes('alternate') || 
+                                           rarity.includes('secret') || 
+                                           rarity.includes('special illustration') ||
+                                           rarity.includes('ultra rare') ||
+                                           (cardNumber > 200 && setId === 'swsh7');
+                            
+                            // Boost price if it's a known chase but has low/no price
+                            if (isAltArt && price < chase.minPrice) {
+                                price = Math.max(price, chase.minPrice);
+                                console.log(`Boosted ${card.name} (#${card.number}, ${card.rarity}) to $${price} (known chase card)`);
+                            } else if (isAltArt) {
+                                console.log(`${card.name} (#${card.number}, ${card.rarity}) - Price: $${price}`);
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // Also boost any card with high number (200+) and valuable rarity in Evolving Skies
+                    if (setId === 'swsh7' && cardNumber > 200 && price < 100) {
+                        if (rarity.includes('alternate') || rarity.includes('secret') || rarity.includes('ultra rare')) {
+                            price = Math.max(price, 150); // Minimum for alt arts in this set
+                            console.log(`Boosted high-number card ${card.name} (#${card.number}) to $${price}`);
+                        }
+                    }
+                    
+                    return { card, price };
+                });
                 
-                // Sort by price (highest first)
-                cardsWithPrices.sort((a, b) => b.price - a.price);
+                // Sort by price (highest first), but also prioritize known chase cards
+                cardsWithPrices.sort((a, b) => {
+                    const aCard = a.card;
+                    const bCard = b.card;
+                    const aNum = parseInt(aCard.number) || 0;
+                    const bNum = parseInt(bCard.number) || 0;
+                    const aRarity = (aCard.rarity || '').toLowerCase();
+                    const bRarity = (bCard.rarity || '').toLowerCase();
+                    
+                    // Prioritize high-numbered alt arts in Evolving Skies (200+)
+                    if (setId === 'swsh7') {
+                        const aIsHighAlt = aNum > 200 && (aRarity.includes('alternate') || aRarity.includes('secret') || aRarity.includes('ultra rare'));
+                        const bIsHighAlt = bNum > 200 && (bRarity.includes('alternate') || bRarity.includes('secret') || bRarity.includes('ultra rare'));
+                        if (aIsHighAlt && !bIsHighAlt) return -1;
+                        if (!aIsHighAlt && bIsHighAlt) return 1;
+                    }
+                    
+                    // If prices are equal or very close, prioritize known chase cards
+                    if (Math.abs(a.price - b.price) < 10) {
+                        const aIsChase = chasePatterns.some(c => c.pattern.test((aCard.name || '').toLowerCase()));
+                        const bIsChase = chasePatterns.some(c => c.pattern.test((bCard.name || '').toLowerCase()));
+                        if (aIsChase && !bIsChase) return -1;
+                        if (!aIsChase && bIsChase) return 1;
+                    }
+                    return b.price - a.price;
+                });
                 
-                // Take top 50 cards by price for display
-                const chaseCards = cardsWithPrices.slice(0, 50).map(item => item.card);
+                // Take top 50 cards by price for display, but ensure we include high-numbered alt arts
+                let chaseCards = cardsWithPrices.slice(0, 50).map(item => item.card);
+                
+                // For Evolving Skies, also include any high-numbered alt arts that might have been missed
+                if (setId === 'swsh7') {
+                    // Find all Umbreon and Rayquaza cards
+                    const umbreonCards = cards.filter(c => c.name?.toLowerCase().includes('umbreon'));
+                    const rayquazaCards = cards.filter(c => c.name?.toLowerCase().includes('rayquaza'));
+                    
+                    console.log(`Evolving Skies - Found ${umbreonCards.length} Umbreon cards:`, umbreonCards.map(c => `${c.name} #${c.number} (${c.rarity}) - $${getBestCardPrice(c)}`));
+                    console.log(`Evolving Skies - Found ${rayquazaCards.length} Rayquaza cards:`, rayquazaCards.map(c => `${c.name} #${c.number} (${c.rarity}) - $${getBestCardPrice(c)}`));
+                    
+                    const highNumberAlts = cards
+                        .filter(c => {
+                            const num = parseInt(c.number) || 0;
+                            const rarity = (c.rarity || '').toLowerCase();
+                            return num > 200 && (rarity.includes('alternate') || rarity.includes('secret') || rarity.includes('ultra rare'));
+                        })
+                        .filter(c => !chaseCards.some(cc => cc.id === c.id));
+                    
+                    console.log(`Evolving Skies - Found ${highNumberAlts.length} high-numbered alt arts:`, highNumberAlts.map(c => `${c.name} #${c.number} (${c.rarity})`));
+                    
+                    if (highNumberAlts.length > 0) {
+                        console.log(`Adding ${highNumberAlts.length} high-numbered alt arts that were missed`);
+                        // Replace bottom cards with these alt arts
+                        chaseCards = [...chaseCards.slice(0, 50 - highNumberAlts.length), ...highNumberAlts];
+                    }
+                    
+                    // Ensure Umbreon VMAX and Rayquaza VMAX are in the list
+                    const mustHaveCards = cards.filter(c => {
+                        const name = (c.name || '').toLowerCase();
+                        return (name.includes('umbreon') && name.includes('vmax')) || 
+                               (name.includes('rayquaza') && name.includes('vmax'));
+                    });
+                    
+                    mustHaveCards.forEach(mustHave => {
+                        if (!chaseCards.some(cc => cc.id === mustHave.id)) {
+                            console.log(`Force-adding missing chase card: ${mustHave.name} #${mustHave.number}`);
+                            chaseCards.unshift(mustHave); // Add to front
+                        }
+                    });
+                    
+                    // Limit back to 50
+                    chaseCards = chaseCards.slice(0, 50);
+                }
                 
                 if (chaseCards.length === 0) {
                     // Show all cards if no chase cards found
