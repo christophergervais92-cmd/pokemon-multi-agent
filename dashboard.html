@@ -9903,12 +9903,26 @@
             
             try {
                 console.log('[Flip] Fetching cards from TCG API...');
-                const matchingCards = await fetchAllCardsFromTCG(card);
-                console.log('[Flip] Found cards:', matchingCards?.length || 0);
+                
+                // Use direct fetch with longer timeout for flip calculator
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+                
+                const url = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(card)}*&pageSize=50&select=id,name,images,set,rarity,tcgplayer,number`;
+                const res = await fetch(url, {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await res.json();
+                const matchingCards = data.data || [];
+                
+                console.log('[Flip] Found cards:', matchingCards.length);
                 flipCardResults = matchingCards;
                 
                 if (matchingCards.length === 0) {
-                    results.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>No cards found for "${card}"</div>`;
+                    results.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>No cards found for "${card}"<br><small style="color: var(--text-muted);">Try a different search term</small></div>`;
                     return;
                 }
                 
@@ -9923,7 +9937,17 @@
                 await calculateFlipForCard(matchingCards[0], price, company, tier);
             } catch (e) {
                 console.error('Flip calculator error:', e);
-                results.innerHTML = `<div class="empty"><div class="empty-icon"></div>Error: ${e.message}</div>`;
+                if (e.name === 'AbortError') {
+                    results.innerHTML = `<div class="empty">
+                        <div class="empty-icon">⏱️</div>
+                        <div>Pokemon TCG API is slow - request timed out</div>
+                        <button class="btn" onclick="calculateFlip()" style="margin-top: 1rem;">🔄 Try Again</button>
+                    </div>`;
+                } else {
+                    results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>Error: ${e.message}<br>
+                        <button class="btn" onclick="calculateFlip()" style="margin-top: 1rem;">🔄 Try Again</button>
+                    </div>`;
+                }
             }
         }
         
