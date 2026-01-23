@@ -7213,43 +7213,63 @@
         async function loadSetChaseCards(setId) {
             if (!setId) return;
             
+            console.log('Loading cards for set:', setId);
             currentSetId = setId;
             const chaseGrid = document.getElementById('chaseCardsGrid');
+            if (!chaseGrid) {
+                console.error('chaseCardsGrid not found');
+                return;
+            }
             chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem;"><div class="spinner"></div> Loading cards...</div>';
             
             // Show info cards
-            document.getElementById('setInfoCard').style.display = 'block';
-            document.getElementById('pullRatesCard').style.display = 'block';
-            document.getElementById('setStatsCard').style.display = 'block';
-            
-            // Find set info
-            const setInfo = allSetsData.find(s => s.id === setId);
-            if (setInfo) {
-                displaySetInfo(setInfo);
-            }
+            const setInfoCard = document.getElementById('setInfoCard');
+            const pullRatesCard = document.getElementById('pullRatesCard');
+            const setStatsCard = document.getElementById('setStatsCard');
+            if (setInfoCard) setInfoCard.style.display = 'block';
+            if (pullRatesCard) pullRatesCard.style.display = 'block';
+            if (setStatsCard) setStatsCard.style.display = 'block';
             
             try {
-                // Fetch all cards from the set, ordered by price
-                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&orderBy=-tcgplayer.prices.holofoil.market,-tcgplayer.prices.normal.market&pageSize=100`);
+                // Fetch all cards from the set
+                console.log('Fetching cards from API...');
+                const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=100`);
                 const data = await response.json();
+                console.log('API response:', data.data?.length, 'cards');
                 
-                if (data.data) {
+                if (data.data && data.data.length > 0) {
                     currentSetCards = data.data;
+                    
+                    // Get set info from the first card
+                    const setInfo = data.data[0]?.set || { id: setId, name: setId };
+                    displaySetInfo(setInfo);
                     displayChaseCards(currentSetCards, setInfo);
                     displaySetStats(currentSetCards, setInfo);
+                } else {
+                    chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">No cards found for this set</div>';
                 }
             } catch (error) {
                 console.error('Error loading set cards:', error);
-                chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--red);">Error loading cards</div>';
+                chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--red); padding: 2rem;">
+                    Error loading cards: ${error.message}<br>
+                    <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 1rem;">Try Again</button>
+                </div>`;
             }
         }
         
         function displaySetInfo(setInfo) {
-            document.getElementById('setLogo').src = setInfo.images?.logo || setInfo.images?.symbol || '';
-            document.getElementById('setName').textContent = setInfo.name;
-            document.getElementById('setSeries').textContent = `Series: ${setInfo.series || 'Unknown'}`;
-            document.getElementById('setReleaseDate').textContent = `Released: ${setInfo.releaseDate || 'N/A'}`;
-            document.getElementById('setTotalCards').textContent = `Cards: ${setInfo.total || setInfo.printedTotal || '?'}`;
+            if (!setInfo) return;
+            const logo = document.getElementById('setLogo');
+            const name = document.getElementById('setName');
+            const series = document.getElementById('setSeries');
+            const releaseDate = document.getElementById('setReleaseDate');
+            const totalCards = document.getElementById('setTotalCards');
+            
+            if (logo) logo.src = setInfo.images?.logo || setInfo.images?.symbol || '';
+            if (name) name.textContent = setInfo.name || setInfo.id || 'Unknown Set';
+            if (series) series.textContent = `Series: ${setInfo.series || 'Unknown'}`;
+            if (releaseDate) releaseDate.textContent = `Released: ${setInfo.releaseDate || 'N/A'}`;
+            if (totalCards) totalCards.textContent = `Cards: ${setInfo.total || setInfo.printedTotal || '?'}`;
             
             // Display pull rates for this era
             const era = getSetEra(setInfo.series);
