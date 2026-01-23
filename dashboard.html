@@ -4759,9 +4759,12 @@
                                         const stockInfo = dropStockStatus[drop.name]?.retailers[r];
                                         const hasStock = stockInfo?.inStock;
                                         const stockCount = stockInfo?.count || 0;
-                                        return `<span style="font-size: 0.875rem; padding: 0.25rem 0.5rem; background: ${hasStock ? 'var(--green)' : 'var(--bg)'}; color: ${hasStock ? 'white' : 'var(--text)'}; border-radius: 6px; font-weight: 500; border: ${hasStock ? '1px solid var(--green)' : '1px solid var(--border)'};">
-                                            ${r}${hasStock ? ` <span style="font-size: 0.7rem; opacity: 0.9;">✓ ${stockCount}</span>` : ''}
-                                        </span>`;
+                                        const retailerUrl = getRetailerSearchUrl(r, drop.name);
+                                        return `<a href="${retailerUrl}" target="_blank" style="text-decoration: none; font-size: 0.875rem; padding: 0.25rem 0.5rem; background: ${hasStock ? 'var(--green)' : 'var(--bg)'}; color: ${hasStock ? 'white' : 'var(--text)'}; border-radius: 6px; font-weight: 500; border: ${hasStock ? '1px solid var(--green)' : '1px solid var(--border)'}; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;"
+                                            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';"
+                                            onmouseout="this.style.transform='';this.style.boxShadow='';">
+                                            ${r}${hasStock ? ` <span style="font-size: 0.7rem; opacity: 0.9;">✓ ${stockCount}</span>` : ''} ↗
+                                        </a>`;
                                     }).join('')}
                                 </div>
                                 ${dropStockStatus[drop.name] ? `
@@ -5769,14 +5772,30 @@
         
         // Fallback URL patterns (used when direct URL not available)
         const RETAILER_SEARCH_URLS = {
-            'Target': (name) => `https://www.target.com/s?searchTerm=${encodeURIComponent(name + ' pokemon')}`,
+            'Target': (name) => `https://www.target.com/s?searchTerm=${encodeURIComponent(name + ' pokemon tcg')}`,
             'Walmart': (name) => `https://www.walmart.com/search?q=${encodeURIComponent(name + ' pokemon tcg')}`,
-            'Best Buy': (name) => `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(name + ' pokemon')}`,
-            'GameStop': (name) => `https://www.gamestop.com/search/?q=${encodeURIComponent(name)}&lang=en_US`,
+            'Best Buy': (name) => `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(name + ' pokemon tcg')}`,
+            'GameStop': (name) => `https://www.gamestop.com/search/?q=${encodeURIComponent(name + ' pokemon')}&lang=en_US`,
             'Pokemon Center': (name) => `https://www.pokemoncenter.com/search/${encodeURIComponent(name)}`,
             'Amazon': (name) => `https://www.amazon.com/s?k=${encodeURIComponent(name + ' pokemon tcg')}`,
             'TCGPlayer': (name) => `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(name)}&view=grid`,
+            'Costco': (name) => `https://www.costco.com/CatalogSearch?keyword=${encodeURIComponent(name + ' pokemon')}`,
+            'Barnes & Noble': (name) => `https://www.barnesandnoble.com/s/${encodeURIComponent(name + ' pokemon tcg')}`,
+            'Local Game Stores': (name) => `https://www.pokemon.com/us/pokemon-tcg/play-in-person/find-an-event/`,
+            'All Major Retailers': (name) => `https://www.google.com/search?q=${encodeURIComponent(name + ' pokemon tcg buy')}`,
         };
+        
+        // Get search URL for a retailer and product name
+        function getRetailerSearchUrl(retailer, productName) {
+            // Clean up product name for search
+            const searchName = productName.replace(/Wave \d+|Restock|Exclusive|Pre-Release|Full Release/gi, '').trim();
+            
+            if (RETAILER_SEARCH_URLS[retailer]) {
+                return RETAILER_SEARCH_URLS[retailer](searchName);
+            }
+            // Fallback to Google search
+            return `https://www.google.com/search?q=${encodeURIComponent(searchName + ' ' + retailer + ' pokemon tcg')}`;
+        }
         
         async function findStock() {
             const zip = document.getElementById('stockZip').value || settings.zip || '90210';
