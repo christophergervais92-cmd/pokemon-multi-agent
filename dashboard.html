@@ -7547,8 +7547,8 @@
                             controller.abort(new Error('Request timeout - API is slow'));
                         }, 20000); // 20s timeout (reduced from 45s)
                         
-                        // Fetch with smaller page size for faster response
-                        const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=100&select=id,name,number,images,rarity,set,tcgplayer`, {
+                        // Fetch with larger page size to get more cards (250 for better value calculation)
+                        const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250&select=id,name,number,images,rarity,set,tcgplayer`, {
                             method: 'GET',
                             headers: { 'Accept': 'application/json' },
                             signal: controller.signal
@@ -7562,30 +7562,29 @@
                         data = await response.json();
                         console.log('API response:', data.data?.length, 'cards (attempt', attempt + ')');
                         
-                        // If we got cards but there might be more, fetch additional pages in background
-                        if (data.data && data.data.length === 100 && data.totalCount > 100) {
-                            // Load more cards in background (non-blocking)
-                            setTimeout(async () => {
-                                try {
-                                    const page2 = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=100&page=2&select=id,name,number,images,rarity,set,tcgplayer`, {
+                        // If we got cards but there might be more, fetch additional pages
+                        if (data.data && data.data.length === 250 && data.totalCount > 250) {
+                            // Fetch remaining pages in parallel
+                            const remainingPages = Math.ceil((data.totalCount - 250) / 250);
+                            const pagePromises = [];
+                            
+                            for (let page = 2; page <= remainingPages + 1; page++) {
+                                pagePromises.push(
+                                    fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250&page=${page}&select=id,name,number,images,rarity,set,tcgplayer`, {
                                         headers: { 'Accept': 'application/json' }
-                                    });
-                                    if (page2.ok) {
-                                        const page2Data = await page2.json();
-                                        if (page2Data.data) {
-                                            data.data = [...data.data, ...page2Data.data];
-                                            // Update display with more cards
-                                            currentSetCards = data.data;
-                                            const setInfo = data.data[0]?.set || { id: setId, name: setId };
-                                            displayChaseCards(currentSetCards, setInfo);
-                                            // Update cache
-                                            sessionStorage.setItem(cacheKey, JSON.stringify(data));
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.log('Background page 2 fetch failed:', e);
+                                    }).then(res => res.ok ? res.json() : null).catch(() => null)
+                                );
+                            }
+                            
+                            // Wait for all pages and combine
+                            const pageResults = await Promise.all(pagePromises);
+                            pageResults.forEach(pageData => {
+                                if (pageData?.data) {
+                                    data.data = [...data.data, ...pageData.data];
                                 }
-                            }, 100);
+                            });
+                            
+                            console.log('Total cards after fetching all pages:', data.data.length);
                         }
                         
                         break; // Success, exit retry loop
@@ -7693,7 +7692,7 @@
                 // Sort by price (highest first)
                 cardsWithPrices.sort((a, b) => b.price - a.price);
                 
-                // Take top 50 cards by price
+                // Take top 50 cards by price for display
                 const chaseCards = cardsWithPrices.slice(0, 50).map(item => item.card);
                 
                 if (chaseCards.length === 0) {
@@ -7707,8 +7706,10 @@
                     return;
                 }
                 
-                // Calculate set value index (use pre-calculated prices)
-                const totalChaseValue = cardsWithPrices.slice(0, 50).reduce((sum, item) => sum + item.price, 0);
+                // Calculate set value index using ALL cards with prices > $1 (not just top 50)
+                // This gives a more accurate total set value
+                const allValuableCards = cardsWithPrices.filter(item => item.price >= 1);
+                const totalChaseValue = allValuableCards.reduce((sum, item) => sum + item.price, 0);
                 const valueEl = document.getElementById('setValueIndex');
                 if (valueEl) valueEl.textContent = '$' + totalChaseValue.toFixed(0);
                 
@@ -7897,10 +7898,16 @@
             Object.keys(prices).forEach(variant => {
                 const variantPrices = prices[variant];
                 if (variantPrices && typeof variantPrices === 'object') {
-                    // Prefer market price, then mid
-                    const price = variantPrices.market || variantPrices.mid;
+                    // Check market, mid, AND high prices (high is important for valuable cards)
+                    const price = variantPrices.market || variantPrices.mid || variantPrices.high;
                     if (price && price > 0 && price < maxForRarity) {
                         allPrices.push(price);
+                    }
+                    // Also check high separately if market/mid weren't available
+                    if (variantPrices.high && !variantPrices.market && !variantPrices.mid) {
+                        if (variantPrices.high > 0 && variantPrices.high < maxForRarity) {
+                            allPrices.push(variantPrices.high);
+                        }
                     }
                 }
             });
