@@ -7533,17 +7533,9 @@
                 `;
             }).join('');
             
-            // Add hover effect with overlay AND click handler
-            document.querySelectorAll('.chase-card').forEach((card, i) => {
+            // Add hover effects
+            document.querySelectorAll('.chase-card').forEach((card) => {
                 const overlay = card.querySelector('.card-overlay');
-                const cardIndex = card.dataset.cardIndex || i;
-                
-                // Add click handler via addEventListener (backup for onclick)
-                card.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    console.log('Card clicked via addEventListener, index:', cardIndex);
-                    showChaseCardDetail(parseInt(cardIndex));
-                });
                 
                 card.addEventListener('mouseenter', () => {
                     card.style.transform = 'translateY(-4px)';
@@ -7557,8 +7549,26 @@
                 });
             });
             
-            console.log('Click handlers attached to', document.querySelectorAll('.chase-card').length, 'cards');
+            console.log('Hover handlers attached to', document.querySelectorAll('.chase-card').length, 'cards');
         }
+        
+        // GLOBAL click handler for chase cards - this WILL work
+        document.addEventListener('click', function(e) {
+            const card = e.target.closest('.chase-card');
+            if (card) {
+                e.preventDefault();
+                e.stopPropagation();
+                const index = parseInt(card.dataset.cardIndex || 0);
+                console.log('GLOBAL: Chase card clicked, index:', index);
+                
+                if (typeof showChaseCardDetail === 'function') {
+                    showChaseCardDetail(index);
+                } else {
+                    console.error('showChaseCardDetail function not found!');
+                    alert('Error: Click handler not ready. Please refresh the page.');
+                }
+            }
+        });
         
         function displaySetStats(cards, setInfo) {
             try {
