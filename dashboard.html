@@ -3366,7 +3366,7 @@
         // Init
         document.addEventListener('DOMContentLoaded', async () => {
             // CACHE VERSION - increment this to force clear all set caches
-            const CACHE_VERSION = 'v2';
+            const CACHE_VERSION = 'v3';
             const storedVersion = localStorage.getItem('setCacheVersion');
             
             if (storedVersion !== CACHE_VERSION) {
@@ -7363,15 +7363,17 @@
             if (setStatsCard) setStatsCard.style.display = 'block';
             
             try {
-                // Check cache first - but validate it has enough cards
+                // Check cache first - validate card count AND set ID matches
                 const cacheKey = `set_cards_${setId}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const data = JSON.parse(cached);
                     const cardCount = data.data?.length || 0;
-                    // Only use cache if it has enough cards (invalidate old incomplete caches)
-                    if (cardCount >= 150) {
-                        console.log('Using cached cards for', setId, '- count:', cardCount);
+                    const cachedSetId = data.data?.[0]?.set?.id;
+                    
+                    // Verify cache matches requested set AND has enough cards
+                    if (cachedSetId === setId && cardCount >= 100) {
+                        console.log('Using valid cache for', setId, '- count:', cardCount);
                         currentSetCards = data.data;
                         const setInfo = data.data[0]?.set || { id: setId, name: setId };
                         displaySetInfo(setInfo);
@@ -7379,7 +7381,7 @@
                         displaySetStats(currentSetCards, setInfo);
                         return;
                     } else {
-                        console.log('Cache incomplete (' + cardCount + ' cards), clearing and fetching fresh');
+                        console.log('Cache invalid - expected:', setId, 'got:', cachedSetId, 'count:', cardCount);
                         sessionStorage.removeItem(cacheKey);
                     }
                 }
