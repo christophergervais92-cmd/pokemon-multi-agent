@@ -7979,65 +7979,95 @@
         
         async function searchCards(query) {
             console.log('searchCards called for:', query);
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+            const resultsDiv = document.getElementById('cardResults');
             
-            try {
-                console.log('Fetching cards from Pokemon TCG API...');
-                const url = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer,number`;
-                console.log('URL:', url);
-                
-                const res = await fetch(url, { 
-                    signal: controller.signal,
-                    headers: { 'Accept': 'application/json' }
-                });
-                clearTimeout(timeout);
-                
-                console.log('Response status:', res.status);
-                if (!res.ok) {
-                    throw new Error(`API returned ${res.status}`);
+            // Show loading with progress indicator
+            let dots = 0;
+            const loadingInterval = setInterval(() => {
+                dots = (dots + 1) % 4;
+                const dotsStr = '.'.repeat(dots);
+                if (resultsDiv.querySelector('.loading')) {
+                    resultsDiv.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <div>Searching Pokemon TCG API${dotsStr}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">This may take 10-30 seconds</div>
+                        </div>`;
                 }
+            }, 500);
+            
+            // Try up to 2 attempts
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
                 
-                const data = await res.json();
-                console.log('Cards found:', data.data?.length || 0);
-                
-                if (!data.data?.length) {
-                    document.getElementById('cardResults').innerHTML = `
-                        <div class="empty">
-                            <div class="empty-icon">🔍</div>
-                            <div>No cards found for "${query}"</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Try a different spelling or search term</div>
-                        </div>`;
-                    return;
-                }
-                
-                // Sort by price: highest to lowest
-                const sorted = data.data.sort((a, b) => {
-                    const priceA = getCardPrice(a);
-                    const priceB = getCardPrice(b);
-                    return priceB - priceA;
-                });
-                
-                console.log('Displaying', sorted.length, 'cards');
-                allCardResults = sorted;
-                displayCardGrid(allCardResults);
-            } catch (e) {
-                clearTimeout(timeout);
-                console.error('Search error:', e);
-                if (e.name === 'AbortError') {
-                    document.getElementById('cardResults').innerHTML = `
-                        <div class="empty">
-                            <div class="empty-icon">⏱️</div>
-                            <div>Search timed out - Pokemon TCG API is slow</div>
-                            <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">Try Again</button>
-                        </div>`;
-                } else {
-                    document.getElementById('cardResults').innerHTML = `
-                        <div class="empty">
-                            <div class="empty-icon">❌</div>
-                            <div>Error: ${e.message}</div>
-                            <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">Try Again</button>
-                        </div>`;
+                try {
+                    console.log(`Search attempt ${attempt} for: ${query}`);
+                    const url = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer,number`;
+                    
+                    const res = await fetch(url, { 
+                        signal: controller.signal,
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    clearTimeout(timeout);
+                    clearInterval(loadingInterval);
+                    
+                    console.log('Response status:', res.status);
+                    if (!res.ok) {
+                        throw new Error(`API returned ${res.status}`);
+                    }
+                    
+                    const data = await res.json();
+                    console.log('Cards found:', data.data?.length || 0);
+                    
+                    if (!data.data?.length) {
+                        resultsDiv.innerHTML = `
+                            <div class="empty">
+                                <div class="empty-icon">🔍</div>
+                                <div>No cards found for "${query}"</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Try a different spelling or search term</div>
+                            </div>`;
+                        return;
+                    }
+                    
+                    // Sort by price: highest to lowest
+                    const sorted = data.data.sort((a, b) => {
+                        const priceA = getCardPrice(a);
+                        const priceB = getCardPrice(b);
+                        return priceB - priceA;
+                    });
+                    
+                    console.log('Displaying', sorted.length, 'cards');
+                    allCardResults = sorted;
+                    displayCardGrid(allCardResults);
+                    return; // Success!
+                    
+                } catch (e) {
+                    clearTimeout(timeout);
+                    console.error(`Search attempt ${attempt} failed:`, e.message);
+                    
+                    if (attempt < 2) {
+                        console.log('Retrying in 2 seconds...');
+                        await new Promise(r => setTimeout(r, 2000));
+                    } else {
+                        clearInterval(loadingInterval);
+                        if (e.name === 'AbortError') {
+                            resultsDiv.innerHTML = `
+                                <div class="empty">
+                                    <div class="empty-icon">⏱️</div>
+                                    <div style="font-weight: 600;">Pokemon TCG API Timeout</div>
+                                    <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;">The API is slow or experiencing issues. This is not your connection.</div>
+                                    <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">🔄 Try Again</button>
+                                </div>`;
+                        } else {
+                            resultsDiv.innerHTML = `
+                                <div class="empty">
+                                    <div class="empty-icon">❌</div>
+                                    <div>Error: ${e.message}</div>
+                                    <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">🔄 Try Again</button>
+                                </div>`;
+                        }
+                    }
                 }
             }
         }
