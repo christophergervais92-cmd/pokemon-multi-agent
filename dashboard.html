@@ -1744,7 +1744,7 @@
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
                     <div style="flex: 1; min-width: 250px;">
                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">SELECT SET</label>
-                        <select id="setSelector" onchange="loadSetChaseCards(this.value)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-size: 0.875rem;">
+                        <select id="setSelector" onchange="debouncedLoadSet(this.value)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-size: 0.875rem;">
                             <option value="">Select a set...</option>
                             <optgroup label="2025 Sets" data-series="2025">
                                 <option value="sv8pt5">Prismatic Evolutions (Jan 2025)</option>
@@ -7413,6 +7413,15 @@
             setSelector.value = '';
         }
         
+        // Debounced set loader to prevent rapid-fire requests
+        let loadSetTimeout = null;
+        function debouncedLoadSet(setId) {
+            if (loadSetTimeout) clearTimeout(loadSetTimeout);
+            loadSetTimeout = setTimeout(() => {
+                loadSetChaseCards(setId);
+            }, 150); // 150ms debounce
+        }
+        
         async function loadSetChaseCards(setId) {
             if (!setId) return;
             
@@ -7451,14 +7460,17 @@
                     const cardCount = data.data?.length || 0;
                     const cachedSetId = data.data?.[0]?.set?.id;
                     
-                    // Verify cache matches requested set AND has enough cards
-                    if (cachedSetId === setId && cardCount >= 100) {
+                    // Verify cache matches requested set AND has enough cards (reduced threshold for faster loads)
+                    if (cachedSetId === setId && cardCount >= 50) {
                         console.log('Using valid cache for', setId, '- count:', cardCount);
                         currentSetCards = data.data;
                         const setInfo = data.data[0]?.set || { id: setId, name: setId };
-                        displaySetInfo(setInfo);
-                        displayChaseCards(currentSetCards, setInfo);
-                        displaySetStats(currentSetCards, setInfo);
+                        // Use requestAnimationFrame for smoother rendering
+                        requestAnimationFrame(() => {
+                            displaySetInfo(setInfo);
+                            displayChaseCards(currentSetCards, setInfo);
+                            displaySetStats(currentSetCards, setInfo);
+                        });
                         return;
                     } else {
                         console.log('Cache invalid - expected:', setId, 'got:', cachedSetId, 'count:', cardCount);
@@ -7553,9 +7565,13 @@
                     
                     // Get set info from the first card
                     const setInfo = data.data[0]?.set || { id: setId, name: setId };
-                    displaySetInfo(setInfo);
-                    displayChaseCards(currentSetCards, setInfo);
-                    displaySetStats(currentSetCards, setInfo);
+                    
+                    // Batch DOM updates using requestAnimationFrame for smoother rendering
+                    requestAnimationFrame(() => {
+                        displaySetInfo(setInfo);
+                        displayChaseCards(currentSetCards, setInfo);
+                        displaySetStats(currentSetCards, setInfo);
+                    });
                 } else {
                     chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
                         <div style="font-size: 2rem; margin-bottom: 1rem;">📭</div>
@@ -7658,7 +7674,11 @@
             
             // Rarity mapping (no logging for performance)
             
-            container.innerHTML = cards.map((card, index) => {
+            // Use document fragment for faster DOM insertion
+            const fragment = document.createDocumentFragment();
+            const tempDiv = document.createElement('div');
+            
+            tempDiv.innerHTML = cards.map((card, index) => {
                 const price = getBestCardPrice(card);
                 const rarity = card.rarity || 'Common';
                 const category = getRarityCategory(rarity);
@@ -7669,7 +7689,6 @@
                 
                 return `
                     <div class="chase-card" data-rarity="${category}" data-card-id="${cardId}" data-card-index="${index}"
-                         onclick="showChaseCardDetail(${index})"
                          title="Click for detailed pricing, PSA/Beckett grades & price history"
                          style="background: var(--bg-card); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 1px solid var(--border);">
                         <div style="position: relative;">
@@ -7677,7 +7696,7 @@
                             <div class="card-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; pointer-events: none;">
                                 <span style="color: white; font-size: 0.75rem; font-weight: 600; text-align: center; padding: 0.5rem;">📊 Click to View<br>Prices & Grades</span>
                             </div>
-                            <img src="${cardImage}" alt="${cardName}" loading="lazy" style="width: 100%; aspect-ratio: 245/342; object-fit: cover; background: var(--bg);" onerror="this.src='https://images.pokemontcg.io/base1/4.png'">
+                            <img src="${cardImage}" alt="${cardName}" loading="lazy" decoding="async" style="width: 100%; aspect-ratio: 245/342; object-fit: cover; background: var(--bg);" onerror="this.src='https://images.pokemontcg.io/base1/4.png'">
                         </div>
                         <div style="padding: 0.75rem;">
                             <div style="font-weight: 600; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cardName}</div>
@@ -7691,23 +7710,35 @@
                 `;
             }).join('');
             
-            // Add hover effects
-            document.querySelectorAll('.chase-card').forEach((card) => {
-                const overlay = card.querySelector('.card-overlay');
-                
-                card.addEventListener('mouseenter', () => {
+            // Move nodes to fragment
+            while (tempDiv.firstChild) {
+                fragment.appendChild(tempDiv.firstChild);
+            }
+            
+            // Clear container and append fragment (single DOM operation)
+            container.innerHTML = '';
+            container.appendChild(fragment);
+            
+            // Use event delegation for hover effects (more efficient)
+            container.addEventListener('mouseenter', (e) => {
+                const card = e.target.closest('.chase-card');
+                if (card) {
+                    const overlay = card.querySelector('.card-overlay');
                     card.style.transform = 'translateY(-4px)';
                     card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
                     if (overlay) overlay.style.opacity = '1';
-                });
-                card.addEventListener('mouseleave', () => {
+                }
+            }, true);
+            
+            container.addEventListener('mouseleave', (e) => {
+                const card = e.target.closest('.chase-card');
+                if (card) {
+                    const overlay = card.querySelector('.card-overlay');
                     card.style.transform = '';
                     card.style.boxShadow = '';
                     if (overlay) overlay.style.opacity = '0';
-                });
-            });
-            
-            console.log('Hover handlers attached to', document.querySelectorAll('.chase-card').length, 'cards');
+                }
+            }, true);
         }
         
         // GLOBAL click handler for chase cards - this WILL work
@@ -7755,7 +7786,16 @@
             }
         }
         
+        // Price cache to avoid recalculating
+        const priceCache = new Map();
+        
         function getBestCardPrice(card) {
+            // Check cache first
+            const cardId = card.id;
+            if (cardId && priceCache.has(cardId)) {
+                return priceCache.get(cardId);
+            }
+            
             const prices = card.tcgplayer?.prices || {};
             const rarity = (card.rarity || '').toLowerCase();
             
@@ -7786,7 +7826,14 @@
             });
             
             // Return highest valid price found
-            return allPrices.length > 0 ? Math.max(...allPrices) : 0;
+            const bestPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+            
+            // Cache the result
+            if (cardId) {
+                priceCache.set(cardId, bestPrice);
+            }
+            
+            return bestPrice;
         }
         
         // Debug function to show all price keys for a card
