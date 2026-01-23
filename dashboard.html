@@ -819,6 +819,20 @@
                 grid-template-columns: repeat(2, 1fr) !important;
             }
             
+            /* Database section mobile optimizations */
+            #chaseCardsGrid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.75rem !important;
+            }
+            
+            .chase-card {
+                min-height: auto !important;
+            }
+            
+            .chase-card img {
+                width: 100% !important;
+            }
+            
             .card-grid-item {
                 padding: 0.5rem;
             }
@@ -3595,6 +3609,48 @@
             document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
             document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
             document.getElementById(name)?.classList.add('active');
+            
+            // Initialize drops when switching to drops section
+            if (name === 'search') {
+                setTimeout(() => {
+                    const container = document.getElementById('upcomingDrops');
+                    if (container && (!container.innerHTML.trim() || container.innerHTML.includes('empty'))) {
+                        console.log('Switching to drops section, initializing...');
+                        initDrops();
+                    }
+                }, 100);
+            }
+            
+            // Initialize database section when switching to it
+            if (name === 'database') {
+                setTimeout(() => {
+                    const setSelector = document.getElementById('setSelector');
+                    const chaseGrid = document.getElementById('chaseCardsGrid');
+                    
+                    // If no set is selected and grid is empty, initialize
+                    if (setSelector && (!setSelector.value || setSelector.value === '')) {
+                        // Don't auto-load, just ensure UI is ready
+                        if (chaseGrid && (!chaseGrid.innerHTML.trim() || chaseGrid.innerHTML.includes('empty'))) {
+                            chaseGrid.innerHTML = `
+                                <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
+                                    <div style="font-size: 2rem; margin-bottom: 1rem;">📚</div>
+                                    <div style="font-weight: 600; margin-bottom: 0.5rem;">Select a set to view cards</div>
+                                    <div style="font-size: 0.875rem;">Choose a set from the dropdown above</div>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    // Ensure set selector is properly initialized
+                    if (setSelector && typeof loadAllSets === 'function') {
+                        // Make sure sets are loaded in dropdown
+                        const hasOptions = setSelector.querySelectorAll('option').length > 1;
+                        if (!hasOptions) {
+                            loadAllSets();
+                        }
+                    }
+                }, 100);
+            }
             
             // Initialize vending map when switching to vending section (lazy load Leaflet)
             if (name === 'vending') {
@@ -7719,45 +7775,69 @@
             container.innerHTML = '';
             container.appendChild(fragment);
             
-            // Use event delegation for hover effects (more efficient)
-            container.addEventListener('mouseenter', (e) => {
-                const card = e.target.closest('.chase-card');
-                if (card) {
-                    const overlay = card.querySelector('.card-overlay');
-                    card.style.transform = 'translateY(-4px)';
-                    card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
-                    if (overlay) overlay.style.opacity = '1';
-                }
-            }, true);
+            // Use event delegation for hover effects (desktop) and touch feedback (mobile)
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
             
-            container.addEventListener('mouseleave', (e) => {
-                const card = e.target.closest('.chase-card');
-                if (card) {
-                    const overlay = card.querySelector('.card-overlay');
-                    card.style.transform = '';
-                    card.style.boxShadow = '';
-                    if (overlay) overlay.style.opacity = '0';
-                }
-            }, true);
+            if (!isTouchDevice) {
+                // Desktop hover effects
+                container.addEventListener('mouseenter', (e) => {
+                    const card = e.target.closest('.chase-card');
+                    if (card) {
+                        const overlay = card.querySelector('.card-overlay');
+                        card.style.transform = 'translateY(-4px)';
+                        card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+                        if (overlay) overlay.style.opacity = '1';
+                    }
+                }, true);
+                
+                container.addEventListener('mouseleave', (e) => {
+                    const card = e.target.closest('.chase-card');
+                    if (card) {
+                        const overlay = card.querySelector('.card-overlay');
+                        card.style.transform = '';
+                        card.style.boxShadow = '';
+                        if (overlay) overlay.style.opacity = '0';
+                    }
+                }, true);
+            } else {
+                // Mobile touch feedback
+                container.addEventListener('touchstart', (e) => {
+                    const card = e.target.closest('.chase-card');
+                    if (card) {
+                        card.style.opacity = '0.8';
+                    }
+                }, true);
+                
+                container.addEventListener('touchend', (e) => {
+                    const card = e.target.closest('.chase-card');
+                    if (card) {
+                        setTimeout(() => {
+                            card.style.opacity = '1';
+                        }, 150);
+                    }
+                }, true);
+            }
         }
         
-        // GLOBAL click handler for chase cards - this WILL work
-        document.addEventListener('click', function(e) {
+        // GLOBAL click/touch handler for chase cards - works on desktop and mobile
+        function handleCardInteraction(e) {
             const card = e.target.closest('.chase-card');
             if (card) {
                 e.preventDefault();
                 e.stopPropagation();
                 const index = parseInt(card.dataset.cardIndex || 0);
-                console.log('GLOBAL: Chase card clicked, index:', index);
                 
                 if (typeof showChaseCardDetail === 'function') {
                     showChaseCardDetail(index);
                 } else {
                     console.error('showChaseCardDetail function not found!');
-                    alert('Error: Click handler not ready. Please refresh the page.');
                 }
             }
-        });
+        }
+        
+        // Support both click and touch events for mobile compatibility
+        document.addEventListener('click', handleCardInteraction);
+        document.addEventListener('touchend', handleCardInteraction);
         
         function displaySetStats(cards, setInfo) {
             try {
