@@ -11592,7 +11592,188 @@
             askAI(message);
         }
         
-        // Ask AI a question (uses backend - no API key needed from user)
+        // Pokemon TCG Knowledge Base for client-side AI
+        const TCG_KNOWLEDGE = {
+            'best sets to invest': `**Best Sets to Invest In (2025-2026):**
+
+🔥 **High Demand Sets:**
+• **Prismatic Evolutions** - Eeveelution chase cards, limited supply
+• **151** - Nostalgia factor, Charizard & Mew chase cards
+• **Surging Sparks** - Strong competitive cards, good pull rates
+
+💎 **Long-term Holds:**
+• **Crown Zenith** - Galarian Gallery arts are appreciating
+• **Evolving Skies** - Eeveelution alt arts hold value well
+• **Hidden Fates** - Shiny Charizard GX remains highly sought
+
+📈 **New Releases to Watch:**
+• **Journey Together** (March 2026) - Pikachu & trainer chase cards
+• **Destined Rivals** (April 2026) - Pre-order now for best prices
+
+💡 **Tip:** Buy sealed product at MSRP and hold 2-3 years for best returns.`,
+
+            'grade or sell raw': `**Should You Grade Your Cards?**
+
+✅ **Grade if:**
+• Card is worth $50+ raw AND in Near Mint+ condition
+• You have a vintage holo (WOTC era) in good shape
+• It's a chase card (Illustration Rare, Special Art Rare, Alt Art)
+• PSA 10 value is 3x+ the raw value
+
+❌ **Sell Raw if:**
+• Card is worth under $30 raw
+• Visible whitening, scratches, or centering issues
+• Modern common/uncommon cards
+• You need quick cash (grading takes 2-6 months)
+
+💰 **Break-Even Analysis:**
+• PSA Economy: $25 + $15 shipping = $40 total cost
+• Card needs to gain $50+ value from grading to profit
+
+🎯 **Pro Tip:** Use the Flip Calculator on this site to analyze specific cards!`,
+
+            'chase cards': `**Top Chase Cards to Look For:**
+
+🌟 **Prismatic Evolutions:**
+• Umbreon ex SAR (#200+)
+• Pikachu ex Illustration Rare
+• Full Eeveelution lineup SIRs
+
+🔥 **151:**
+• Charizard ex SAR (#199)
+• Mew ex SAR (#205)
+• Venusaur ex SAR (#198)
+
+💎 **Surging Sparks:**
+• Pikachu ex SIR
+• Charizard ex Tera
+• Trainer Gallery cards
+
+📈 **Vintage (Always Valuable):**
+• 1st Edition Base Set Charizard
+• Gold Star cards (any)
+• Crystal Type Pokemon
+• Shining Pokemon (Neo series)
+
+💡 **Tip:** Check the Database section to see chase cards for any set!`,
+
+            'spot fake': `**How to Spot Fake Pokemon Cards:**
+
+🔍 **The Light Test:**
+• Hold card to bright light - real cards have a dark layer in middle
+• Fakes often let too much light through
+
+📐 **Check the Card Stock:**
+• Real cards have specific thickness and bend feel
+• Fakes often feel flimsy or too rigid
+
+🎨 **Color & Print Quality:**
+• Compare to a known real card
+• Fakes often have washed out or oversaturated colors
+• Text should be crisp, not blurry
+
+✨ **Holofoil Pattern:**
+• Each era has specific holo patterns
+• Modern cards have texture you can feel
+• Fakes often have wrong or missing texture
+
+📏 **Font & Spacing:**
+• Energy symbols should be perfect circles
+• Check HP placement and font weight
+• "Pokémon" should have the accent mark
+
+⚠️ **Red Flags:**
+• Deal "too good to be true" pricing
+• Seller won't show card back
+• Unusual card smell (chemical/plastic)
+• Wrong set symbol or card number`,
+
+            'grading': `**Card Grading Guide:**
+
+🏆 **Major Grading Companies:**
+• **PSA** - Most popular, highest resale premium
+• **CGC** - Good budget option, subgrades available  
+• **BGS** - Premium for 9.5+ grades, best labels
+
+💰 **Current Costs (2025):**
+| Tier | PSA | CGC | BGS |
+|------|-----|-----|-----|
+| Economy | $25 | $18 | $22 |
+| Regular | $75 | $40 | $50 |
+| Express | $150 | $80 | $100 |
+
+⏱️ **Turnaround Times:**
+• Economy: 3-5 months
+• Regular: 1-2 months  
+• Express: 2-3 weeks
+
+📊 **Grade Meanings:**
+• 10 (Gem Mint) - Perfect, huge premium
+• 9 (Mint) - Minor imperfection, still valuable
+• 8 (NM-MT) - Light wear acceptable
+• 7 and below - Significant wear, less valuable
+
+💡 **Use the Flip Calculator to see if grading is worth it!`,
+
+            'price': `**Understanding Pokemon Card Prices:**
+
+📊 **Price Factors:**
+• **Rarity** - Illustration Rare > SAR > Full Art > Holo > Regular
+• **Condition** - NM commands premium, LP/MP drops 30-50%
+• **Demand** - Popular Pokemon (Charizard, Pikachu, Eeveelutions)
+• **Age** - Vintage often appreciates, modern can be volatile
+
+🔍 **Where to Check Prices:**
+• **TCGPlayer** - Best for market prices
+• **eBay Sold** - Real transaction data
+• **PSA Cert Verification** - For graded cards
+• **PriceCharting** - Historical trends
+
+📈 **Market Trends 2025-2026:**
+• Vintage trending up 15-20% YoY
+• Modern chase cards volatile
+• Sealed product appreciating steadily
+
+💡 **Use the Card Search on this site to look up any card's price!`,
+
+            'default': `I can help you with Pokemon TCG questions! Try asking about:
+
+📦 **Investing** - "What sets should I invest in?"
+💰 **Grading** - "Should I grade my cards?"
+🌟 **Chase Cards** - "What are the chase cards for 151?"
+🔍 **Authenticity** - "How do I spot fake cards?"
+📊 **Prices** - "How do I check card prices?"
+
+Or use the quick question buttons above for common topics!`
+        };
+        
+        // Get AI response from knowledge base
+        function getAIResponse(question) {
+            const q = question.toLowerCase();
+            
+            if (q.includes('invest') || q.includes('best set') || q.includes('buy now') || q.includes('worth buying')) {
+                return TCG_KNOWLEDGE['best sets to invest'];
+            }
+            if (q.includes('grade') && (q.includes('sell') || q.includes('raw') || q.includes('should'))) {
+                return TCG_KNOWLEDGE['grade or sell raw'];
+            }
+            if (q.includes('chase') || q.includes('valuable card') || q.includes('look for') || q.includes('pull')) {
+                return TCG_KNOWLEDGE['chase cards'];
+            }
+            if (q.includes('fake') || q.includes('counterfeit') || q.includes('spot') || q.includes('real') || q.includes('authentic')) {
+                return TCG_KNOWLEDGE['spot fake'];
+            }
+            if (q.includes('grading') || q.includes('psa') || q.includes('cgc') || q.includes('bgs') || q.includes('grade cost')) {
+                return TCG_KNOWLEDGE['grading'];
+            }
+            if (q.includes('price') || q.includes('worth') || q.includes('value') || q.includes('cost')) {
+                return TCG_KNOWLEDGE['price'];
+            }
+            
+            return TCG_KNOWLEDGE['default'];
+        }
+        
+        // Ask AI a question (client-side knowledge base)
         async function askAI(question) {
             const chatMessages = document.getElementById('aiChatMessages');
             
@@ -11614,41 +11795,29 @@
             `;
             chatMessages.scrollTop = chatMessages.scrollHeight;
             
-            try {
-                // Use backend endpoint (API key stored on server)
-                const data = await api('/ai/chat', {
-                    method: 'POST',
-                    body: JSON.stringify({ message: question })
-                });
-                
-                // Remove loading indicator
-                document.getElementById(loadingId)?.remove();
-                
-                if (data.error) {
-                    throw new Error(data.demo_response || data.error);
-                }
-                
-                const aiResponse = data.response || 'Sorry, I could not process that request.';
-                
-                // Add AI response
-                chatMessages.innerHTML += `
-                    <div class="ai-message" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-card); border-radius: 8px;">
-                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">AI Assistant</div>
-                        <div style="white-space: pre-wrap;">${escapeHtml(aiResponse)}</div>
-                    </div>
-                `;
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                
-            } catch (e) {
-                document.getElementById(loadingId)?.remove();
-                chatMessages.innerHTML += `
-                    <div class="ai-message" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
-                        <div style="font-size: 0.7rem; color: var(--red); margin-bottom: 0.25rem;">Error</div>
-                        <div>${escapeHtml(e.message)}</div>
-                    </div>
-                `;
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
+            // Simulate thinking delay for natural feel
+            await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
+            
+            // Get response from knowledge base
+            const response = getAIResponse(question);
+            
+            // Remove loading indicator
+            document.getElementById(loadingId)?.remove();
+            
+            // Convert markdown-style formatting to HTML
+            const formattedResponse = response
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>')
+                .replace(/• /g, '&nbsp;&nbsp;• ');
+            
+            // Add AI response
+            chatMessages.innerHTML += `
+                <div class="ai-message" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-card); border-radius: 8px;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">AI Assistant</div>
+                    <div style="line-height: 1.6;">${formattedResponse}</div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         // Save auto-buy settings
