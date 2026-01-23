@@ -7518,26 +7518,56 @@
         
         function getRarityCategory(rarity) {
             const rarityLower = (rarity || '').toLowerCase();
+            // Illustration Rare category
             if (rarityLower.includes('illustration')) return 'illustration';
-            if (rarityLower.includes('special') || rarityLower.includes('alternate') || rarityLower.includes('secret')) return 'special';
-            if (rarityLower.includes('holo')) return 'holo';
+            // Special Art category (alternate arts, secret rares, hyper rares, full arts)
+            if (rarityLower.includes('special') || 
+                rarityLower.includes('alternate') || 
+                rarityLower.includes('secret') ||
+                rarityLower.includes('hyper') ||
+                rarityLower.includes('rainbow') ||
+                rarityLower.includes('gold') ||
+                rarityLower.includes('full art') ||
+                rarityLower.includes('art rare')) return 'special';
+            // Holo category (all holos, Vs, VMAXs, VSTARs, ex, etc.)
+            if (rarityLower.includes('holo') ||
+                rarityLower.includes('ultra') ||
+                rarityLower.includes('double') ||
+                rarityLower.includes(' v') ||
+                rarityLower.includes('vmax') ||
+                rarityLower.includes('vstar') ||
+                rarityLower.includes(' ex') ||
+                rarityLower.includes(' gx')) return 'holo';
             return 'other';
         }
         
         function filterChaseCards(filter) {
+            console.log('Filtering by:', filter);
+            
             // Update active button
             document.querySelectorAll('.chase-filter').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.rarity === filter);
             });
             
             // Filter cards
-            document.querySelectorAll('.chase-card').forEach(card => {
+            const cards = document.querySelectorAll('.chase-card');
+            let shown = 0, hidden = 0;
+            
+            cards.forEach(card => {
+                const cardRarity = card.dataset.rarity;
                 if (filter === 'all') {
                     card.style.display = '';
+                    shown++;
+                } else if (cardRarity === filter) {
+                    card.style.display = '';
+                    shown++;
                 } else {
-                    card.style.display = card.dataset.rarity === filter ? '' : 'none';
+                    card.style.display = 'none';
+                    hidden++;
                 }
             });
+            
+            console.log(`Filter result: ${shown} shown, ${hidden} hidden`);
         }
         
         // Initialize database when section is shown
