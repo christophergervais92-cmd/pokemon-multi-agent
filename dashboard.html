@@ -1739,27 +1739,65 @@
                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">SELECT SET</label>
                         <select id="setSelector" onchange="loadSetChaseCards(this.value)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-size: 0.875rem;">
                             <option value="">Select a set...</option>
-                            <option value="sv8">Surging Sparks (2024-11-08)</option>
-                            <option value="sv7">Stellar Crown (2024-09-13)</option>
-                            <option value="sv6pt5">Shrouded Fable (2024-08-02)</option>
-                            <option value="sv6">Twilight Masquerade (2024-05-24)</option>
-                            <option value="sv5">Temporal Forces (2024-03-22)</option>
-                            <option value="sv4pt5">Paldean Fates (2024-01-26)</option>
-                            <option value="sv4">Paradox Rift (2023-11-03)</option>
-                            <option value="sv3pt5">151 (2023-09-22)</option>
-                            <option value="sv3">Obsidian Flames (2023-08-11)</option>
-                            <option value="sv2">Paldea Evolved (2023-06-09)</option>
-                            <option value="sv1">Scarlet & Violet (2023-03-31)</option>
-                            <option value="swsh12pt5">Crown Zenith (2023-01-20)</option>
-                            <option value="swsh12">Silver Tempest (2022-11-11)</option>
-                            <option value="swsh11">Lost Origin (2022-09-09)</option>
-                            <option value="swsh10">Astral Radiance (2022-05-27)</option>
-                            <option value="swsh9">Brilliant Stars (2022-02-25)</option>
-                            <option value="swsh7">Evolving Skies (2021-08-27)</option>
-                            <option value="sm115">Hidden Fates (2019-08-23)</option>
-                            <option value="base1">Base Set (1999-01-09)</option>
-                            <option value="base2">Jungle (1999-06-16)</option>
-                            <option value="base3">Fossil (1999-10-10)</option>
+                            <optgroup label="Scarlet & Violet" data-series="scarlet-violet">
+                                <option value="sv8">Surging Sparks (2024)</option>
+                                <option value="sv7">Stellar Crown (2024)</option>
+                                <option value="sv6pt5">Shrouded Fable (2024)</option>
+                                <option value="sv6">Twilight Masquerade (2024)</option>
+                                <option value="sv5">Temporal Forces (2024)</option>
+                                <option value="sv4pt5">Paldean Fates (2024)</option>
+                                <option value="sv4">Paradox Rift (2023)</option>
+                                <option value="sv3pt5">151 (2023)</option>
+                                <option value="sv3">Obsidian Flames (2023)</option>
+                                <option value="sv2">Paldea Evolved (2023)</option>
+                                <option value="sv1">Scarlet & Violet Base (2023)</option>
+                            </optgroup>
+                            <optgroup label="Sword & Shield" data-series="sword-shield">
+                                <option value="swsh12pt5">Crown Zenith (2023)</option>
+                                <option value="swsh12">Silver Tempest (2022)</option>
+                                <option value="swsh11">Lost Origin (2022)</option>
+                                <option value="swsh10">Astral Radiance (2022)</option>
+                                <option value="swsh9">Brilliant Stars (2022)</option>
+                                <option value="swsh8">Fusion Strike (2021)</option>
+                                <option value="swsh7">Evolving Skies (2021)</option>
+                                <option value="swsh6">Chilling Reign (2021)</option>
+                                <option value="swsh5">Battle Styles (2021)</option>
+                                <option value="swsh45sv">Shining Fates (2021)</option>
+                                <option value="swsh4">Vivid Voltage (2020)</option>
+                                <option value="swsh35">Champion's Path (2020)</option>
+                                <option value="swsh3">Darkness Ablaze (2020)</option>
+                                <option value="swsh2">Rebel Clash (2020)</option>
+                                <option value="swsh1">Sword & Shield Base (2020)</option>
+                            </optgroup>
+                            <optgroup label="Sun & Moon" data-series="sun-moon">
+                                <option value="sm12">Cosmic Eclipse (2019)</option>
+                                <option value="sm115">Hidden Fates (2019)</option>
+                                <option value="sm11">Unified Minds (2019)</option>
+                                <option value="sm10">Unbroken Bonds (2019)</option>
+                                <option value="sm9">Team Up (2019)</option>
+                            </optgroup>
+                            <optgroup label="XY" data-series="xy">
+                                <option value="xy12">Evolutions (2016)</option>
+                                <option value="xy11">Steam Siege (2016)</option>
+                                <option value="xy10">Fates Collide (2016)</option>
+                                <option value="xy9">BREAKpoint (2016)</option>
+                                <option value="xy8">BREAKthrough (2015)</option>
+                                <option value="xy7">Ancient Origins (2015)</option>
+                                <option value="xy6">Roaring Skies (2015)</option>
+                            </optgroup>
+                            <optgroup label="Classic (WOTC)" data-series="base">
+                                <option value="base1">Base Set (1999)</option>
+                                <option value="base2">Jungle (1999)</option>
+                                <option value="base3">Fossil (1999)</option>
+                                <option value="base4">Base Set 2 (2000)</option>
+                                <option value="base5">Team Rocket (2000)</option>
+                                <option value="gym1">Gym Heroes (2000)</option>
+                                <option value="gym2">Gym Challenge (2000)</option>
+                                <option value="neo1">Neo Genesis (2000)</option>
+                                <option value="neo2">Neo Discovery (2001)</option>
+                                <option value="neo3">Neo Revelation (2001)</option>
+                                <option value="neo4">Neo Destiny (2002)</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div style="flex: 1; min-width: 200px;">
@@ -7199,15 +7237,22 @@
         }
         
         function filterSetsBySeries(series) {
-            if (series === 'all') {
-                populateSetSelector(allSetsData);
-            } else {
-                const filtered = allSetsData.filter(set => {
-                    const setSeriesLower = (set.series || '').toLowerCase().replace(/\s+/g, '-');
-                    return setSeriesLower.includes(series) || series.includes(setSeriesLower);
-                });
-                populateSetSelector(filtered);
-            }
+            const setSelector = document.getElementById('setSelector');
+            if (!setSelector) return;
+            
+            // Show/hide optgroups based on series filter
+            const optgroups = setSelector.querySelectorAll('optgroup');
+            optgroups.forEach(optgroup => {
+                const groupSeries = optgroup.dataset.series || '';
+                if (series === 'all' || groupSeries === series || groupSeries.includes(series) || series.includes(groupSeries)) {
+                    optgroup.style.display = '';
+                } else {
+                    optgroup.style.display = 'none';
+                }
+            });
+            
+            // Reset selection
+            setSelector.value = '';
         }
         
         async function loadSetChaseCards(setId) {
