@@ -7396,6 +7396,20 @@
                     debugCardPrices(c);
                 });
                 
+                // Check for high-numbered cards (usually SIRs/chase cards)
+                const highNumberCards = cards.filter(c => {
+                    const num = parseInt(c.number);
+                    return !isNaN(num) && num > 180;
+                }).sort((a, b) => parseInt(a.number) - parseInt(b.number));
+                
+                if (highNumberCards.length > 0) {
+                    console.log('=== HIGH NUMBER CARDS (Chase/SIR) ===');
+                    highNumberCards.forEach(c => {
+                        const price = getBestCardPrice(c);
+                        console.log(`#${c.number} ${c.name} - ${c.rarity} - $${price.toFixed(2)}`);
+                    });
+                }
+                
                 // Also check for known chase cards (like Charizard)
                 const charizards = cards.filter(c => c.name?.toLowerCase().includes('charizard'));
                 if (charizards.length > 0) {
@@ -7549,9 +7563,18 @@
         
         function getBestCardPrice(card) {
             const prices = card.tcgplayer?.prices || {};
+            const rarity = (card.rarity || '').toLowerCase();
             
             // Filter out placeholder prices ($9999, etc) and unrealistic values
-            const MAX_VALID_PRICE = 5000; // Most raw cards don't exceed this
+            const MAX_VALID_PRICE = 5000;
+            
+            // Set max price based on rarity - Common/Uncommon shouldn't be $100+
+            let maxForRarity = MAX_VALID_PRICE;
+            if (rarity === 'common' || rarity === 'uncommon') {
+                maxForRarity = 50; // Commons/Uncommons rarely exceed $50
+            } else if (rarity === 'rare') {
+                maxForRarity = 100; // Regular rares rarely exceed $100
+            }
             
             // Dynamically check ALL available price keys
             const allPrices = [];
@@ -7560,13 +7583,11 @@
             Object.keys(prices).forEach(variant => {
                 const variantPrices = prices[variant];
                 if (variantPrices && typeof variantPrices === 'object') {
-                    // Check market, mid, low, high for each variant
-                    ['market', 'mid', 'low', 'high'].forEach(priceType => {
-                        const price = variantPrices[priceType];
-                        if (price && price > 0 && price < MAX_VALID_PRICE) {
-                            allPrices.push(price);
-                        }
-                    });
+                    // Prefer market price, then mid
+                    const price = variantPrices.market || variantPrices.mid;
+                    if (price && price > 0 && price < maxForRarity) {
+                        allPrices.push(price);
+                    }
                 }
             });
             
