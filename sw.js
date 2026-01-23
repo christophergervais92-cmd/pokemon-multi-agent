@@ -1,6 +1,6 @@
 // Service Worker for PokeAgent - Offline Support & Smart Caching
-// UPDATED: v4 - Stale-While-Revalidate for API, optimized caching strategies
-const CACHE_VERSION = 'v4';
+// UPDATED: v5 - Fixed Pokemon TCG API CORS issues
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `pokeagent-static-${CACHE_VERSION}`;
 const API_CACHE = `pokeagent-api-${CACHE_VERSION}`;
 const IMAGE_CACHE = `pokeagent-images-${CACHE_VERSION}`;
