@@ -6438,26 +6438,50 @@
         const tcgSearchCache = new Map();
         async function fetchAllCardsFromTCG(name) {
             const cacheKey = name.toLowerCase();
-            if (tcgSearchCache.has(cacheKey)) return tcgSearchCache.get(cacheKey);
+            if (tcgSearchCache.has(cacheKey)) {
+                console.log('Using cached results for:', name);
+                return tcgSearchCache.get(cacheKey);
+            }
             
             const searchName = name.replace(/[^\w\s]/g, '').trim();
+            console.log('Searching Pokemon TCG API for:', searchName);
             
             try {
-                // Fetch up to 50 cards matching the search
-                let tcgRes = await fetch(
-                    `https://api.pokemontcg.io/v2/cards?q=name:"${searchName}*"&pageSize=50&orderBy=-set.releaseDate,-tcgplayer.prices.holofoil.market`,
-                    { headers: { 'Accept': 'application/json' } }
-                );
+                // Create abort controller for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
                 
+                // Fetch up to 50 cards matching the search
+                console.log('Fetching from API...');
+                let tcgRes = await fetch(
+                    `https://api.pokemontcg.io/v2/cards?q=name:"${searchName}*"&pageSize=50&orderBy=-set.releaseDate`,
+                    { 
+                        headers: { 'Accept': 'application/json' },
+                        signal: controller.signal
+                    }
+                );
+                clearTimeout(timeoutId);
+                
+                console.log('API response status:', tcgRes.status);
                 let tcgData = await tcgRes.json();
+                console.log('API returned', tcgData.data?.length || 0, 'cards');
                 
                 // If no results with quotes, try without
                 if (!tcgData.data?.length) {
+                    console.log('No results, trying without quotes...');
+                    const controller2 = new AbortController();
+                    const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
+                    
                     const partialRes = await fetch(
                         `https://api.pokemontcg.io/v2/cards?q=name:${searchName}*&pageSize=50&orderBy=-set.releaseDate`,
-                        { headers: { 'Accept': 'application/json' } }
+                        { 
+                            headers: { 'Accept': 'application/json' },
+                            signal: controller2.signal
+                        }
                     );
+                    clearTimeout(timeoutId2);
                     tcgData = await partialRes.json();
+                    console.log('Second attempt returned', tcgData.data?.length || 0, 'cards');
                 }
                 
                 if (tcgData.data?.length > 0) {
@@ -6484,9 +6508,14 @@
                     return cards;
                 }
             } catch (e) {
-                console.log('TCG API error:', e.message);
+                if (e.name === 'AbortError') {
+                    console.error('Card search timed out - API is slow');
+                } else {
+                    console.error('Card search error:', e.message);
+                }
             }
             
+            console.log('Returning empty results');
             return [];
         }
         
