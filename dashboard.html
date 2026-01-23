@@ -6487,7 +6487,7 @@
             allCardResults = cards;
             
             if (cards.length === 0) {
-                results.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div>No cards found for "${name}"</div></div>';
+                results.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div>No cards found for "${name}"</div></div>`;
                 return;
             }
             
@@ -9614,7 +9614,7 @@
                     results.innerHTML = `
                         <div class="card" style="padding: 2rem; text-align: center;">
                             <h3>No Results</h3>
-                            <p>No cards found for "${name}"</p>
+                            <p>No cards found for "${query}"</p>
                             <p>Try: Charizard, Pikachu, Mewtwo</p>
                         </div>
                     `;
