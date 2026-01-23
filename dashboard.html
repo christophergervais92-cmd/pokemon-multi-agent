@@ -7486,9 +7486,18 @@
                 `;
             }).join('');
             
-            // Add hover effect with overlay
-            document.querySelectorAll('.chase-card').forEach(card => {
+            // Add hover effect with overlay AND click handler
+            document.querySelectorAll('.chase-card').forEach((card, i) => {
                 const overlay = card.querySelector('.card-overlay');
+                const cardIndex = card.dataset.cardIndex || i;
+                
+                // Add click handler via addEventListener (backup for onclick)
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    console.log('Card clicked via addEventListener, index:', cardIndex);
+                    showChaseCardDetail(parseInt(cardIndex));
+                });
+                
                 card.addEventListener('mouseenter', () => {
                     card.style.transform = 'translateY(-4px)';
                     card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
@@ -7500,6 +7509,8 @@
                     if (overlay) overlay.style.opacity = '0';
                 });
             });
+            
+            console.log('Click handlers attached to', document.querySelectorAll('.chase-card').length, 'cards');
         }
         
         function displaySetStats(cards, setInfo) {
@@ -7667,11 +7678,14 @@
         
         // Show chase card detail - switches to Cards tab and shows full card info
         async function showChaseCardDetail(index) {
+            alert('Card clicked! Index: ' + index); // Debug alert
             console.log('showChaseCardDetail called with index:', index);
+            console.log('currentSetCards length:', currentSetCards?.length);
             
             // Get the card from currentSetCards (the displayed chase cards)
             if (!currentSetCards || !currentSetCards[index]) {
                 console.error('Card not found at index:', index);
+                alert('Error: Card not found. currentSetCards has ' + (currentSetCards?.length || 0) + ' cards');
                 return;
             }
             
