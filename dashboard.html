@@ -9937,70 +9937,139 @@
             await calculateFlipForCard(selectedFlipCard, price, company, tier);
         }
         
+        // Grading costs by company and tier (2024-2025 prices)
+        const GRADING_COSTS = {
+            PSA: {
+                economy: { cost: 25, turnaround: '120-150 days' },
+                regular: { cost: 75, turnaround: '65 days' },
+                express: { cost: 150, turnaround: '20 days' },
+                super_express: { cost: 300, turnaround: '10 days' },
+                walk_through: { cost: 600, turnaround: '3 days' }
+            },
+            CGC: {
+                economy: { cost: 18, turnaround: '100 days' },
+                regular: { cost: 40, turnaround: '50 days' },
+                express: { cost: 80, turnaround: '20 days' },
+                super_express: { cost: 150, turnaround: '10 days' },
+                walk_through: { cost: 250, turnaround: '5 days' }
+            },
+            BGS: {
+                economy: { cost: 22, turnaround: '100 days' },
+                regular: { cost: 50, turnaround: '45 days' },
+                express: { cost: 100, turnaround: '20 days' },
+                super_express: { cost: 200, turnaround: '10 days' },
+                walk_through: { cost: 400, turnaround: '5 days' }
+            }
+        };
+        
+        // Grade multipliers (how much a graded card is worth vs raw)
+        const GRADE_MULTIPLIERS = {
+            PSA: { 10: 3.5, 9: 1.8, 8: 1.2, 7: 0.9 },
+            CGC: { 10: 2.8, 9: 1.5, 8: 1.1, 7: 0.85 },
+            BGS: { 10: 4.0, 9.5: 2.5, 9: 1.6, 8.5: 1.2, 8: 1.0 }
+        };
+        
+        // Grade probabilities (chance of getting each grade for a near-mint card)
+        const GRADE_PROBABILITIES = {
+            PSA: { 10: 0.15, 9: 0.55, 8: 0.25, 7: 0.05 },
+            CGC: { 10: 0.12, 9: 0.50, 8: 0.30, 7: 0.08 },
+            BGS: { 10: 0.05, 9.5: 0.15, 9: 0.45, 8.5: 0.25, 8: 0.10 }
+        };
+        
         async function calculateFlipForCard(card, price, company, tier) {
             console.log('[Flip] calculateFlipForCard called:', { card: card?.name || card, price, company, tier });
             
-            const cardName = card.name || card;
             const results = document.getElementById('flipResults');
-            const cacheKey = `${cardName}-${price}-${company}-${tier}`;
+            const cacheKey = `${card.id || card.name}-${price}-${company}-${tier}`;
             
             // Check cache
             if (flipCache.has(cacheKey)) {
                 console.log('[Flip] Using cached data');
-                const cachedData = flipCache.get(cacheKey);
-                // Enhance with card data if not already present
-                if (!cachedData.card_image && card.images) {
-                    cachedData.card_image = card.images.large || card.images.small;
-                    cachedData.card_set = card.set?.name || '';
-                    cachedData.card_number = card.number || '';
-                    cachedData.card_rarity = card.rarity || '';
-                }
-                renderFlipResults(cachedData);
+                renderFlipResults(flipCache.get(cacheKey));
                 return;
             }
             
             results.innerHTML = '<div class="loading"><div class="spinner"></div>Calculating ROI...</div>';
             
-            // Fetch flip calculation AND price data in parallel
-            let endpoint = `/flip/${encodeURIComponent(cardName)}?company=${company}&tier=${tier}`;
-            if (price) endpoint += `&price=${price}`;
-            
-            console.log('[Flip] Fetching:', endpoint);
-            
             try {
-                const [flipData, priceData] = await Promise.all([
-                    api(endpoint, { timeout: 10000 }),
-                    api(`/prices/card/${encodeURIComponent(cardName)}`, { timeout: 10000 }).catch(e => {
-                        console.log('[Flip] Price fetch failed (non-critical):', e.message);
-                        return null;
-                    })
-                ]);
+                // Get raw price from TCGPlayer data on the card, or use user input
+                let rawPrice = parseFloat(price) || 0;
                 
-                console.log('[Flip] Got flip data:', flipData);
-                console.log('[Flip] Got price data:', priceData);
-            
-                // Enhance flip data with card image and info
-                if (card.images) {
-                    flipData.card_image = card.images.large || card.images.small;
-                    flipData.card_set = card.set?.name || '';
-                    flipData.card_number = card.number || '';
-                    flipData.card_rarity = card.rarity || '';
+                if (!rawPrice && card.tcgplayer?.prices) {
+                    const prices = card.tcgplayer.prices;
+                    // Try to get a market/mid price
+                    for (const variant of Object.values(prices)) {
+                        if (variant.market) { rawPrice = variant.market; break; }
+                        if (variant.mid) { rawPrice = variant.mid; break; }
+                    }
                 }
                 
-                // Use real prices if available (more accurate than estimates)
-                if (priceData?.raw?.price && !price) {
-                    flipData.real_raw_price = priceData.raw.price;
-                    flipData.raw_price = priceData.raw.price;
-                }
-                if (priceData?.graded) {
-                    flipData.real_graded_prices = priceData.graded;
+                if (!rawPrice) {
+                    rawPrice = 20; // Default estimate
                 }
                 
-                if (!flipData.error) {
-                    flipCache.set(cacheKey, flipData);
-                }
+                // Get grading cost
+                const gradingInfo = GRADING_COSTS[company]?.[tier] || GRADING_COSTS.PSA.economy;
+                const gradingCost = gradingInfo.cost;
+                const turnaround = gradingInfo.turnaround;
+                const shippingCost = 15; // Estimated shipping both ways
                 
+                const totalCost = rawPrice + gradingCost + shippingCost;
+                
+                // Calculate scenarios for each grade
+                const multipliers = GRADE_MULTIPLIERS[company] || GRADE_MULTIPLIERS.PSA;
+                const probabilities = GRADE_PROBABILITIES[company] || GRADE_PROBABILITIES.PSA;
+                
+                const scenarios = Object.entries(multipliers).map(([grade, mult]) => {
+                    const gradedValue = Math.round(rawPrice * mult * 100) / 100;
+                    const profit = Math.round((gradedValue - totalCost) * 100) / 100;
+                    const roi = Math.round((profit / totalCost) * 1000) / 10;
+                    const probability = probabilities[grade] || 0.1;
+                    
+                    return {
+                        grade: grade.toString(),
+                        graded_value: gradedValue,
+                        profit: profit,
+                        roi_percent: roi,
+                        probability: Math.round(probability * 100)
+                    };
+                }).sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade));
+                
+                // Calculate expected value
+                let expectedValue = 0;
+                for (const s of scenarios) {
+                    const prob = (s.probability || 10) / 100;
+                    expectedValue += s.graded_value * prob;
+                }
+                const expectedProfit = expectedValue - totalCost;
+                const expectedRoi = (expectedProfit / totalCost) * 100;
+                
+                // Build flip data
+                const flipData = {
+                    card_name: card.name,
+                    card_image: card.images?.large || card.images?.small,
+                    card_set: card.set?.name || '',
+                    card_number: card.number || '',
+                    card_rarity: card.rarity || '',
+                    company: company,
+                    tier: tier,
+                    raw_price: rawPrice,
+                    grading_cost: gradingCost,
+                    shipping_cost: shippingCost,
+                    total_cost: Math.round(totalCost * 100) / 100,
+                    expected_graded_value: Math.round(expectedValue * 100) / 100,
+                    expected_profit: Math.round(expectedProfit * 100) / 100,
+                    expected_roi: Math.round(expectedRoi * 10) / 10,
+                    turnaround: turnaround,
+                    scenarios: scenarios,
+                    recommendation: expectedRoi > 30 ? '✅ RECOMMENDED - Good flip potential' : 
+                                   expectedRoi > 0 ? '⚠️ MARGINAL - Small profit potential' : 
+                                   '❌ NOT RECOMMENDED - Likely to lose money'
+                };
+                
+                flipCache.set(cacheKey, flipData);
                 renderFlipResults(flipData);
+                
             } catch (e) {
                 console.error('[Flip] calculateFlipForCard error:', e);
                 results.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Error calculating flip: ${e.message}</div>`;
@@ -10078,8 +10147,8 @@
                                 </div>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem; background: var(--bg); border-radius: 6px;">
-                                <strong>Grading:</strong> ${data.grading_company} ${data.grading_tier || 'economy'} ($${data.grading_cost || 0})<br>
-                                <strong>Shipping:</strong> $${data.shipping_cost || 0}
+                                <strong>Grading:</strong> ${data.company || data.grading_company || 'PSA'} ${data.tier || data.grading_tier || 'economy'} ($${data.grading_cost || 0})<br>
+                                <strong>Shipping:</strong> $${data.shipping_cost || 0} • <strong>Turnaround:</strong> ${data.turnaround || 'N/A'}
                             </div>
                         </div>
                     </div>
@@ -10091,14 +10160,14 @@
                         ${hasRealPrices ? '<span style="font-size: 0.625rem; background: var(--green); color: white; padding: 0.125rem 0.375rem; border-radius: 4px;">REAL PRICES</span>' : '<span style="font-size: 0.625rem; background: var(--gold); color: black; padding: 0.125rem 0.375rem; border-radius: 4px;">ESTIMATED</span>'}
                     </div>
                     ${scenarios.map(s => `
-                        <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
-                            <span>
-                                ${s.emoji || ''} ${s.grade}
-                                ${s.is_real_price ? '<span style="font-size: 0.5rem; color: var(--green);">✓</span>' : ''}
+                        <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border); align-items: center;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-weight: 600; font-size: 1.1rem;">${s.grade}</span>
+                                ${s.probability ? `<span style="font-size: 0.625rem; background: var(--bg); padding: 0.125rem 0.375rem; border-radius: 4px; color: var(--text-muted);">${s.probability}% chance</span>` : ''}
                             </span>
-                            <span style="font-family: 'Space Mono', monospace;">
-                                $${s.graded_value} → 
-                                <span class="${s.profit >= 0 ? 'green' : 'red'}">${s.profit >= 0 ? '+' : ''}$${s.profit}</span>
+                            <span style="font-family: 'Space Mono', monospace; text-align: right;">
+                                <span style="color: var(--text-muted);">$${s.graded_value}</span> → 
+                                <span class="${s.profit >= 0 ? 'green' : 'red'}" style="font-weight: 600;">${s.profit >= 0 ? '+' : ''}$${s.profit}</span>
                                 <span style="font-size: 0.75rem; color: var(--text-muted);">(${s.roi_percent}%)</span>
                             </span>
                         </div>
