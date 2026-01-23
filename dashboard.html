@@ -7377,7 +7377,18 @@
                     const price = getBestCardPrice(c);
                     const cat = getRarityCategory(c.rarity);
                     console.log(`  ${i+1}. ${c.name} - $${price.toFixed(2)} - ${c.rarity} (${cat})`);
+                    debugCardPrices(c);
                 });
+                
+                // Also check for known chase cards (like Charizard)
+                const charizards = cards.filter(c => c.name?.toLowerCase().includes('charizard'));
+                if (charizards.length > 0) {
+                    console.log('=== CHARIZARD CARDS FOUND ===');
+                    charizards.forEach(c => {
+                        console.log(`${c.name} (#${c.number}) - Rarity: ${c.rarity}`);
+                        debugCardPrices(c);
+                    });
+                }
                 
                 // Show rarity distribution
                 const rarityCounts = {};
@@ -7505,6 +7516,7 @@
             const allPrices = [
                 prices.holofoil?.market,
                 prices.holofoil?.mid,
+                prices.holofoil?.high,
                 prices.reverseHolofoil?.market,
                 prices.reverseHolofoil?.mid,
                 prices.normal?.market,
@@ -7517,6 +7529,15 @@
             
             // Return highest price found
             return allPrices.length > 0 ? Math.max(...allPrices) : 0;
+        }
+        
+        // Debug function to show all price keys for a card
+        function debugCardPrices(card) {
+            const prices = card.tcgplayer?.prices || {};
+            console.log(`Price keys for ${card.name}:`, Object.keys(prices));
+            Object.entries(prices).forEach(([key, val]) => {
+                console.log(`  ${key}: market=${val?.market}, mid=${val?.mid}, high=${val?.high}`);
+            });
         }
         
         function getPullOddsForRarity(rarity, pullRates) {
