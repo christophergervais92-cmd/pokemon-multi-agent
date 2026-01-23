@@ -2581,9 +2581,33 @@
                 <div id="emulatorGame" style="display: none; width: 100%; aspect-ratio: 3/2; max-height: 600px;"></div>
             </div>
             
+            <!-- Pokemon Game Directory -->
+            <div class="card" style="margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                    <h2 style="margin: 0;">Pokemon Game Directory</h2>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <input type="text" id="gameSearch" placeholder="Search games..." style="width: 200px;" oninput="filterPokemonGames()">
+                        <select id="platformFilter" onchange="filterPokemonGames()" style="width: 140px;">
+                            <option value="all">All Platforms</option>
+                            <option value="gb">Game Boy</option>
+                            <option value="gbc">Game Boy Color</option>
+                            <option value="gba">Game Boy Advance</option>
+                            <option value="nds">Nintendo DS</option>
+                        </select>
+                    </div>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Complete list of Pokemon games compatible with this emulator. You must provide your own ROM files.
+                </p>
+                <div id="pokemonGamesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
+                    <!-- Games populated by JavaScript -->
+                </div>
+                <div id="gamesCount" style="margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted);"></div>
+            </div>
+            
             <!-- Controls Info -->
             <div class="card" style="margin-top: 1rem;">
-                <h2>🎮 Controls</h2>
+                <h2>Controls</h2>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
                     <div style="background: var(--bg); padding: 1rem; border-radius: 8px;">
                         <div style="font-weight: 600; margin-bottom: 0.5rem;">D-Pad</div>
@@ -11956,6 +11980,147 @@ Or use the quick question buttons above for common topics!`
         
         let emulatorInstance = null;
         let currentRomName = '';
+        
+        // Complete Pokemon Game Database
+        const POKEMON_GAMES = [
+            // Game Boy (GB)
+            { name: 'Pokemon Red', platform: 'gb', region: 'INT', year: 1996, gen: 1 },
+            { name: 'Pokemon Blue', platform: 'gb', region: 'INT', year: 1996, gen: 1 },
+            { name: 'Pokemon Yellow', platform: 'gb', region: 'INT', year: 1998, gen: 1 },
+            { name: 'Pokemon Green (Japan)', platform: 'gb', region: 'JP', year: 1996, gen: 1 },
+            
+            // Game Boy Color (GBC)
+            { name: 'Pokemon Gold', platform: 'gbc', region: 'INT', year: 1999, gen: 2 },
+            { name: 'Pokemon Silver', platform: 'gbc', region: 'INT', year: 1999, gen: 2 },
+            { name: 'Pokemon Crystal', platform: 'gbc', region: 'INT', year: 2000, gen: 2 },
+            { name: 'Pokemon Trading Card Game', platform: 'gbc', region: 'INT', year: 1998, gen: 0 },
+            { name: 'Pokemon Trading Card Game 2 (Japan)', platform: 'gbc', region: 'JP', year: 2001, gen: 0 },
+            { name: 'Pokemon Pinball', platform: 'gbc', region: 'INT', year: 1999, gen: 0 },
+            { name: 'Pokemon Puzzle Challenge', platform: 'gbc', region: 'INT', year: 2000, gen: 0 },
+            
+            // Game Boy Advance (GBA)
+            { name: 'Pokemon Ruby', platform: 'gba', region: 'INT', year: 2002, gen: 3 },
+            { name: 'Pokemon Sapphire', platform: 'gba', region: 'INT', year: 2002, gen: 3 },
+            { name: 'Pokemon Emerald', platform: 'gba', region: 'INT', year: 2004, gen: 3 },
+            { name: 'Pokemon FireRed', platform: 'gba', region: 'INT', year: 2004, gen: 3 },
+            { name: 'Pokemon LeafGreen', platform: 'gba', region: 'INT', year: 2004, gen: 3 },
+            { name: 'Pokemon Pinball: Ruby & Sapphire', platform: 'gba', region: 'INT', year: 2003, gen: 0 },
+            { name: 'Pokemon Mystery Dungeon: Red Rescue Team', platform: 'gba', region: 'INT', year: 2005, gen: 0 },
+            
+            // Nintendo DS (NDS)
+            { name: 'Pokemon Diamond', platform: 'nds', region: 'INT', year: 2006, gen: 4 },
+            { name: 'Pokemon Pearl', platform: 'nds', region: 'INT', year: 2006, gen: 4 },
+            { name: 'Pokemon Platinum', platform: 'nds', region: 'INT', year: 2008, gen: 4 },
+            { name: 'Pokemon HeartGold', platform: 'nds', region: 'INT', year: 2009, gen: 4 },
+            { name: 'Pokemon SoulSilver', platform: 'nds', region: 'INT', year: 2009, gen: 4 },
+            { name: 'Pokemon Black', platform: 'nds', region: 'INT', year: 2010, gen: 5 },
+            { name: 'Pokemon White', platform: 'nds', region: 'INT', year: 2010, gen: 5 },
+            { name: 'Pokemon Black 2', platform: 'nds', region: 'INT', year: 2012, gen: 5 },
+            { name: 'Pokemon White 2', platform: 'nds', region: 'INT', year: 2012, gen: 5 },
+            { name: 'Pokemon Mystery Dungeon: Blue Rescue Team', platform: 'nds', region: 'INT', year: 2005, gen: 0 },
+            { name: 'Pokemon Mystery Dungeon: Explorers of Time', platform: 'nds', region: 'INT', year: 2007, gen: 0 },
+            { name: 'Pokemon Mystery Dungeon: Explorers of Darkness', platform: 'nds', region: 'INT', year: 2007, gen: 0 },
+            { name: 'Pokemon Mystery Dungeon: Explorers of Sky', platform: 'nds', region: 'INT', year: 2009, gen: 0 },
+            { name: 'Pokemon Ranger', platform: 'nds', region: 'INT', year: 2006, gen: 0 },
+            { name: 'Pokemon Ranger: Shadows of Almia', platform: 'nds', region: 'INT', year: 2008, gen: 0 },
+            { name: 'Pokemon Ranger: Guardian Signs', platform: 'nds', region: 'INT', year: 2010, gen: 0 },
+            { name: 'Pokemon Dash', platform: 'nds', region: 'INT', year: 2004, gen: 0 },
+            { name: 'Pokemon Trozei!', platform: 'nds', region: 'INT', year: 2006, gen: 0 },
+            { name: 'Pokemon Conquest', platform: 'nds', region: 'INT', year: 2012, gen: 0 },
+            
+            // Popular ROM Hacks (for reference)
+            { name: 'Pokemon Radical Red', platform: 'gba', region: 'HACK', year: 2020, gen: 3, isHack: true },
+            { name: 'Pokemon Unbound', platform: 'gba', region: 'HACK', year: 2021, gen: 3, isHack: true },
+            { name: 'Pokemon Blazing Emerald', platform: 'gba', region: 'HACK', year: 2020, gen: 3, isHack: true },
+            { name: 'Pokemon Gaia', platform: 'gba', region: 'HACK', year: 2018, gen: 3, isHack: true },
+            { name: 'Pokemon Prism', platform: 'gbc', region: 'HACK', year: 2016, gen: 2, isHack: true },
+            { name: 'Pokemon Crystal Clear', platform: 'gbc', region: 'HACK', year: 2018, gen: 2, isHack: true },
+            { name: 'Pokemon Glazed', platform: 'gba', region: 'HACK', year: 2015, gen: 3, isHack: true },
+            { name: 'Pokemon Light Platinum', platform: 'gba', region: 'HACK', year: 2013, gen: 3, isHack: true },
+            { name: 'Pokemon Renegade Platinum', platform: 'nds', region: 'HACK', year: 2019, gen: 4, isHack: true },
+            { name: 'Pokemon Blaze Black / Volt White', platform: 'nds', region: 'HACK', year: 2011, gen: 5, isHack: true },
+            { name: 'Pokemon Blaze Black 2 / Volt White 2', platform: 'nds', region: 'HACK', year: 2013, gen: 5, isHack: true },
+        ];
+        
+        // Platform display names
+        const PLATFORM_NAMES = {
+            'gb': 'Game Boy',
+            'gbc': 'Game Boy Color',
+            'gba': 'Game Boy Advance',
+            'nds': 'Nintendo DS'
+        };
+        
+        // Platform colors
+        const PLATFORM_COLORS = {
+            'gb': '#8bac0f',
+            'gbc': '#9b59b6',
+            'gba': '#3498db',
+            'nds': '#e74c3c'
+        };
+        
+        // Render Pokemon games list
+        function renderPokemonGames(games) {
+            const container = document.getElementById('pokemonGamesList');
+            const countEl = document.getElementById('gamesCount');
+            
+            if (!container) return;
+            
+            if (games.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">No games found</div>`;
+                countEl.textContent = '0 games';
+                return;
+            }
+            
+            container.innerHTML = games.map(game => `
+                <div class="game-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg); border-radius: 8px; border-left: 3px solid ${PLATFORM_COLORS[game.platform]};">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${game.name}
+                            ${game.isHack ? '<span style="font-size: 0.625rem; background: var(--gold); color: black; padding: 0.1rem 0.3rem; border-radius: 3px; margin-left: 0.25rem;">ROM HACK</span>' : ''}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                            <span style="background: ${PLATFORM_COLORS[game.platform]}22; color: ${PLATFORM_COLORS[game.platform]}; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 500;">${PLATFORM_NAMES[game.platform]}</span>
+                            <span>${game.year}</span>
+                            ${game.gen > 0 ? `<span>Gen ${game.gen}</span>` : ''}
+                            ${game.region !== 'INT' && game.region !== 'HACK' ? `<span style="color: var(--accent);">${game.region}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">.${game.platform}</div>
+                </div>
+            `).join('');
+            
+            const officialCount = games.filter(g => !g.isHack).length;
+            const hackCount = games.filter(g => g.isHack).length;
+            countEl.textContent = `${games.length} games (${officialCount} official${hackCount > 0 ? `, ${hackCount} ROM hacks` : ''})`;
+        }
+        
+        // Filter Pokemon games
+        function filterPokemonGames() {
+            const searchTerm = document.getElementById('gameSearch')?.value.toLowerCase() || '';
+            const platform = document.getElementById('platformFilter')?.value || 'all';
+            
+            let filtered = POKEMON_GAMES;
+            
+            if (platform !== 'all') {
+                filtered = filtered.filter(g => g.platform === platform);
+            }
+            
+            if (searchTerm) {
+                filtered = filtered.filter(g => 
+                    g.name.toLowerCase().includes(searchTerm) ||
+                    PLATFORM_NAMES[g.platform].toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            renderPokemonGames(filtered);
+        }
+        
+        // Initialize games list on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                renderPokemonGames(POKEMON_GAMES);
+            }, 200);
+        });
         
         // Detect core based on file extension
         function detectCore(filename) {
