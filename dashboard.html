@@ -1745,8 +1745,7 @@
                         <select id="setSelector" onchange="loadSetChaseCards(this.value)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-size: 0.875rem;">
                             <option value="">Select a set...</option>
                             <optgroup label="2025 Sets" data-series="2025">
-                                <option value="me2">Phantasmal Flames (Nov 2025)</option>
-                                <option value="me1">Mega Evolution (Sep 2025)</option>
+                                <option value="sv11">Mega Evolution (Dec 2025) ⚠️</option>
                                 <option value="sv10">Destined Rivals (May 2025)</option>
                                 <option value="sv9">Journey Together (Mar 2025)</option>
                                 <option value="sv8pt5">Prismatic Evolutions (Jan 2025)</option>
@@ -7325,13 +7324,21 @@
                     displayChaseCards(currentSetCards, setInfo);
                     displaySetStats(currentSetCards, setInfo);
                 } else {
-                    chaseGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">No cards found for this set</div>';
+                    chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">📭</div>
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">No cards found for this set</div>
+                        <div style="font-size: 0.875rem;">This set may be too new and not yet in the Pokemon TCG API database.</div>
+                        <div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);">Try an older set like Prismatic Evolutions or 151.</div>
+                    </div>`;
                 }
             } catch (error) {
                 console.error('Error loading set cards:', error);
-                chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--red); padding: 2rem;">
-                    Error loading cards: ${error.message}<br>
-                    <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 1rem;">Try Again</button>
+                const isTimeout = error.message?.includes('timeout') || error.message?.includes('aborted');
+                chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+                    <div style="font-size: 2rem; margin-bottom: 1rem;">${isTimeout ? '⏱️' : '❌'}</div>
+                    <div style="color: var(--red); font-weight: 600; margin-bottom: 0.5rem;">${isTimeout ? 'Request Timed Out' : 'Error Loading Cards'}</div>
+                    <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">${isTimeout ? 'The Pokemon TCG API is slow. Please try again.' : error.message}</div>
+                    <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 0.5rem;">🔄 Try Again</button>
                 </div>`;
             }
         }
