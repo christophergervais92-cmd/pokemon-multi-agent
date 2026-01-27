@@ -8023,19 +8023,27 @@
             }
             
             // Set logo - try multiple sources
-            const logoUrl = setInfo.images?.logo || setInfo.images?.symbol || '';
+            let logoUrl = setInfo.images?.logo || setInfo.images?.symbol || '';
+            
+            // Add .png extension if URL doesn't have one (TCGdex URLs need it)
+            if (logoUrl && !logoUrl.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i)) {
+                logoUrl = logoUrl + '.png';
+            }
+            
             if (logoUrl) {
                 logo.src = logoUrl;
                 logo.style.display = 'block';
+                logo.onerror = function() {
+                    // Try fallback to Pokemon TCG API logo
+                    if (setInfo.id) {
+                        this.src = `https://images.pokemontcg.io/${setInfo.id}/logo.png`;
+                    }
+                };
             } else {
                 // Try to fetch logo if we have setId
                 if (setInfo.id) {
-                    fetchSetLogo(setInfo.id).then(url => {
-                        if (url && logo) {
-                            logo.src = url;
-                            logo.style.display = 'block';
-                        }
-                    }).catch(() => {});
+                    logo.src = `https://images.pokemontcg.io/${setInfo.id}/logo.png`;
+                    logo.style.display = 'block';
                 }
             }
             logo.alt = setInfo.name || 'Set Logo';
