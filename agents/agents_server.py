@@ -2327,9 +2327,9 @@ def get_set_cards(set_id: str):
                             if p > market_price:
                                 market_price = p
                     
-                    # Fallback to estimate if no price found
+                    # Fallback: try KNOWN_CARD_PRICES first, then estimate
                     if not market_price:
-                        market_price = _estimate_price_by_rarity(card.get("rarity", ""), card.get("name", ""))
+                        market_price = _get_known_price(card.get("name", ""), card.get("number", "")) or _estimate_price_by_rarity(card.get("rarity", ""), card.get("name", ""))
                     
                     if not set_info:
                         set_info = card.get("set", {})
@@ -2379,7 +2379,8 @@ def get_set_cards(set_id: str):
                         card_name = card.get("name", "")
                         card_number = int(card.get("localId", 0) or 0)
                         rarity = card.get("rarity") or _estimate_rarity(card_name, card_number, total_cards)
-                        price = _estimate_price_by_rarity(rarity, card_name)
+                        # Try to get real price from KNOWN_CARD_PRICES first
+                        price = _get_known_price(card_name, card_number) or _estimate_price_by_rarity(rarity, card_name)
                         
                         chase_cards.append({
                             "id": f"{set_id}-{card.get('localId', '')}",
@@ -2555,6 +2556,65 @@ def _estimate_rarity(name: str, card_number: int, total_cards: int) -> str:
         return "Secret Rare"
     
     return "Rare"
+
+
+def _get_known_price(card_name: str, card_number: str = "") -> float:
+    """
+    Look up real price from KNOWN_CARD_PRICES database.
+    Returns the raw price if found, 0 otherwise.
+    """
+    try:
+        from market.graded_prices import KNOWN_CARD_PRICES
+        
+        card_lower = (card_name or "").lower().strip()
+        number_str = str(card_number).strip() if card_number else ""
+        
+        # Try exact match first
+        if card_lower in KNOWN_CARD_PRICES:
+            return KNOWN_CARD_PRICES[card_lower].get("raw", 0)
+        
+        # Try with card number
+        if number_str:
+            key_with_number = f"{card_lower} {number_str}"
+            if key_with_number in KNOWN_CARD_PRICES:
+                return KNOWN_CARD_PRICES[key_with_number].get("raw", 0)
+            
+            # Try format like "charizard ex 199"
+            for known_name, prices in KNOWN_CARD_PRICES.items():
+                if number_str in known_name and any(word in known_name for word in card_lower.split()):
+                    return prices.get("raw", 0)
+        
+        # Try partial match (card name contains known name or vice versa)
+        best_match = None
+        best_score = 0
+        
+        for known_name, prices in KNOWN_CARD_PRICES.items():
+            # Skip if no common words
+            known_words = set(known_name.split())
+            card_words = set(card_lower.split())
+            common = known_words & card_words
+            
+            if len(common) < 2:  # Need at least 2 matching words
+                continue
+            
+            score = len(common)
+            
+            # Bonus for exact substring match
+            if known_name in card_lower or card_lower in known_name:
+                score += 3
+            
+            if score > best_score:
+                best_score = score
+                best_match = prices
+        
+        if best_match and best_score >= 2:
+            return best_match.get("raw", 0)
+        
+        return 0
+        
+    except Exception as e:
+        print(f"[Known Price] Error looking up price for {card_name}: {e}")
+        return 0
 
 
 def _estimate_price_by_rarity(rarity: str, name: str = "") -> float:
