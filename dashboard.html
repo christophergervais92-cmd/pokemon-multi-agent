@@ -6718,6 +6718,43 @@
                 }
             }
             
+            // Fallback to TCGdex API when Pokemon TCG API fails
+            console.log('Pokemon TCG API failed, trying TCGdex fallback...');
+            try {
+                const tcgdexRes = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(searchName)}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (tcgdexRes.ok) {
+                    const tcgdexData = await tcgdexRes.json();
+                    console.log('TCGdex returned', tcgdexData?.length || 0, 'cards');
+                    
+                    if (tcgdexData && tcgdexData.length > 0) {
+                        // Convert TCGdex format to match Pokemon TCG API format
+                        const cards = tcgdexData.slice(0, 50).map(card => ({
+                            id: card.id,
+                            name: card.name,
+                            images: {
+                                small: card.image ? `${card.image}/low.webp` : null,
+                                large: card.image ? `${card.image}/high.webp` : null
+                            },
+                            set: {
+                                id: card.id?.split('-')[0] || '',
+                                name: card.set?.name || 'Unknown Set'
+                            },
+                            rarity: card.rarity || 'Unknown',
+                            number: card.localId || '',
+                            tcgplayer: null // TCGdex doesn't have prices
+                        }));
+                        
+                        tcgSearchCache.set(cacheKey, cards);
+                        return cards;
+                    }
+                }
+            } catch (fallbackError) {
+                console.error('TCGdex fallback also failed:', fallbackError.message);
+            }
+            
             console.log('Returning empty results');
             return [];
         }
@@ -7614,8 +7651,66 @@
                     }
                 }
                 
-                if (!data) {
-                    throw lastError || new Error('Failed to fetch cards after 3 attempts');
+                // If Pokemon TCG API failed, try TCGdex as fallback
+                if (!data || !data.data || data.data.length === 0) {
+                    console.log('Pokemon TCG API failed, trying TCGdex fallback for set:', setId);
+                    try {
+                        // Map common set IDs to TCGdex format
+                        const tcgdexSetMap = {
+                            'sv8pt5': 'sv08.5', 'sv8': 'sv08', 'sv7': 'sv07', 'sv6pt5': 'sv06.5',
+                            'sv6': 'sv06', 'sv5': 'sv05', 'sv4pt5': 'sv04.5', 'sv4': 'sv04',
+                            'sv3pt5': 'sv03.5', 'sv3': 'sv03', 'sv2': 'sv02', 'sv1': 'sv01',
+                            'swsh12pt5': 'swsh12.5', 'swsh12': 'swsh12', 'swsh11': 'swsh11',
+                            'swsh10': 'swsh10', 'swsh9': 'swsh9', 'swsh8': 'swsh8', 'swsh7': 'swsh7',
+                            'swsh6': 'swsh6', 'swsh5': 'swsh5', 'swsh4': 'swsh4', 'swsh3': 'swsh3',
+                            'swsh2': 'swsh2', 'swsh1': 'swsh1', 'swsh45sv': 'swsh45sv'
+                        };
+                        const tcgdexSetId = tcgdexSetMap[setId] || setId;
+                        
+                        const tcgdexRes = await fetch(`https://api.tcgdex.net/v2/en/sets/${tcgdexSetId}`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        
+                        if (tcgdexRes.ok) {
+                            const tcgdexSet = await tcgdexRes.json();
+                            console.log('TCGdex returned set:', tcgdexSet?.name, 'with', tcgdexSet?.cards?.length, 'cards');
+                            
+                            if (tcgdexSet && tcgdexSet.cards && tcgdexSet.cards.length > 0) {
+                                // Convert TCGdex format to Pokemon TCG API format
+                                data = {
+                                    data: tcgdexSet.cards.map(card => ({
+                                        id: card.id,
+                                        name: card.name,
+                                        number: card.localId || '',
+                                        images: {
+                                            small: card.image ? `${card.image}/low.webp` : `https://assets.tcgdex.net/en/${tcgdexSetId}/${card.localId}/low.webp`,
+                                            large: card.image ? `${card.image}/high.webp` : `https://assets.tcgdex.net/en/${tcgdexSetId}/${card.localId}/high.webp`
+                                        },
+                                        rarity: card.rarity || 'Unknown',
+                                        set: {
+                                            id: setId,
+                                            name: tcgdexSet.name || setId,
+                                            series: tcgdexSet.serie?.name || '',
+                                            releaseDate: tcgdexSet.releaseDate || '',
+                                            total: tcgdexSet.cardCount?.total || tcgdexSet.cards.length,
+                                            images: {
+                                                logo: tcgdexSet.logo || '',
+                                                symbol: tcgdexSet.symbol || ''
+                                            }
+                                        },
+                                        tcgplayer: null // TCGdex doesn't have prices
+                                    }))
+                                };
+                                console.log('Converted', data.data.length, 'cards from TCGdex');
+                            }
+                        }
+                    } catch (tcgdexError) {
+                        console.error('TCGdex fallback failed:', tcgdexError.message);
+                    }
+                }
+                
+                if (!data || !data.data || data.data.length === 0) {
+                    throw lastError || new Error('Failed to fetch cards from both APIs');
                 }
                 
                 // Cache the results
