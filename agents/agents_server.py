@@ -2297,67 +2297,9 @@ def get_set_cards(set_id: str):
         }
         tcgdex_id = TCGDEX_ID_MAP.get(set_id.lower(), set_id.lower())
         
-        # Try TCGdex first (more reliable, no API key needed)
+        # Try Pokemon TCG API FIRST (has real TCGPlayer prices)
         try:
-            print(f"[Set Cards] Trying TCGdex for {set_id}")
-            # Get set info
-            set_response = requests.get(f"https://api.tcgdex.net/v2/en/sets/{tcgdex_id}", timeout=10)
-            if set_response.status_code == 200:
-                set_data = set_response.json()
-                set_info = {
-                    "id": set_id,
-                    "name": set_data.get("name", set_id),
-                    "series": set_data.get("serie", {}).get("name", ""),
-                    "releaseDate": set_data.get("releaseDate", ""),
-                    "printedTotal": set_data.get("cardCount", {}).get("total", 0),
-                    "total": set_data.get("cardCount", {}).get("total", 0),
-                    "images": {
-                        "logo": set_data.get("logo", ""),
-                        "symbol": set_data.get("symbol", "")
-                    }
-                }
-                
-                # Get cards from set
-                card_list = set_data.get("cards", [])
-                total_cards = set_data.get("cardCount", {}).get("total", len(card_list)) or len(card_list)
-                print(f"[Set Cards] TCGdex returned {len(card_list)} cards (total in set: {total_cards})")
-                
-                for card in card_list:
-                    # Get full card details for image
-                    card_id = card.get("id", "")
-                    card_name = card.get("name", "")
-                    card_number = int(card.get("localId", 0) or 0)
-                    
-                    # Get rarity from TCGdex, or estimate from card characteristics
-                    rarity = card.get("rarity") or ""
-                    if not rarity or rarity.lower() == "common":
-                        # Estimate rarity from card name and number
-                        rarity = _estimate_rarity(card_name, card_number, total_cards)
-                    
-                    # Estimate price based on rarity
-                    price = _estimate_price_by_rarity(rarity, card_name)
-                    
-                    chase_cards.append({
-                        "id": f"{set_id}-{card.get('localId', card_id)}",
-                        "name": card.get("name", "Unknown"),
-                        "number": str(card.get("localId", "")),
-                        "rarity": rarity,
-                        "images": {
-                            "small": card.get("image", "") + "/low.webp" if card.get("image") else "",
-                            "large": card.get("image", "") + "/high.webp" if card.get("image") else ""
-                        },
-                        "set": set_info,
-                        "price": price,
-                        "price_low": price * 0.8,
-                        "price_high": price * 1.2,
-                        "tcgplayer_url": "",
-                        "tcgplayer": {"prices": {"holofoil": {"market": price}}}
-                    })
-        except Exception as e:
-            print(f"[Set Cards] TCGdex failed: {e}, trying Pokemon TCG API")
-        
-        # If TCGdex didn't work, try Pokemon TCG API
-        if not chase_cards:
+            print(f"[Set Cards] Trying Pokemon TCG API for {set_id} (has real prices)")
             headers = {"Accept": "application/json"}
             if POKEMON_TCG_API_KEY:
                 headers["X-Api-Key"] = POKEMON_TCG_API_KEY
@@ -2372,12 +2314,20 @@ def get_set_cards(set_id: str):
             response = requests.get(api_url, params=params, headers=headers, timeout=60)
             if response.status_code == 200:
                 data = response.json()
+                print(f"[Set Cards] Pokemon TCG API returned {len(data.get('data', []))} cards")
                 for card in data.get("data", []):
                     tcgplayer = card.get("tcgplayer", {})
                     prices = tcgplayer.get("prices", {})
-                    price_tier = prices.get("holofoil") or prices.get("normal") or {}
-                    market_price = price_tier.get("market", 0) or 0
                     
+                    # Try all price variants to get the best price
+                    market_price = 0
+                    for variant in ["holofoil", "reverseHolofoil", "normal", "1stEditionHolofoil", "unlimitedHolofoil"]:
+                        if variant in prices:
+                            p = prices[variant].get("market") or prices[variant].get("mid") or 0
+                            if p > market_price:
+                                market_price = p
+                    
+                    # Fallback to estimate if no price found
                     if not market_price:
                         market_price = _estimate_price_by_rarity(card.get("rarity", ""), card.get("name", ""))
                     
@@ -2392,11 +2342,63 @@ def get_set_cards(set_id: str):
                         "images": card.get("images", {}),
                         "set": card.get("set", {}),
                         "price": market_price,
-                        "price_low": price_tier.get("low", market_price * 0.8),
-                        "price_high": price_tier.get("high", market_price * 1.2),
+                        "price_low": prices.get("holofoil", {}).get("low", market_price * 0.8),
+                        "price_high": prices.get("holofoil", {}).get("high", market_price * 1.2),
                         "tcgplayer_url": tcgplayer.get("url", ""),
                         "tcgplayer": tcgplayer
                     })
+            else:
+                print(f"[Set Cards] Pokemon TCG API failed with status {response.status_code}")
+        except Exception as e:
+            print(f"[Set Cards] Pokemon TCG API error: {e}")
+        
+        # Fallback to TCGdex if Pokemon TCG API failed (uses estimated prices)
+        if not chase_cards:
+            try:
+                print(f"[Set Cards] Falling back to TCGdex for {set_id}")
+                set_response = requests.get(f"https://api.tcgdex.net/v2/en/sets/{tcgdex_id}", timeout=10)
+                if set_response.status_code == 200:
+                    set_data = set_response.json()
+                    set_info = {
+                        "id": set_id,
+                        "name": set_data.get("name", set_id),
+                        "series": set_data.get("serie", {}).get("name", ""),
+                        "releaseDate": set_data.get("releaseDate", ""),
+                        "printedTotal": set_data.get("cardCount", {}).get("total", 0),
+                        "total": set_data.get("cardCount", {}).get("total", 0),
+                        "images": {
+                            "logo": set_data.get("logo", ""),
+                            "symbol": set_data.get("symbol", "")
+                        }
+                    }
+                    card_list = set_data.get("cards", [])
+                    total_cards = set_data.get("cardCount", {}).get("total", len(card_list)) or len(card_list)
+                    print(f"[Set Cards] TCGdex returned {len(card_list)} cards")
+                    
+                    for card in card_list:
+                        card_name = card.get("name", "")
+                        card_number = int(card.get("localId", 0) or 0)
+                        rarity = card.get("rarity") or _estimate_rarity(card_name, card_number, total_cards)
+                        price = _estimate_price_by_rarity(rarity, card_name)
+                        
+                        chase_cards.append({
+                            "id": f"{set_id}-{card.get('localId', '')}",
+                            "name": card_name,
+                            "number": str(card.get("localId", "")),
+                            "rarity": rarity,
+                            "images": {
+                                "small": card.get("image", "") + "/low.webp" if card.get("image") else "",
+                                "large": card.get("image", "") + "/high.webp" if card.get("image") else ""
+                            },
+                            "set": set_info,
+                            "price": price,
+                            "price_low": price * 0.8,
+                            "price_high": price * 1.2,
+                            "tcgplayer_url": "",
+                            "tcgplayer": {"prices": {"holofoil": {"market": price}}}
+                        })
+            except Exception as e:
+                print(f"[Set Cards] TCGdex also failed: {e}")
         
         # Sort by price descending
         chase_cards.sort(key=lambda x: x.get("price", 0), reverse=True)
@@ -2417,7 +2419,7 @@ def get_set_cards(set_id: str):
             "total_cards": len(filtered_cards),
             "all_cards_count": len(chase_cards),
             "data": filtered_cards,
-            "source": "tcgdex" if chase_cards else "pokemontcg",
+            "source": "pokemontcg",  # Pokemon TCG API is tried first (has real prices)
             "filters": {
                 "chase_only": chase_only,
                 "min_price": min_price
