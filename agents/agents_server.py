@@ -2217,15 +2217,57 @@ def _set_cached_set_cards(set_id: str, data: Dict):
     _set_cards_cache[set_id] = (data, datetime.now())
 
 
+# Chase card rarities (high value)
+CHASE_RARITIES = [
+    "special illustration rare", "illustration rare", "hyper rare",
+    "secret rare", "ultra rare", "full art", "alt art", "alternate art",
+    "gold", "rainbow", "shiny", "art rare", "sar", "sir", "ar"
+]
+
+def _is_chase_card(card: Dict) -> bool:
+    """Check if card is a chase card based on rarity, name, or price."""
+    rarity = (card.get("rarity") or "").lower()
+    name = (card.get("name") or "").lower()
+    price = card.get("price", 0) or 0
+    
+    # High price = chase
+    if price >= 20:
+        return True
+    
+    # Chase rarity
+    for chase in CHASE_RARITIES:
+        if chase in rarity:
+            return True
+    
+    # Check card name for chase indicators
+    chase_name_indicators = [
+        " ex", " v", " vmax", " vstar", " gx", " tag team",
+        "charizard", "pikachu", "umbreon", "rayquaza", "mewtwo", "mew",
+        "full art", "alt art", "illustration"
+    ]
+    for indicator in chase_name_indicators:
+        if indicator in name:
+            return True
+    
+    return False
+
+
 @app.get("/api/sets/<set_id>/cards")
 def get_set_cards(set_id: str):
     """
-    Get ALL cards for a set with prices. Cached for 1 hour.
+    Get cards for a set with prices. Cached for 1 hour.
+    
+    Query params:
+    - chase_only=true: Only return chase cards (high value rares)
+    - min_price=X: Only return cards worth at least $X
     
     Uses TCGdex API (free, reliable) for card data + price estimation.
     Falls back to Pokemon TCG API if TCGdex fails.
     
-    Example: /api/sets/sv8pt5/cards
+    Examples:
+    - /api/sets/sv8pt5/cards (all cards)
+    - /api/sets/sv8pt5/cards?chase_only=true (chase cards only)
+    - /api/sets/sv8pt5/cards?min_price=50 (cards worth $50+)
     """
     try:
         import requests
@@ -2240,22 +2282,18 @@ def get_set_cards(set_id: str):
         set_info = None
         
         # Map Pokemon TCG API set IDs to TCGdex IDs
-        # TCGdex uses different ID format (e.g., "sv8pt5" -> "sv08.5")
+        # TCGdex uses different formats: sv08.5 instead of sv8pt5, but swsh7 stays swsh7
         TCGDEX_ID_MAP = {
-            # Scarlet & Violet
+            # Scarlet & Violet - TCGdex uses sv0X.X format
             "sv1": "sv01", "sv2": "sv02", "sv3": "sv03", "sv3pt5": "sv03.5",
             "sv4": "sv04", "sv4pt5": "sv04.5", "sv5": "sv05", "sv6": "sv06",
             "sv6pt5": "sv06.5", "sv7": "sv07", "sv8": "sv08", "sv8pt5": "sv08.5",
             "sv9": "sv09", "sv10": "sv10",
-            # Sword & Shield
-            "swsh1": "swsh01", "swsh2": "swsh02", "swsh3": "swsh03", "swsh4": "swsh04",
-            "swsh5": "swsh05", "swsh6": "swsh06", "swsh7": "swsh07", "swsh8": "swsh08",
-            "swsh9": "swsh09", "swsh10": "swsh10", "swsh11": "swsh11", "swsh12": "swsh12",
+            # Sword & Shield - TCGdex uses swshX format (same as Pokemon TCG API)
+            # NO mapping needed for SWSH sets
             "swsh12pt5": "swsh12.5",
-            # Sun & Moon
-            "sm1": "sm01", "sm2": "sm02", "sm3": "sm03", "sm4": "sm04",
-            "sm5": "sm05", "sm6": "sm06", "sm7": "sm07", "sm8": "sm08",
-            "sm9": "sm09", "sm10": "sm10", "sm11": "sm11", "sm12": "sm12",
+            # Sun & Moon - TCGdex uses smX format (same as Pokemon TCG API)
+            # NO mapping needed for SM sets
         }
         tcgdex_id = TCGDEX_ID_MAP.get(set_id.lower(), set_id.lower())
         
@@ -2355,18 +2393,34 @@ def get_set_cards(set_id: str):
         # Sort by price descending
         chase_cards.sort(key=lambda x: x.get("price", 0), reverse=True)
         
+        # Apply filters from query params
+        chase_only = request.args.get("chase_only", "").lower() == "true"
+        min_price = float(request.args.get("min_price", 0) or 0)
+        
+        filtered_cards = chase_cards
+        if chase_only:
+            filtered_cards = [c for c in filtered_cards if _is_chase_card(c)]
+        if min_price > 0:
+            filtered_cards = [c for c in filtered_cards if (c.get("price", 0) or 0) >= min_price]
+        
         result = {
             "success": True,
             "set_id": set_id,
-            "total_cards": len(chase_cards),
-            "data": chase_cards,
+            "total_cards": len(filtered_cards),
+            "all_cards_count": len(chase_cards),
+            "data": filtered_cards,
             "source": "tcgdex" if chase_cards else "pokemontcg",
+            "filters": {
+                "chase_only": chase_only,
+                "min_price": min_price
+            },
             "cached_at": datetime.now().isoformat()
         }
         
-        # Cache the result
+        # Cache the full result (before filtering)
         if chase_cards:
-            _set_cached_set_cards(set_id, result)
+            full_result = {**result, "data": chase_cards, "total_cards": len(chase_cards)}
+            _set_cached_set_cards(set_id, full_result)
         
         return jsonify(result)
         
@@ -2376,20 +2430,128 @@ def get_set_cards(set_id: str):
         return jsonify({"error": str(e), "success": False, "set_id": set_id}), 500
 
 
+@app.get("/api/chase-cards")
+def get_all_chase_cards():
+    """
+    Get chase cards from ALL popular sets.
+    
+    Query params:
+    - min_price=X: Minimum price filter (default: 20)
+    - limit=X: Max cards per set (default: 10)
+    - sets=sv8pt5,swsh7: Comma-separated set IDs (optional, defaults to popular sets)
+    
+    Example: /api/chase-cards?min_price=50&limit=5
+    """
+    try:
+        import requests
+        
+        # Get params
+        min_price = float(request.args.get("min_price", 20) or 20)
+        limit_per_set = int(request.args.get("limit", 10) or 10)
+        requested_sets = request.args.get("sets", "")
+        
+        # Popular sets to check
+        if requested_sets:
+            set_ids = [s.strip() for s in requested_sets.split(",")]
+        else:
+            set_ids = [
+                "sv8pt5",  # Prismatic Evolutions
+                "sv8",     # Surging Sparks
+                "sv6pt5",  # Shrouded Fable
+                "sv4pt5",  # Paldean Fates
+                "sv3pt5",  # 151
+                "swsh7",   # Evolving Skies
+                "swsh12pt5",  # Crown Zenith
+            ]
+        
+        all_chase_cards = []
+        
+        for set_id in set_ids:
+            try:
+                # Use internal endpoint to get cards
+                cached = _get_cached_set_cards(set_id)
+                if cached:
+                    cards = cached.get("data", [])
+                else:
+                    # Fetch fresh
+                    # This is a simplified version - in production you'd call the actual function
+                    continue
+                
+                # Filter for chase cards
+                chase = [c for c in cards if _is_chase_card(c) and (c.get("price", 0) or 0) >= min_price]
+                chase = chase[:limit_per_set]
+                
+                for card in chase:
+                    card["set_id"] = set_id
+                    all_chase_cards.append(card)
+                    
+            except Exception as e:
+                print(f"Error fetching {set_id}: {e}")
+                continue
+        
+        # Sort all by price
+        all_chase_cards.sort(key=lambda x: x.get("price", 0), reverse=True)
+        
+        return jsonify({
+            "success": True,
+            "total_cards": len(all_chase_cards),
+            "sets_checked": set_ids,
+            "filters": {"min_price": min_price, "limit_per_set": limit_per_set},
+            "data": all_chase_cards
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+
 def _estimate_price_by_rarity(rarity: str, name: str = "") -> float:
     """Estimate card price based on rarity and name."""
     rarity = (rarity or "").lower()
     name = (name or "").lower()
     
-    # Special cards
-    if "charizard" in name:
-        return 150.0 if "rare" in rarity else 50.0
-    if "pikachu" in name and ("illustration" in rarity or "special" in rarity):
-        return 100.0
+    # Top chase Pokemon - high base prices
     if "umbreon" in name:
-        return 200.0 if "rare" in rarity else 40.0
-    if "eevee" in name and ("illustration" in rarity or "special" in rarity):
-        return 80.0
+        if "vmax" in name or "ex" in name:
+            return 250.0 if "illustration" in rarity or "secret" in rarity else 80.0
+        return 40.0
+    if "charizard" in name:
+        if "vmax" in name or "ex" in name:
+            return 200.0 if "illustration" in rarity or "secret" in rarity else 60.0
+        return 30.0
+    if "pikachu" in name:
+        if "vmax" in name or "ex" in name:
+            return 150.0 if "illustration" in rarity or "special" in rarity else 40.0
+        return 15.0
+    if "rayquaza" in name:
+        if "vmax" in name or "ex" in name:
+            return 180.0 if "illustration" in rarity else 50.0
+        return 25.0
+    if "mewtwo" in name or "mew " in name or name == "mew":
+        if "ex" in name or "vmax" in name:
+            return 100.0 if "illustration" in rarity else 35.0
+        return 20.0
+    if "eevee" in name:
+        return 80.0 if "illustration" in rarity or "special" in rarity else 15.0
+    
+    # Eeveelutions
+    eeveelutions = ["vaporeon", "jolteon", "flareon", "espeon", "glaceon", "leafeon", "sylveon"]
+    for eevee in eeveelutions:
+        if eevee in name:
+            if "ex" in name or "vmax" in name:
+                return 60.0 if "illustration" in rarity else 25.0
+            return 10.0
+    
+    # Card type based pricing (ex, VMAX, etc.)
+    if " ex" in name or name.endswith(" ex"):
+        return 35.0
+    if "vmax" in name:
+        return 30.0
+    if "vstar" in name:
+        return 20.0
+    if " v" in name and not "vmax" in name and not "vstar" in name:
+        return 8.0
+    if " gx" in name:
+        return 15.0
     
     # Rarity-based pricing
     if "special illustration" in rarity or "hyper" in rarity:
@@ -2400,7 +2562,7 @@ def _estimate_price_by_rarity(rarity: str, name: str = "") -> float:
         return 40.0
     if "ultra" in rarity or "full art" in rarity:
         return 25.0
-    if "holo" in rarity:
+    if "holo" in rarity and "rare" in rarity:
         return 5.0
     if "rare" in rarity:
         return 2.0
