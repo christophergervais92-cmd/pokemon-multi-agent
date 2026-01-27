@@ -7545,10 +7545,17 @@
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => {
                             controller.abort(new Error('Request timeout - API is slow'));
-                        }, 20000); // 20s timeout (reduced from 45s)
+                        }, 30000); // 30s timeout for backend proxy
                         
-                        // Fetch with larger page size to get more cards (250 for better value calculation)
-                        const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250&select=id,name,number,images,rarity,set,tcgplayer`, {
+                        // Use backend proxy for better reliability (avoids CORS and has API key)
+                        const isDeployed = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+                        const backendUrl = 'https://pokemon-multi-agent.onrender.com';
+                        const apiUrl = isDeployed 
+                            ? `${backendUrl}/api/tcg/cards?q=set.id:${setId}&pageSize=250&select=id,name,number,images,rarity,set,tcgplayer`
+                            : `https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250&select=id,name,number,images,rarity,set,tcgplayer`;
+                        
+                        console.log('Fetching from:', isDeployed ? 'backend proxy' : 'direct API', apiUrl);
+                        const response = await fetch(apiUrl, {
                             method: 'GET',
                             headers: { 'Accept': 'application/json' },
                             signal: controller.signal
@@ -7568,9 +7575,14 @@
                             const remainingPages = Math.ceil((data.totalCount - 250) / 250);
                             const pagePromises = [];
                             
+                            // Use same proxy logic for pagination
+                            const pageBaseUrl = isDeployed 
+                                ? `${backendUrl}/api/tcg/cards?q=set.id:${setId}&pageSize=250&select=id,name,number,images,rarity,set,tcgplayer`
+                                : `https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250&select=id,name,number,images,rarity,set,tcgplayer`;
+                            
                             for (let page = 2; page <= remainingPages + 1; page++) {
                                 pagePromises.push(
-                                    fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&pageSize=250&page=${page}&select=id,name,number,images,rarity,set,tcgplayer`, {
+                                    fetch(`${pageBaseUrl}&page=${page}`, {
                                         headers: { 'Accept': 'application/json' }
                                     }).then(res => res.ok ? res.json() : null).catch(() => null)
                                 );
