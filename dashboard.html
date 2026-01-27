@@ -2735,6 +2735,8 @@
     <div class="alerts" id="alertsContainer"></div>
 
     <script>
+        console.log('[PokeAgent] Script starting...', new Date().toISOString());
+        
         // Global variables - declare early to avoid initialization errors
         let allCardResults = [];
         let selectedCard = null;
@@ -2854,7 +2856,7 @@
         }
         
         let API = getDefaultAPI();
-        let settings = _getSavedSettings(); // Use safe helper before optimizedLocalStorageGet is defined
+        let settings = _getSavedSettings(); // Use safe helper (runs before optimizedLocalStorageGet is defined)
         
         // Global variables (must be at top to avoid temporal dead zone)
         let allSetsData = [];
@@ -3539,9 +3541,14 @@
             prefetchCommonData(); // Prefetch on load
             initAuth(); // Initialize authentication
             
-            // Nav
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.addEventListener('click', () => switchSection(btn.dataset.section));
+            // Nav - Add click handlers with debugging
+            const navButtons = document.querySelectorAll('.nav-btn');
+            console.log('[Nav] Found', navButtons.length, 'nav buttons');
+            navButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    console.log('[Nav] Button clicked:', btn.dataset.section);
+                    switchSection(btn.dataset.section);
+                });
             });
 
             // Debounced search as you type - faster UX
@@ -3616,10 +3623,20 @@
         }
 
         function switchSection(name) {
+            console.log('[Nav] switchSection called with:', name);
+            
+            // Remove active class from all nav buttons and sections
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-            document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
-            document.getElementById(name)?.classList.add('active');
+            
+            // Add active class to the clicked nav button and corresponding section
+            const navBtn = document.querySelector(`[data-section="${name}"]`);
+            const section = document.getElementById(name);
+            
+            console.log('[Nav] Found nav button:', !!navBtn, 'Found section:', !!section);
+            
+            navBtn?.classList.add('active');
+            section?.classList.add('active');
             
             // Sync mobile dropdown
             const mobileSelect = document.getElementById('mobileNavSelect');
