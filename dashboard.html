@@ -7559,7 +7559,17 @@
                             throw new Error(`API returned ${response.status}`);
                         }
                         
-                        data = await response.json();
+                        const text = await response.text();
+                        if (!text || text.trim() === '') {
+                            throw new Error('API returned empty response - service may be down');
+                        }
+                        
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            throw new Error('API returned invalid JSON - service may be experiencing issues');
+                        }
+                        
                         console.log('API response:', data.data?.length, 'cards (attempt', attempt + ')');
                         
                         // If we got cards but there might be more, fetch additional pages
@@ -7638,11 +7648,22 @@
             } catch (error) {
                 console.error('Error loading set cards:', error);
                 const isTimeout = error.message?.includes('timeout') || error.message?.includes('aborted');
+                const isNetworkError = error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('Failed');
                 chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
                     <div style="font-size: 2rem; margin-bottom: 1rem;">${isTimeout ? '⏱️' : '❌'}</div>
-                    <div style="color: var(--red); font-weight: 600; margin-bottom: 0.5rem;">${isTimeout ? 'Request Timed Out' : 'Error Loading Cards'}</div>
-                    <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">${isTimeout ? 'The Pokemon TCG API is slow. Please try again.' : error.message}</div>
-                    <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 0.5rem;">🔄 Try Again</button>
+                    <div style="color: var(--red); font-weight: 600; margin-bottom: 0.5rem;">${isTimeout ? 'Request Timed Out' : 'Pokemon TCG API Unavailable'}</div>
+                    <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        ${isTimeout ? 'The Pokemon TCG API is slow.' : 'The Pokemon TCG API may be down or rate limited.'}
+                        <br><span style="font-size: 0.75rem;">Error: ${error.message || 'Unknown error'}</span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                        <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 0.5rem;">🔄 Try Again</button>
+                        <a href="https://pokemontcg.io" target="_blank" class="btn" style="margin-top: 0.5rem; background: var(--bg-hover);">Check API Status</a>
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1rem;">
+                        The Pokemon TCG API (pokemontcg.io) is a third-party service.<br>
+                        If it's down, please try again later.
+                    </div>
                 </div>`;
             }
         }
