@@ -1,6 +1,0 @@
-# Python Dependencies for Video Pipeline
-openai>=1.0.0
-elevenlabs>=0.2.0
-TikTokApi>=6.0.0
-playwright>=1.40.0
-pillow>=10.0.0

@@ -45,3 +45,15 @@ node_modules/
 venv/
 env/
 .venv/
+
+# Video generation (separate project)
+agents/assets/
+agents/audio/
+agents/content/
+agents/social/
+agents/video_*.py
+remotion/
+*.video.example
+requirements-video.txt
+start_video_server.py
+quickstart_video.py
