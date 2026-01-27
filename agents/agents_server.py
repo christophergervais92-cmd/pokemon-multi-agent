@@ -2319,15 +2319,23 @@ def get_set_cards(set_id: str):
                 
                 # Get cards from set
                 card_list = set_data.get("cards", [])
-                print(f"[Set Cards] TCGdex returned {len(card_list)} cards")
+                total_cards = set_data.get("cardCount", {}).get("total", len(card_list)) or len(card_list)
+                print(f"[Set Cards] TCGdex returned {len(card_list)} cards (total in set: {total_cards})")
                 
                 for card in card_list:
                     # Get full card details for image
                     card_id = card.get("id", "")
+                    card_name = card.get("name", "")
+                    card_number = int(card.get("localId", 0) or 0)
+                    
+                    # Get rarity from TCGdex, or estimate from card characteristics
+                    rarity = card.get("rarity") or ""
+                    if not rarity or rarity.lower() == "common":
+                        # Estimate rarity from card name and number
+                        rarity = _estimate_rarity(card_name, card_number, total_cards)
                     
                     # Estimate price based on rarity
-                    rarity = card.get("rarity", "Common")
-                    price = _estimate_price_by_rarity(rarity, card.get("name", ""))
+                    price = _estimate_price_by_rarity(rarity, card_name)
                     
                     chase_cards.append({
                         "id": f"{set_id}-{card.get('localId', card_id)}",
@@ -2502,6 +2510,49 @@ def get_all_chase_cards():
         
     except Exception as e:
         return jsonify({"error": str(e), "success": False}), 500
+
+
+def _estimate_rarity(name: str, card_number: int, total_cards: int) -> str:
+    """Estimate rarity based on card name, number, and set size."""
+    name_lower = (name or "").lower()
+    
+    # Check for ex/V/VMAX/VSTAR in name (these are always rare+)
+    if " ex" in name_lower or name_lower.endswith(" ex"):
+        if card_number > total_cards * 0.8:  # High number = likely special art
+            return "Special Illustration Rare"
+        return "Double Rare"
+    
+    if "vmax" in name_lower:
+        if card_number > total_cards * 0.85:
+            return "Alternate Art Rare"
+        return "Ultra Rare"
+    
+    if "vstar" in name_lower:
+        return "Ultra Rare"
+    
+    if " v" in name_lower or name_lower.endswith(" v"):
+        return "Ultra Rare"
+    
+    if " gx" in name_lower:
+        return "Ultra Rare"
+    
+    # Check card number relative to set size
+    if total_cards > 0:
+        position = card_number / total_cards
+        if position > 0.9:  # Top 10% - secret rares
+            return "Secret Rare"
+        elif position > 0.75:  # 75-90% - illustration rares
+            return "Illustration Rare"
+        elif position > 0.6:  # 60-75% - holos
+            return "Holo Rare"
+    
+    # Default based on name patterns
+    if "radiant" in name_lower:
+        return "Radiant Rare"
+    if "gold" in name_lower:
+        return "Secret Rare"
+    
+    return "Rare"
 
 
 def _estimate_price_by_rarity(rarity: str, name: str = "") -> float:
