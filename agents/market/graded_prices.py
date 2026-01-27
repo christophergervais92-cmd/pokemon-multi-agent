@@ -1532,26 +1532,11 @@ class GradedPriceChecker:
                 )
         
         # =================================================================
-        # SOURCE 5: eBay scraping (slow but comprehensive)
+        # NO MORE ESTIMATES - Only show REAL prices from actual sales data
         # =================================================================
-        if self.use_ebay and raw_price >= 10 and not graded_prices:
-            graded_prices = get_ebay_graded_prices(card_name)
-        
-        # Fill in missing grades with estimates (mark clearly as estimated)
-        if raw_price > 0:
-            # Get rarity from raw_data if available
-            card_rarity = raw_data.get("rarity", "") if raw_data else ""
-            estimated = estimate_graded_prices(
-                raw_price, 
-                card_name=card_name, 
-                card_rarity=card_rarity,
-                set_name=set_name
-            )
-            for grade, price_data in estimated.items():
-                if grade not in graded_prices:
-                    # Mark as estimated in source
-                    price_data.source = "~Estimated"
-                    graded_prices[grade] = price_data
+        # We no longer fill in missing grades with estimates
+        # If PriceCharting/PriceTracker/Collectr don't have the data, we don't show it
+        # This ensures users only see accurate market prices
         
         # Determine source
         source = "Pokemon TCG API"

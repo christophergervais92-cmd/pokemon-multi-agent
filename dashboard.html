@@ -9772,45 +9772,57 @@
                     'BGS 9.5': { mult: 2.0, range: [1.5, 2.8], label: 'BGS 9.5 Gem Mint' },
                 };
                 
-                // Calculate graded prices
-                allGradePrices['PSA 10'] = basePrice * gradeMultipliers['PSA 10'].mult;
-                allGradePrices['PSA 9'] = basePrice * gradeMultipliers['PSA 9'].mult;
-                allGradePrices['PSA 8'] = basePrice * gradeMultipliers['PSA 8'].mult;
-                allGradePrices['PSA 7'] = basePrice * (isVintage ? 1.5 : 1.0);
-                allGradePrices['CGC 10'] = basePrice * gradeMultipliers['CGC 10'].mult;
-                allGradePrices['CGC 9.5'] = basePrice * gradeMultipliers['CGC 9.5'].mult;
-                allGradePrices['CGC 9'] = basePrice * (isVintage ? 3.5 : 1.3);
-                allGradePrices['BGS 10 Black'] = basePrice * gradeMultipliers['BGS 10 Black'].mult;
-                allGradePrices['BGS 10'] = basePrice * gradeMultipliers['BGS 10'].mult;
-                allGradePrices['BGS 9.5'] = basePrice * gradeMultipliers['BGS 9.5'].mult;
+                // =========================================================
+                // REAL PRICES ONLY - No more estimates
+                // Check if backend returned real graded prices from PriceCharting
+                // =========================================================
+                const backendGraded = priceData?.graded || {};
+                const hasRealPrices = Object.keys(backendGraded).length > 0;
                 
-                priceHtml += `
-                    <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0.25rem;">
-                        Graded Prices (${cardTypeLabel}) — <span style="color: var(--accent);">~</span> = Est. from eBay
-                    </div>
-                `;
-                
-                // Display in organized order: PSA, CGC, BGS
-                const displayOrder = ['PSA 10', 'PSA 9', 'PSA 8', 'CGC 10', 'CGC 9.5', 'BGS 10 Black', 'BGS 10', 'BGS 9.5'];
-                
-                for (const grade of displayOrder) {
-                    const data = gradeMultipliers[grade];
-                    if (!data) continue;
-                    
-                    const price = basePrice * data.mult;
-                    const lowPrice = basePrice * data.range[0];
-                    const highPrice = basePrice * data.range[1];
-                    
-                    const isBlackLabel = grade === 'BGS 10 Black';
-                    const cellStyle = isBlackLabel ? 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid gold;' : '';
-                    const labelStyle = isBlackLabel ? 'color: gold; font-weight: 600;' : '';
-                    
+                if (hasRealPrices) {
+                    // We have REAL prices from PriceCharting/APIs
                     priceHtml += `
-                        <div class="price-cell" style="${cellStyle}">
-                            <div class="price-label" style="${labelStyle}">${data.label || grade}</div>
-                            <div class="price-value" ${isBlackLabel ? 'style="color: gold;"' : ''}>~$${formatPrice(price)}</div>
-                            <div style="font-size: 0.5rem; color: var(--text-muted);">
-                                $${formatPrice(lowPrice)} - $${formatPrice(highPrice)}
+                        <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0.25rem;">
+                            Graded Prices (Real Market Data from PriceCharting)
+                        </div>
+                    `;
+                    
+                    // Display order for graded prices
+                    const displayOrder = ['PSA 10', 'PSA 9', 'PSA 8', 'PSA 7', 'CGC 10 Pristine', 'CGC 10', 'CGC 9.5', 'BGS 10 Black Label', 'BGS 10', 'BGS 9.5'];
+                    
+                    for (const grade of displayOrder) {
+                        const gradeData = backendGraded[grade];
+                        if (!gradeData) continue;
+                        
+                        const price = typeof gradeData === 'object' ? gradeData.price : gradeData;
+                        if (!price || price <= 0) continue;
+                        
+                        allGradePrices[grade] = price;
+                        
+                        const isBlackLabel = grade.includes('Black');
+                        const cellStyle = isBlackLabel ? 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid gold;' : '';
+                        const labelStyle = isBlackLabel ? 'color: gold; font-weight: 600;' : '';
+                        
+                        // Get label from multipliers or use grade name
+                        const label = gradeMultipliers[grade]?.label || grade;
+                        
+                        priceHtml += `
+                            <div class="price-cell" style="${cellStyle}">
+                                <div class="price-label" style="${labelStyle}">${label}</div>
+                                <div class="price-value" ${isBlackLabel ? 'style="color: gold;"' : ''}>$${formatPrice(price)}</div>
+                                <div style="font-size: 0.5rem; color: var(--accent);">Real Market Price</div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    // No real prices available - show link to find them
+                    priceHtml += `
+                        <div style="grid-column: 1 / -1; padding: 1rem; background: var(--bg-card-elevated); border-radius: 8px; margin-top: 0.5rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">
+                                <strong style="color: var(--text);">Graded prices loading...</strong><br>
+                                Real market prices from PriceCharting/eBay<br><br>
+                                <a href="https://www.pricecharting.com/search-products?q=${encodeURIComponent(card.name + ' pokemon')}&type=pokemon" 
+                                   target="_blank" style="color: var(--accent);">View on PriceCharting →</a>
                             </div>
                         </div>
                     `;
