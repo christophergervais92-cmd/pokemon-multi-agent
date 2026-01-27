@@ -3969,13 +3969,27 @@ def get_all_drop_intel():
 
 
 # =============================================================================
-# VIDEO GENERATION ENDPOINTS
+# VIDEO GENERATION ENDPOINTS (Optional - graceful degradation if not available)
 # =============================================================================
 
-from agents.video_orchestrator import VideoOrchestrator
-from agents.content.script_database import ScriptDatabase as VideoScriptDB
-from agents.social.post_scheduler import PostScheduler
-from agents.social.tiktok_uploader import TikTokUploader
+# Video imports are optional - don't break server if they fail
+VIDEO_AVAILABLE = False
+VideoOrchestrator = None
+VideoScriptDB = None
+PostScheduler = None
+TikTokUploader = None
+
+try:
+    from agents.video_orchestrator import VideoOrchestrator
+    from agents.content.script_database import ScriptDatabase as VideoScriptDB
+    from agents.social.post_scheduler import PostScheduler
+    from agents.social.tiktok_uploader import TikTokUploader
+    VIDEO_AVAILABLE = True
+    print("[Server] Video generation modules loaded successfully")
+except ImportError as e:
+    print(f"[Server] Video modules not available: {e}")
+except Exception as e:
+    print(f"[Server] Error loading video modules: {e}")
 
 video_orchestrator = None
 video_script_db = None
@@ -3985,6 +3999,8 @@ video_uploader = None
 def get_video_orchestrator():
     """Get or create video orchestrator."""
     global video_orchestrator
+    if not VIDEO_AVAILABLE:
+        return None
     if video_orchestrator is None:
         video_orchestrator = VideoOrchestrator()
     return video_orchestrator
@@ -3992,6 +4008,8 @@ def get_video_orchestrator():
 def get_video_script_db():
     """Get or create video script database."""
     global video_script_db
+    if not VIDEO_AVAILABLE:
+        return None
     if video_script_db is None:
         video_script_db = VideoScriptDB()
     return video_script_db
@@ -3999,6 +4017,8 @@ def get_video_script_db():
 def get_post_scheduler():
     """Get or create post scheduler."""
     global video_post_scheduler
+    if not VIDEO_AVAILABLE:
+        return None
     if video_post_scheduler is None:
         video_post_scheduler = PostScheduler()
     return video_post_scheduler
@@ -4006,6 +4026,8 @@ def get_post_scheduler():
 def get_video_uploader():
     """Get or create TikTok uploader."""
     global video_uploader
+    if not VIDEO_AVAILABLE:
+        return None
     if video_uploader is None:
         video_uploader = TikTokUploader()
     return video_uploader
@@ -4021,6 +4043,9 @@ def video_generate():
     - duration: Video duration in seconds (default: 30)
     - auto_post: Auto-post to TikTok (default: false)
     """
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video generation not available on this server", "success": False}), 503
+    
     try:
         data = request.get_json() or {}
         
@@ -4047,6 +4072,8 @@ def video_generate_batch():
     - count: Number of videos (default: 3)
     - auto_post: Auto-post to TikTok (default: false)
     """
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video generation not available on this server", "success": False}), 503
     try:
         data = request.get_json() or {}
         
@@ -4069,6 +4096,8 @@ def video_generate_batch():
 @app.get("/video/status/<int:script_id>")
 def video_status(script_id):
     """Get video generation status by script ID."""
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video generation not available on this server", "success": False}), 503
     try:
         db = get_video_script_db()
         script = db.get_script(script_id)
@@ -4087,6 +4116,8 @@ def video_status(script_id):
 @app.get("/video/queue")
 def video_queue():
     """Get pending and rendering videos."""
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video generation not available on this server", "success": False}), 503
     try:
         db = get_video_script_db()
         
@@ -4112,6 +4143,8 @@ def video_render():
     Body params:
     - script_id: Script database ID
     """
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video generation not available on this server", "success": False}), 503
     try:
         data = request.get_json() or {}
         script_id = data.get('script_id')
@@ -4146,6 +4179,8 @@ def tiktok_post():
     - caption: Video caption
     - hashtags: List of hashtags
     """
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video/TikTok features not available on this server", "success": False}), 503
     try:
         data = request.get_json() or {}
         
@@ -4172,6 +4207,8 @@ def tiktok_post():
 @app.get("/tiktok/stats")
 def tiktok_stats():
     """Get TikTok posting statistics."""
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video/TikTok features not available on this server", "success": False}), 503
     try:
         db = get_video_script_db()
         scheduler = get_post_scheduler()
@@ -4197,6 +4234,8 @@ def video_schedule():
     - num_posts: Number of posts to schedule (default: 5)
     - avoid_weekends: Skip weekends (default: false)
     """
+    if not VIDEO_AVAILABLE:
+        return jsonify({"error": "Video/TikTok features not available on this server", "success": False}), 503
     try:
         num_posts = int(request.args.get('num_posts', 5))
         avoid_weekends = request.args.get('avoid_weekends', 'false').lower() == 'true'
