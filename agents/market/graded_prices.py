@@ -255,10 +255,21 @@ KNOWN_CARD_PRICES = {
     "charizard ex sir surging sparks": {"raw": 180, "psa10": 900, "psa9": 380, "psa8": 240, "cgc10": 420, "cgc95": 350, "bgs10": 780, "bgs10black": 2200, "type": "sir"},
     
     # ==========================================================================
-    # PRISMATIC EVOLUTIONS (SV8.5) - 2025-2026
+    # PRISMATIC EVOLUTIONS (SV8.5) - VERIFIED PRICECHARTING.COM Jan 27, 2026
     # ==========================================================================
-    "umbreon ex prismatic": {"raw": 280, "psa10": 1400, "psa9": 580, "psa8": 360, "cgc10": 650, "cgc95": 520, "bgs10": 1200, "bgs10black": 3400, "type": "sir"},
-    "eevee sir prismatic": {"raw": 150, "psa10": 750, "psa9": 310, "psa8": 190, "cgc10": 350, "cgc95": 280, "bgs10": 650, "bgs10black": 1800, "type": "sir"},
+    # Umbreon ex #161 SIR - REAL PRICECHARTING DATA
+    "umbreon ex prismatic": {"raw": 1049, "psa10": 1148, "psa9": 950, "psa8": 850, "cgc10": 1000, "cgc95": 900, "cgc10pristine": 1500, "bgs10": 1100, "bgs95": 950, "bgs10black": 3000, "type": "sir"},
+    "umbreon ex 161": {"raw": 1049, "psa10": 1148, "psa9": 950, "psa8": 850, "cgc10": 1000, "cgc95": 900, "cgc10pristine": 1500, "bgs10": 1100, "bgs95": 950, "bgs10black": 3000, "type": "sir"},
+    "umbreon ex sir prismatic": {"raw": 1049, "psa10": 1148, "psa9": 950, "psa8": 850, "cgc10": 1000, "cgc95": 900, "cgc10pristine": 1500, "bgs10": 1100, "bgs95": 950, "bgs10black": 3000, "type": "sir"},
+    
+    # Eevee ex #167 SIR - REAL PRICECHARTING DATA  
+    "eevee ex prismatic": {"raw": 114, "psa10": 118, "psa9": 100, "psa8": 90, "cgc10": 110, "cgc95": 100, "bgs10": 115, "bgs10black": 350, "type": "sir"},
+    "eevee ex 167": {"raw": 114, "psa10": 118, "psa9": 100, "psa8": 90, "cgc10": 110, "cgc95": 100, "bgs10": 115, "bgs10black": 350, "type": "sir"},
+    "eevee sir prismatic": {"raw": 114, "psa10": 118, "psa9": 100, "psa8": 90, "cgc10": 110, "cgc95": 100, "bgs10": 115, "bgs10black": 350, "type": "sir"},
+    
+    # Pikachu ex #179 SIR - REAL PRICECHARTING DATA
+    "pikachu ex prismatic": {"raw": 44, "psa10": 66, "psa9": 55, "psa8": 48, "cgc10": 55, "cgc95": 48, "bgs10": 60, "bgs10black": 180, "type": "sir"},
+    "pikachu ex 179": {"raw": 44, "psa10": 66, "psa9": 55, "psa8": 48, "cgc10": 55, "cgc95": 48, "bgs10": 60, "bgs10black": 180, "type": "sir"},
     
     # ==========================================================================
     # 151 (SV3.5) - VERIFIED PRICECHARTING.COM PRICES - Jan 27, 2026
@@ -308,9 +319,16 @@ KNOWN_CARD_PRICES = {
     "flying pikachu v": {"raw": 6, "psa10": 18, "psa9": 10, "psa8": 7, "cgc10": 10, "cgc95": 8, "bgs10": 15, "bgs10black": 45},
     "surfing pikachu vmax": {"raw": 12, "psa10": 32, "psa9": 18, "psa8": 14, "cgc10": 18, "cgc95": 15, "bgs10": 28, "bgs10black": 80},
     
-    # Umbreon (Alt arts have higher premiums) - WITH CGC/BGS PRICES
-    "umbreon vmax alt": {"raw": 280, "psa10": 650, "psa9": 380, "psa8": 310, "cgc10": 350, "cgc95": 300, "cgc10pristine": 550, "bgs10": 580, "bgs95": 320, "bgs10black": 1600, "type": "chase"},
-    "umbreon vmax 215": {"raw": 280, "psa10": 650, "psa9": 380, "psa8": 310, "cgc10": 350, "cgc95": 300, "cgc10pristine": 550, "bgs10": 580, "bgs95": 320, "bgs10black": 1600, "type": "chase"},
+    # ==========================================================================
+    # EVOLVING SKIES - VERIFIED PRICECHARTING.COM Jan 27, 2026
+    # ==========================================================================
+    # Umbreon VMAX #215 Alt Art - REAL PRICECHARTING DATA (MOST VALUABLE MODERN CARD!)
+    "umbreon vmax alt": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
+    "umbreon vmax 215": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
+    "umbreon vmax alt art": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
+    "umbreon vmax evolving skies": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
+    
+    # Regular Umbreon VMAX (not alt art)
     "umbreon vmax": {"raw": 35, "psa10": 88, "psa9": 52, "psa8": 40, "cgc10": 48, "cgc95": 42, "bgs10": 75, "bgs10black": 220},
     "umbreon v alt": {"raw": 70, "psa10": 165, "psa9": 98, "psa8": 78, "cgc10": 90, "cgc95": 75, "bgs10": 140, "bgs10black": 400},
     "umbreon gx": {"raw": 22, "psa10": 65, "psa9": 35, "psa8": 26, "cgc10": 35, "cgc95": 30, "bgs10": 55, "bgs10black": 160},
@@ -343,9 +361,13 @@ KNOWN_CARD_PRICES = {
     # Scarlet & Violet Era (Very recent - low premiums)
     "miraidon ex": {"raw": 22, "psa10": 55, "psa9": 32, "psa8": 25},
     "koraidon ex": {"raw": 18, "psa10": 48, "psa9": 28, "psa8": 21},
-    # Popular Alt Arts - WITH CGC/BGS PRICES
-    "rayquaza vmax alt": {"raw": 240, "psa10": 550, "psa9": 330, "psa8": 270, "cgc10": 300, "cgc95": 260, "cgc10pristine": 480, "bgs10": 490, "bgs95": 280, "bgs10black": 1350, "type": "chase"},
-    "rayquaza vmax 218": {"raw": 240, "psa10": 550, "psa9": 330, "psa8": 270, "cgc10": 300, "cgc95": 260, "cgc10pristine": 480, "bgs10": 490, "bgs95": 280, "bgs10black": 1350, "type": "chase"},
+    # Rayquaza VMAX #218 Alt Art - REAL PRICECHARTING DATA Jan 27, 2026
+    "rayquaza vmax alt": {"raw": 630, "psa10": 720, "psa9": 600, "psa8": 550, "cgc10": 650, "cgc95": 580, "cgc10pristine": 900, "bgs10": 700, "bgs95": 600, "bgs10black": 1800, "type": "chase"},
+    "rayquaza vmax 218": {"raw": 630, "psa10": 720, "psa9": 600, "psa8": 550, "cgc10": 650, "cgc95": 580, "cgc10pristine": 900, "bgs10": 700, "bgs95": 600, "bgs10black": 1800, "type": "chase"},
+    "rayquaza vmax alt art": {"raw": 630, "psa10": 720, "psa9": 600, "psa8": 550, "cgc10": 650, "cgc95": 580, "cgc10pristine": 900, "bgs10": 700, "bgs95": 600, "bgs10black": 1800, "type": "chase"},
+    "rayquaza vmax evolving skies": {"raw": 630, "psa10": 720, "psa9": 600, "psa8": 550, "cgc10": 650, "cgc95": 580, "cgc10pristine": 900, "bgs10": 700, "bgs95": 600, "bgs10black": 1800, "type": "chase"},
+    
+    # Giratina VSTAR Alt Art
     "giratina vstar alt": {"raw": 185, "psa10": 430, "psa9": 255, "psa8": 210, "cgc10": 235, "cgc95": 200, "cgc10pristine": 375, "bgs10": 380, "bgs95": 220, "bgs10black": 1050, "type": "chase"},
     "giratina vstar 131": {"raw": 185, "psa10": 430, "psa9": 255, "psa8": 210, "cgc10": 235, "cgc95": 200, "cgc10pristine": 375, "bgs10": 380, "bgs95": 220, "bgs10black": 1050, "type": "chase"},
     
@@ -353,17 +375,33 @@ KNOWN_CARD_PRICES = {
     "eevee sv prismatic": {"raw": 6, "psa10": 22, "psa9": 12, "psa8": 8},
     "umbreon sv prismatic": {"raw": 95, "psa10": 235, "psa9": 140, "psa8": 110},
     
-    # 151 Set (2023-2024)
-    # 151 Popular Cards - WITH CGC/BGS PRICES
-    "alakazam ex 151": {"raw": 20, "psa10": 52, "psa9": 32, "psa8": 24, "cgc10": 28, "cgc95": 24, "bgs10": 45, "bgs10black": 130},
+    # ==========================================================================
+    # 151 Set (SV3.5) - VERIFIED PRICECHARTING.COM Jan 27, 2026
+    # ==========================================================================
+    # Venusaur ex #198 SIR - REAL PRICECHARTING DATA
+    "venusaur ex sir 151": {"raw": 73, "psa10": 76, "psa9": 70, "psa8": 65, "cgc10": 72, "cgc95": 68, "bgs10": 75, "bgs10black": 220, "type": "sir"},
+    "venusaur ex 198": {"raw": 73, "psa10": 76, "psa9": 70, "psa8": 65, "cgc10": 72, "cgc95": 68, "bgs10": 75, "bgs10black": 220, "type": "sir"},
+    "venusaur ex 151": {"raw": 73, "psa10": 76, "psa9": 70, "psa8": 65, "cgc10": 72, "cgc95": 68, "bgs10": 75, "bgs10black": 220, "type": "sir"},
+    
+    # Blastoise ex #200 SIR - REAL PRICECHARTING DATA
+    "blastoise ex sir 151": {"raw": 80, "psa10": 90, "psa9": 78, "psa8": 72, "cgc10": 85, "cgc95": 78, "bgs10": 88, "bgs10black": 250, "type": "sir"},
+    "blastoise ex 200": {"raw": 80, "psa10": 90, "psa9": 78, "psa8": 72, "cgc10": 85, "cgc95": 78, "bgs10": 88, "bgs10black": 250, "type": "sir"},
+    "blastoise ex 151": {"raw": 80, "psa10": 90, "psa9": 78, "psa8": 72, "cgc10": 85, "cgc95": 78, "bgs10": 88, "bgs10black": 250, "type": "sir"},
+    
+    # Alakazam ex #201 SIR - REAL PRICECHARTING DATA
+    "alakazam ex sir 151": {"raw": 45, "psa10": 59, "psa9": 50, "psa8": 45, "cgc10": 52, "cgc95": 48, "bgs10": 55, "bgs10black": 160, "type": "sir"},
+    "alakazam ex 201": {"raw": 45, "psa10": 59, "psa9": 50, "psa8": 45, "cgc10": 52, "cgc95": 48, "bgs10": 55, "bgs10black": 160, "type": "sir"},
+    "alakazam ex 151": {"raw": 45, "psa10": 59, "psa9": 50, "psa8": 45, "cgc10": 52, "cgc95": 48, "bgs10": 55, "bgs10black": 160, "type": "sir"},
+    
+    # Other 151 Popular Cards
     "gengar ex 151": {"raw": 32, "psa10": 82, "psa9": 48, "psa8": 38, "cgc10": 45, "cgc95": 38, "bgs10": 70, "bgs10black": 200},
     "machamp ex 151": {"raw": 12, "psa10": 35, "psa9": 20, "psa8": 15, "cgc10": 20, "cgc95": 16, "bgs10": 30, "bgs10black": 85},
     "dragonite ex 151": {"raw": 15, "psa10": 42, "psa9": 25, "psa8": 18, "cgc10": 23, "cgc95": 19, "bgs10": 36, "bgs10black": 105},
-    "venusaur ex 151": {"raw": 24, "psa10": 62, "psa9": 38, "psa8": 28},
-    "blastoise ex 151": {"raw": 28, "psa10": 72, "psa9": 42, "psa8": 32},
-    "zapdos ex 151": {"raw": 16, "psa10": 45, "psa9": 26, "psa8": 19},
-    "articuno ex 151": {"raw": 14, "psa10": 40, "psa9": 24, "psa8": 17},
-    "moltres ex 151": {"raw": 13, "psa10": 38, "psa9": 22, "psa8": 16},
+    "zapdos ex 151": {"raw": 16, "psa10": 45, "psa9": 26, "psa8": 19, "cgc10": 25, "cgc95": 20, "bgs10": 38, "bgs10black": 110},
+    "articuno ex 151": {"raw": 14, "psa10": 40, "psa9": 24, "psa8": 17, "cgc10": 22, "cgc95": 18, "bgs10": 35, "bgs10black": 100},
+    "moltres ex 151": {"raw": 13, "psa10": 38, "psa9": 22, "psa8": 16, "cgc10": 21, "cgc95": 17, "bgs10": 32, "bgs10black": 95},
+    "mewtwo ex 151 sir": {"raw": 35, "psa10": 85, "psa9": 50, "psa8": 40, "cgc10": 48, "cgc95": 42, "bgs10": 75, "bgs10black": 210, "type": "sir"},
+    "mewtwo ex 195": {"raw": 35, "psa10": 85, "psa9": 50, "psa8": 40, "cgc10": 48, "cgc95": 42, "bgs10": 75, "bgs10black": 210, "type": "sir"},
 }
 
 
