@@ -2765,9 +2765,20 @@
                           !hostname.startsWith('10.') &&
                           !hostname.startsWith('172.');
         
+        // Helper to safely get settings from localStorage (before optimizedLocalStorageGet is defined)
+        function _getSavedApiUrl() {
+            try {
+                const settings = localStorage.getItem('settings');
+                if (settings) {
+                    return JSON.parse(settings)?.api_url;
+                }
+            } catch (e) {}
+            return null;
+        }
+        
         if (isDeployed) {
             // On deployed domain - always use proxy to avoid CORS
-            const savedApi = optimizedLocalStorageGet('settings', {})?.api_url;
+            const savedApi = _getSavedApiUrl();
             if (savedApi && savedApi.startsWith('http')) {
                 BACKEND_API = savedApi;
             } else {
@@ -2777,7 +2788,7 @@
             console.log('[Config] Deployed domain detected:', hostname);
         } else {
             // Local - check if backend is available
-            const savedApi = optimizedLocalStorageGet('settings', {})?.api_url;
+            const savedApi = _getSavedApiUrl();
             if (savedApi && savedApi.startsWith('http')) {
                 BACKEND_API = savedApi;
                 // If saved API is remote, use proxy
