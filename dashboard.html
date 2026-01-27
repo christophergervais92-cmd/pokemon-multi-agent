@@ -7859,7 +7859,26 @@
                     return { card, price };
                 });
                 
-                // Sort by price (highest first), but also prioritize known chase cards
+                // Rarity priority order (most valuable first)
+                const rarityPriority = {
+                    'special illustration rare': 1, 'illustration rare': 2, 'hyper rare': 3,
+                    'secret rare': 4, 'ultra rare': 5, 'double rare': 6, 'art rare': 7,
+                    'full art': 8, 'rainbow rare': 9, 'gold rare': 10, 'shiny rare': 11,
+                    'rare holo vmax': 12, 'rare holo vstar': 13, 'rare holo v': 14,
+                    'rare holo gx': 15, 'rare holo ex': 16, 'amazing rare': 17,
+                    'radiant rare': 18, 'rare secret': 19, 'rare holo': 20,
+                    'rare': 25, 'uncommon': 30, 'common': 35
+                };
+                
+                function getRarityScore(rarity) {
+                    const r = (rarity || '').toLowerCase();
+                    for (const [key, score] of Object.entries(rarityPriority)) {
+                        if (r.includes(key)) return score;
+                    }
+                    return 50; // Unknown rarity
+                }
+                
+                // Sort by price first, then by rarity
                 cardsWithPrices.sort((a, b) => {
                     const aCard = a.card;
                     const bCard = b.card;
@@ -7876,18 +7895,46 @@
                         if (!aIsHighAlt && bIsHighAlt) return 1;
                     }
                     
-                    // If prices are equal or very close, prioritize known chase cards
-                    if (Math.abs(a.price - b.price) < 10) {
-                        const aIsChase = chasePatterns.some(c => c.pattern.test((aCard.name || '').toLowerCase()));
-                        const bIsChase = chasePatterns.some(c => c.pattern.test((bCard.name || '').toLowerCase()));
-                        if (aIsChase && !bIsChase) return -1;
-                        if (!aIsChase && bIsChase) return 1;
+                    // If prices exist and differ significantly, sort by price
+                    if (a.price > 0 || b.price > 0) {
+                        if (Math.abs(a.price - b.price) >= 5) {
+                            return b.price - a.price;
+                        }
                     }
-                    return b.price - a.price;
+                    
+                    // Sort by rarity when prices are similar or missing
+                    const aRarityScore = getRarityScore(aRarity);
+                    const bRarityScore = getRarityScore(bRarity);
+                    if (aRarityScore !== bRarityScore) {
+                        return aRarityScore - bRarityScore;
+                    }
+                    
+                    // Finally sort by card number (higher numbers often more valuable in modern sets)
+                    return bNum - aNum;
                 });
                 
-                // Take top 50 cards by price for display, but ensure we include high-numbered alt arts
-                let chaseCards = cardsWithPrices.slice(0, 50).map(item => item.card);
+                // Filter to only chase/rare cards first, then take top ones
+                // Chase rarities (valuable cards)
+                const chaseRarities = [
+                    'special illustration rare', 'illustration rare', 'hyper rare', 'secret rare',
+                    'ultra rare', 'double rare', 'art rare', 'full art', 'rainbow rare',
+                    'gold rare', 'shiny rare', 'rare holo vmax', 'rare holo v', 'rare holo vstar',
+                    'rare holo gx', 'rare holo ex', 'rare secret', 'amazing rare', 'radiant rare',
+                    'trainer gallery', 'alt art', 'alternate art', 'special art'
+                ];
+                
+                // First, get all chase cards by rarity
+                const chaseByRarity = cardsWithPrices.filter(item => {
+                    const rarity = (item.card.rarity || '').toLowerCase();
+                    return chaseRarities.some(cr => rarity.includes(cr)) || item.price >= 10;
+                });
+                
+                console.log(`Found ${chaseByRarity.length} chase cards by rarity/price`);
+                
+                // If we have chase cards, show them; otherwise show top 50 by price
+                let chaseCards = chaseByRarity.length > 0 
+                    ? chaseByRarity.slice(0, 100).map(item => item.card)  // Show up to 100 chase cards
+                    : cardsWithPrices.slice(0, 50).map(item => item.card);
                 
                 // For Evolving Skies, also include any high-numbered alt arts that might have been missed
                 if (setId === 'swsh7') {
