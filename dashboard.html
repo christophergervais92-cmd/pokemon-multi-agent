@@ -2776,6 +2776,17 @@
             return null;
         }
         
+        // Helper to safely get settings object (before optimizedLocalStorageGet is defined)
+        function _getSavedSettings() {
+            try {
+                const settings = localStorage.getItem('settings');
+                if (settings) {
+                    return JSON.parse(settings);
+                }
+            } catch (e) {}
+            return {};
+        }
+        
         if (isDeployed) {
             // On deployed domain - always use proxy to avoid CORS
             const savedApi = _getSavedApiUrl();
@@ -2843,7 +2854,7 @@
         }
         
         let API = getDefaultAPI();
-        let settings = optimizedLocalStorageGet('settings', {});
+        let settings = _getSavedSettings(); // Use safe helper before optimizedLocalStorageGet is defined
         
         // Global variables (must be at top to avoid temporal dead zone)
         let allSetsData = [];
@@ -2969,7 +2980,12 @@
             if (savedApi) {
                 API = savedApi;
                 settings.api = savedApi;
-                optimizedLocalStorageSet('settings', settings);
+                // Use direct localStorage here since optimizedLocalStorageSet isn't defined yet
+                try {
+                    localStorage.setItem('settings', JSON.stringify(settings));
+                } catch (e) {
+                    console.warn('Failed to save settings:', e);
+                }
             }
         }
         
