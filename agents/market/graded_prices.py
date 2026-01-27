@@ -1470,8 +1470,9 @@ class GradedPriceChecker:
         # SOURCE 3: Pokemon TCG API (raw prices from TCGPlayer)
         # =================================================================
         if not raw_price:
-            raw_data = get_raw_price_from_api(card_name, set_name)
-            if raw_data:
+            api_data = get_raw_price_from_api(card_name, set_name)
+            if api_data:
+                raw_data = api_data  # Only update if we got data
                 raw_price = raw_data.get("raw_price", 0)
                 raw_low = raw_data.get("raw_low", raw_price * 0.85)
                 raw_high = raw_data.get("raw_high", raw_price * 1.15)
