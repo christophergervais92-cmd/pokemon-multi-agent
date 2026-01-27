@@ -75,25 +75,83 @@ CACHE_DIR = Path(__file__).parent.parent.parent / ".price_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_TTL_SECONDS = 300  # 5 minute cache for price data
 
-# Grade multipliers (based on 2025-2026 market analysis)
-# Modern cards have LOWER multipliers than vintage
-# These are realistic multipliers for MODERN cards (2020+)
+# =============================================================================
+# CARD TYPE DETECTION - Used for accurate multiplier selection
+# =============================================================================
+
+def detect_card_type(card_name: str, rarity: str = "", set_name: str = "") -> str:
+    """
+    Detect card type for accurate price multipliers.
+    
+    Returns one of:
+    - 'sir' = Special Illustration Rare (highest premiums)
+    - 'sar' = Special Art Rare  
+    - 'hyper' = Hyper/Gold/Rainbow Rare
+    - 'alt_art' = Alternate Art
+    - 'chase' = Generic chase card (Ultra Rare+)
+    - 'standard' = Regular card
+    """
+    name_lower = card_name.lower()
+    rarity_lower = rarity.lower() if rarity else ""
+    
+    # Special Illustration Rare (SIR) - highest premiums
+    if "special illustration" in rarity_lower or "sir" in name_lower:
+        return "sir"
+    
+    # Check for Secret Rare numbers (like 231/244 where 231 > 244)
+    # These are typically SIRs or chase cards
+    
+    # Special Art Rare (SAR)
+    if "special art" in rarity_lower or "sar" in name_lower:
+        return "sar"
+    
+    # Hyper/Gold/Rainbow Rare
+    if any(x in rarity_lower for x in ["hyper", "gold", "rainbow", "secret"]):
+        return "hyper"
+    if any(x in name_lower for x in ["gold", "rainbow"]):
+        return "hyper"
+    
+    # Alternate Art
+    if "alternate art" in rarity_lower or "alt art" in name_lower or "full art" in rarity_lower:
+        return "alt_art"
+    
+    # VMAX/VSTAR/ex chase cards
+    if any(x in name_lower for x in ["vmax", "vstar", "v-max", "v-star"]):
+        return "chase"
+    
+    # Modern ex cards (lowercase ex)
+    if " ex" in name_lower and not "example" in name_lower:
+        return "chase"
+    
+    # Illustration Rare
+    if "illustration rare" in rarity_lower:
+        return "chase"
+    
+    # Ultra Rare
+    if "ultra rare" in rarity_lower:
+        return "chase"
+    
+    return "standard"
+
+
+# =============================================================================
+# GRADE MULTIPLIERS BY CARD TYPE (based on 2025-2026 market analysis)
+# =============================================================================
+
+# Default multipliers for standard modern cards
 GRADE_MULTIPLIERS = {
-    # PSA multipliers - Modern cards typically 2-3x for PSA 10
     "PSA 10": {"low": 1.8, "mid": 2.5, "high": 4.0, "label": "Gem Mint"},
     "PSA 9": {"low": 1.2, "mid": 1.5, "high": 2.0, "label": "Mint"},
     "PSA 8": {"low": 1.0, "mid": 1.2, "high": 1.5, "label": "NM-MT"},
     "PSA 7": {"low": 0.85, "mid": 1.0, "high": 1.2, "label": "NM"},
     "PSA 6": {"low": 0.7, "mid": 0.85, "high": 1.0, "label": "EX-MT"},
     
-    # CGC multipliers (~75-85% of PSA)
     "CGC 10": {"low": 1.5, "mid": 2.0, "high": 3.2, "label": "Pristine"},
     "CGC 9.5": {"low": 1.3, "mid": 1.7, "high": 2.2, "label": "Gem Mint"},
     "CGC 9": {"low": 1.1, "mid": 1.3, "high": 1.6, "label": "Mint"},
     "CGC 8.5": {"low": 1.0, "mid": 1.15, "high": 1.4, "label": "NM-MT+"},
     "CGC 8": {"low": 0.9, "mid": 1.05, "high": 1.25, "label": "NM-MT"},
     
-    # BGS/Beckett multipliers - Full scale
     "BGS 10 Black": {"low": 4.0, "mid": 6.0, "high": 10.0, "label": "Black Label (Quad 10s)"},
     "BGS 10": {"low": 2.5, "mid": 3.5, "high": 5.0, "label": "Pristine"},
     "BGS 9.5": {"low": 1.5, "mid": 2.0, "high": 2.8, "label": "Gem Mint"},
@@ -102,29 +160,137 @@ GRADE_MULTIPLIERS = {
     "BGS 8": {"low": 0.9, "mid": 1.1, "high": 1.3, "label": "NM-MT"},
 }
 
+# Multipliers for Special Illustration Rares (SIR) - MUCH higher premiums
+# SIRs are highly sought after and PSA 10 population is LOW
+GRADE_MULTIPLIERS_SIR = {
+    "PSA 10": {"low": 3.5, "mid": 5.0, "high": 8.0, "label": "Gem Mint"},
+    "PSA 9": {"low": 1.8, "mid": 2.5, "high": 3.5, "label": "Mint"},
+    "PSA 8": {"low": 1.3, "mid": 1.6, "high": 2.0, "label": "NM-MT"},
+    "PSA 7": {"low": 1.0, "mid": 1.2, "high": 1.5, "label": "NM"},
+    
+    "CGC 10": {"low": 2.8, "mid": 4.0, "high": 6.5, "label": "Pristine"},
+    "CGC 9.5": {"low": 2.0, "mid": 2.8, "high": 4.0, "label": "Gem Mint"},
+    "CGC 9": {"low": 1.5, "mid": 1.9, "high": 2.5, "label": "Mint"},
+    
+    "BGS 10 Black": {"low": 8.0, "mid": 12.0, "high": 20.0, "label": "Black Label (Quad 10s)"},
+    "BGS 10": {"low": 4.5, "mid": 6.5, "high": 10.0, "label": "Pristine"},
+    "BGS 9.5": {"low": 2.5, "mid": 3.5, "high": 5.0, "label": "Gem Mint"},
+}
+
+# Multipliers for Special Art Rares (SAR)
+GRADE_MULTIPLIERS_SAR = {
+    "PSA 10": {"low": 2.5, "mid": 3.5, "high": 5.5, "label": "Gem Mint"},
+    "PSA 9": {"low": 1.5, "mid": 2.0, "high": 2.8, "label": "Mint"},
+    "PSA 8": {"low": 1.1, "mid": 1.4, "high": 1.7, "label": "NM-MT"},
+    
+    "CGC 10": {"low": 2.0, "mid": 2.8, "high": 4.4, "label": "Pristine"},
+    "CGC 9.5": {"low": 1.6, "mid": 2.2, "high": 3.0, "label": "Gem Mint"},
+    
+    "BGS 10 Black": {"low": 6.0, "mid": 9.0, "high": 14.0, "label": "Black Label"},
+    "BGS 10": {"low": 3.5, "mid": 5.0, "high": 7.5, "label": "Pristine"},
+    "BGS 9.5": {"low": 2.0, "mid": 2.8, "high": 4.0, "label": "Gem Mint"},
+}
+
+# Multipliers for chase cards (VMAX, ex, etc.)
+GRADE_MULTIPLIERS_CHASE = {
+    "PSA 10": {"low": 2.2, "mid": 3.0, "high": 4.5, "label": "Gem Mint"},
+    "PSA 9": {"low": 1.4, "mid": 1.8, "high": 2.3, "label": "Mint"},
+    "PSA 8": {"low": 1.05, "mid": 1.3, "high": 1.6, "label": "NM-MT"},
+    
+    "CGC 10": {"low": 1.8, "mid": 2.4, "high": 3.6, "label": "Pristine"},
+    "CGC 9.5": {"low": 1.4, "mid": 1.9, "high": 2.5, "label": "Gem Mint"},
+    
+    "BGS 10 Black": {"low": 5.0, "mid": 7.5, "high": 12.0, "label": "Black Label"},
+    "BGS 10": {"low": 3.0, "mid": 4.2, "high": 6.0, "label": "Pristine"},
+    "BGS 9.5": {"low": 1.8, "mid": 2.4, "high": 3.2, "label": "Gem Mint"},
+}
+
+
+def get_multipliers_for_card(card_name: str, rarity: str = "", set_name: str = "") -> dict:
+    """Get the appropriate multiplier set based on card type."""
+    card_type = detect_card_type(card_name, rarity, set_name)
+    
+    if card_type == "sir":
+        return GRADE_MULTIPLIERS_SIR
+    elif card_type == "sar":
+        return GRADE_MULTIPLIERS_SAR
+    elif card_type in ("chase", "alt_art", "hyper"):
+        return GRADE_MULTIPLIERS_CHASE
+    else:
+        return GRADE_MULTIPLIERS
+
 # Popular cards with known price data (from recent eBay sold - Jan 2026)
 # Format: raw = TCGPlayer market, psa10/9/8 = eBay sold averages
 # Note: Modern cards (2020+) have much lower PSA 10 premiums than vintage
+# SIR (Special Illustration Rare) = 5-8x raw for PSA 10
+# SAR (Special Art Rare) = 3-5x raw for PSA 10
+# Chase ex/VMAX = 2-3x raw for PSA 10
 KNOWN_CARD_PRICES = {
-    # Base Set (VINTAGE - higher premiums)
-    "charizard base set": {"raw": 280, "psa10": 50000, "psa9": 1400, "psa8": 550, "psa7": 320},
-    "charizard base set unlimited": {"raw": 180, "psa10": 5500, "psa9": 900, "psa8": 380},
-    "charizard base set 1st edition": {"raw": 12000, "psa10": 350000, "psa9": 65000, "psa8": 22000},
-    "blastoise base set": {"raw": 75, "psa10": 2800, "psa9": 450, "psa8": 200},
-    "venusaur base set": {"raw": 60, "psa10": 2200, "psa9": 350, "psa8": 160},
+    # ==========================================================================
+    # DESTINED RIVALS (SV8.5) - January 2026
+    # ==========================================================================
+    # Team Rocket's Mewtwo ex SIR #231/244
+    "team rocket's mewtwo ex": {"raw": 85, "psa10": 450, "psa9": 180, "psa8": 110, "type": "sir"},
+    "team rocket's mewtwo ex sir": {"raw": 85, "psa10": 450, "psa9": 180, "psa8": 110, "type": "sir"},
+    "team rocket's mewtwo ex 231": {"raw": 85, "psa10": 450, "psa9": 180, "psa8": 110, "type": "sir"},
     
-    # Modern Charizards (2020+) - Lower premiums, ~2-3x for PSA 10
-    "charizard vmax": {"raw": 48, "psa10": 120, "psa9": 65, "psa8": 52},
-    "charizard vmax shiny": {"raw": 95, "psa10": 220, "psa9": 130, "psa8": 105},
-    "charizard vstar": {"raw": 15, "psa10": 42, "psa9": 25, "psa8": 18},
-    "charizard ex 151": {"raw": 75, "psa10": 180, "psa9": 105, "psa8": 82},
-    "charizard ex obsidian": {"raw": 38, "psa10": 95, "psa9": 55, "psa8": 42},
-    "charizard ex tera": {"raw": 55, "psa10": 135, "psa9": 78, "psa8": 60},
+    # Eevee SIR #232/244
+    "eevee sir destined rivals": {"raw": 65, "psa10": 320, "psa9": 140, "psa8": 85, "type": "sir"},
+    "eevee 232": {"raw": 65, "psa10": 320, "psa9": 140, "psa8": 85, "type": "sir"},
     
-    # Pikachu
-    "pikachu illustrator": {"raw": 450000, "psa10": 4500000, "psa9": 1800000, "psa8": 800000},
-    "pikachu with grey felt hat": {"raw": 400, "psa10": 950, "psa9": 550, "psa8": 320},
-    "van gogh pikachu": {"raw": 400, "psa10": 950, "psa9": 550, "psa8": 320},
+    # Espeon ex SIR
+    "espeon ex sir": {"raw": 120, "psa10": 600, "psa9": 250, "psa8": 150, "type": "sir"},
+    
+    # Umbreon ex SIR
+    "umbreon ex sir": {"raw": 180, "psa10": 950, "psa9": 380, "psa8": 230, "type": "sir"},
+    
+    # Giovanni's Nidoking ex SIR
+    "giovanni's nidoking ex": {"raw": 45, "psa10": 225, "psa9": 95, "psa8": 60, "type": "sir"},
+    
+    # ==========================================================================
+    # SURGING SPARKS (SV8) - Late 2025
+    # ==========================================================================
+    "pikachu ex sir surging sparks": {"raw": 250, "psa10": 1200, "psa9": 500, "psa8": 320, "type": "sir"},
+    "charizard ex sir surging sparks": {"raw": 180, "psa10": 900, "psa9": 380, "psa8": 240, "type": "sir"},
+    
+    # ==========================================================================
+    # PRISMATIC EVOLUTIONS (SV8.5) - 2025-2026
+    # ==========================================================================
+    "umbreon ex prismatic": {"raw": 280, "psa10": 1400, "psa9": 580, "psa8": 360, "type": "sir"},
+    "eevee sir prismatic": {"raw": 150, "psa10": 750, "psa9": 310, "psa8": 190, "type": "sir"},
+    
+    # ==========================================================================
+    # 151 (SV3.5) - Still popular
+    # ==========================================================================
+    "charizard ex sir 151": {"raw": 180, "psa10": 850, "psa9": 350, "psa8": 220, "type": "sir"},
+    "charizard ex 151": {"raw": 75, "psa10": 180, "psa9": 105, "psa8": 82, "type": "chase"},
+    "mew ex sir 151": {"raw": 95, "psa10": 480, "psa9": 200, "psa8": 125, "type": "sir"},
+    "alakazam ex sir 151": {"raw": 65, "psa10": 325, "psa9": 135, "psa8": 85, "type": "sir"},
+    
+    # ==========================================================================
+    # BASE SET (VINTAGE - highest premiums due to age/condition scarcity)
+    # ==========================================================================
+    "charizard base set": {"raw": 280, "psa10": 50000, "psa9": 1400, "psa8": 550, "psa7": 320, "type": "vintage"},
+    "charizard base set unlimited": {"raw": 180, "psa10": 5500, "psa9": 900, "psa8": 380, "type": "vintage"},
+    "charizard base set 1st edition": {"raw": 12000, "psa10": 350000, "psa9": 65000, "psa8": 22000, "type": "vintage"},
+    "blastoise base set": {"raw": 75, "psa10": 2800, "psa9": 450, "psa8": 200, "type": "vintage"},
+    "venusaur base set": {"raw": 60, "psa10": 2200, "psa9": 350, "psa8": 160, "type": "vintage"},
+    
+    # ==========================================================================
+    # MODERN CHASE CARDS (2020+) - Lower premiums, ~2-3x for PSA 10
+    # ==========================================================================
+    "charizard vmax": {"raw": 48, "psa10": 120, "psa9": 65, "psa8": 52, "type": "chase"},
+    "charizard vmax shiny": {"raw": 95, "psa10": 220, "psa9": 130, "psa8": 105, "type": "chase"},
+    "charizard vstar": {"raw": 15, "psa10": 42, "psa9": 25, "psa8": 18, "type": "chase"},
+    "charizard ex obsidian": {"raw": 38, "psa10": 95, "psa9": 55, "psa8": 42, "type": "chase"},
+    "charizard ex tera": {"raw": 55, "psa10": 135, "psa9": 78, "psa8": 60, "type": "chase"},
+    
+    # ==========================================================================
+    # PIKACHU SPECIAL CARDS
+    # ==========================================================================
+    "pikachu illustrator": {"raw": 450000, "psa10": 4500000, "psa9": 1800000, "psa8": 800000, "type": "vintage"},
+    "pikachu with grey felt hat": {"raw": 400, "psa10": 950, "psa9": 550, "psa8": 320, "type": "promo"},
+    "van gogh pikachu": {"raw": 400, "psa10": 950, "psa9": 550, "psa8": 320, "type": "promo"},
     "pikachu vmax rainbow": {"raw": 120, "psa10": 280, "psa9": 165, "psa8": 135},
     "pikachu v full art": {"raw": 18, "psa10": 48, "psa9": 28, "psa8": 22},
     "flying pikachu v": {"raw": 6, "psa10": 18, "psa9": 10, "psa8": 7},
@@ -869,22 +1035,54 @@ def get_collectr_prices(card_name: str, set_name: str = "") -> Optional[Dict]:
 # PRICE ESTIMATION (FALLBACK)
 # =============================================================================
 
-def estimate_graded_prices(raw_price: float, card_rarity: str = "holo") -> Dict[str, GradedPrice]:
+def estimate_graded_prices(
+    raw_price: float, 
+    card_name: str = "", 
+    card_rarity: str = "holo",
+    set_name: str = ""
+) -> Dict[str, GradedPrice]:
     """
-    Estimate graded prices based on raw price and multipliers.
+    Estimate graded prices based on raw price, card type, and multipliers.
+    
+    Uses card-type-specific multipliers for accuracy:
+    - SIR (Special Illustration Rare): 5-8x raw for PSA 10
+    - SAR (Special Art Rare): 3-5x raw for PSA 10
+    - Chase (ex, VMAX, etc.): 2.5-4x raw for PSA 10
+    - Standard: 1.8-2.5x raw for PSA 10
     
     This is used when eBay data isn't available.
     """
     graded_prices = {}
     
-    # Adjust multipliers based on rarity
+    # Get card-type-specific multipliers
+    multiplier_set = get_multipliers_for_card(card_name, card_rarity, set_name)
+    card_type = detect_card_type(card_name, card_rarity, set_name)
+    
+    # Additional rarity adjustment for edge cases
     rarity_factor = 1.0
-    if "ultra rare" in card_rarity.lower() or "secret" in card_rarity.lower():
-        rarity_factor = 1.5
-    elif "common" in card_rarity.lower():
+    rarity_lower = card_rarity.lower() if card_rarity else ""
+    
+    # Boost for secret/numbered cards
+    if "secret" in rarity_lower:
+        rarity_factor = 1.2
+    # Reduction for common/uncommon
+    elif "common" in rarity_lower and card_type == "standard":
+        rarity_factor = 0.5
+    elif "uncommon" in rarity_lower and card_type == "standard":
         rarity_factor = 0.7
     
-    for grade, multipliers in GRADE_MULTIPLIERS.items():
+    # Build source label
+    type_labels = {
+        "sir": "SIR Multiplier",
+        "sar": "SAR Multiplier", 
+        "chase": "Chase Card Multiplier",
+        "hyper": "Hyper Rare Multiplier",
+        "alt_art": "Alt Art Multiplier",
+        "standard": "Standard Multiplier"
+    }
+    source_label = f"Estimated ({type_labels.get(card_type, 'Multiplier')})"
+    
+    for grade, multipliers in multiplier_set.items():
         company = grade.split()[0]  # PSA, CGC, or BGS
         
         mid_mult = multipliers["mid"] * rarity_factor
@@ -900,7 +1098,7 @@ def estimate_graded_prices(raw_price: float, card_rarity: str = "holo") -> Dict[
             company=company,
             price=round(estimated_price, 2),
             price_range=(round(price_low, 2), round(price_high, 2)),
-            source="Estimated (multiplier)",
+            source=source_label,
             sales_count=0,
             trend="stable",
         )
@@ -1085,7 +1283,14 @@ class GradedPriceChecker:
         
         # Fill in missing grades with estimates (mark clearly as estimated)
         if raw_price > 0:
-            estimated = estimate_graded_prices(raw_price)
+            # Get rarity from raw_data if available
+            card_rarity = raw_data.get("rarity", "") if raw_data else ""
+            estimated = estimate_graded_prices(
+                raw_price, 
+                card_name=card_name, 
+                card_rarity=card_rarity,
+                set_name=set_name
+            )
             for grade, price_data in estimated.items():
                 if grade not in graded_prices:
                     # Mark as estimated in source

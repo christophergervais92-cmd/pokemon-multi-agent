@@ -9674,11 +9674,33 @@
             const releaseYear = card.set?.releaseDate ? parseInt(card.set.releaseDate.split('/')[0]) : 2024;
             const isVintage = releaseYear < 2015;
             
-            // Check if this is a high-value card (Hyper Rare, Secret Rare, etc.)
-            const isHighValueCard = card.rarity?.toLowerCase().includes('hyper') || 
-                                   card.rarity?.toLowerCase().includes('secret') ||
-                                   card.rarity?.toLowerCase().includes('illustration') ||
-                                   basePrice >= 100;
+            // Detect card type for accurate multipliers
+            const cardRarity = (card.rarity || '').toLowerCase();
+            const cardNameLower = (card.name || '').toLowerCase();
+            const cardNumber = parseInt(card.number) || 0;
+            const totalCards = card.set?.printedTotal || card.set?.total || 200;
+            
+            // SIR = Special Illustration Rare (highest premiums - 5-8x for PSA 10)
+            // These are numbered beyond the set total (e.g., 231/244)
+            const isSIR = cardRarity.includes('special illustration') || 
+                         (cardNumber > totalCards) ||
+                         cardRarity.includes('sir');
+            
+            // SAR = Special Art Rare (3-5x for PSA 10)
+            const isSAR = cardRarity.includes('special art') || cardRarity.includes('sar');
+            
+            // Chase cards (VMAX, ex, etc.) - 2.5-4x for PSA 10
+            const isChaseCard = cardNameLower.includes('vmax') || 
+                               cardNameLower.includes('vstar') ||
+                               cardNameLower.includes(' ex') ||
+                               cardRarity.includes('illustration rare') ||
+                               cardRarity.includes('ultra rare');
+            
+            // Hyper/Gold/Rainbow Rare
+            const isHyperRare = cardRarity.includes('hyper') || 
+                               cardRarity.includes('gold') ||
+                               cardRarity.includes('rainbow') ||
+                               cardRarity.includes('secret');
             
             // Grading costs make low-value cards not worth grading
             // PSA: ~$25-50+ per card, CGC: ~$20-35, BGS: ~$35-150
@@ -9688,10 +9710,18 @@
             // Store raw price
             allGradePrices = { 'raw': basePrice };
             
+            // Determine card type label for display
+            let cardTypeLabel = 'Modern';
+            if (isVintage) cardTypeLabel = 'Vintage';
+            else if (isSIR) cardTypeLabel = 'SIR';
+            else if (isSAR) cardTypeLabel = 'SAR';
+            else if (isHyperRare) cardTypeLabel = 'Hyper';
+            else if (isChaseCard) cardTypeLabel = 'Chase';
+            
             if (isWorthGrading) {
-                // Realistic multipliers for cards worth grading
+                // Realistic multipliers for cards worth grading - based on card type
                 const gradeMultipliers = isVintage ? {
-                    // Vintage cards (pre-2015) - higher premiums
+                    // Vintage cards (pre-2015) - highest premiums due to condition scarcity
                     'PSA 10': { mult: 15, range: [12, 20], label: 'PSA 10 Gem Mint' },
                     'PSA 9': { mult: 4, range: [3, 5], label: 'PSA 9 Mint' },
                     'PSA 8': { mult: 2, range: [1.5, 2.5], label: 'PSA 8 NM-MT' },
@@ -9700,26 +9730,46 @@
                     'BGS 10 Black': { mult: 50, range: [35, 80], label: 'BGS 10 Black Label' },
                     'BGS 10': { mult: 25, range: [18, 35], label: 'BGS 10 Pristine' },
                     'BGS 9.5': { mult: 6, range: [5, 8], label: 'BGS 9.5 Gem Mint' },
-                } : isHighValueCard ? {
-                    // High-value modern cards (Hyper Rare, Secret Rare, etc.) - higher premiums than regular modern
-                    'PSA 10': { mult: 1.8, range: [1.5, 2.2], label: 'PSA 10 Gem Mint' },
-                    'PSA 9': { mult: 1.3, range: [1.1, 1.5], label: 'PSA 9 Mint' },
-                    'PSA 8': { mult: 1.0, range: [0.85, 1.15], label: 'PSA 8 NM-MT' },
-                    'CGC 10': { mult: 1.5, range: [1.3, 1.8], label: 'CGC 10 Pristine' },
-                    'CGC 9.5': { mult: 1.4, range: [1.2, 1.6], label: 'CGC 9.5 Gem Mint' },
-                    'BGS 10 Black': { mult: 3.5, range: [3.0, 4.5], label: 'BGS 10 Black Label' },
-                    'BGS 10': { mult: 2.0, range: [1.7, 2.5], label: 'BGS 10 Pristine' },
-                    'BGS 9.5': { mult: 1.5, range: [1.3, 1.8], label: 'BGS 9.5 Gem Mint' },
+                } : isSIR ? {
+                    // Special Illustration Rare (SIR) - HIGHEST modern premiums (5-8x for PSA 10)
+                    'PSA 10': { mult: 5.0, range: [3.5, 8.0], label: 'PSA 10 Gem Mint' },
+                    'PSA 9': { mult: 2.5, range: [1.8, 3.5], label: 'PSA 9 Mint' },
+                    'PSA 8': { mult: 1.6, range: [1.3, 2.0], label: 'PSA 8 NM-MT' },
+                    'CGC 10': { mult: 4.0, range: [2.8, 6.5], label: 'CGC 10 Pristine' },
+                    'CGC 9.5': { mult: 2.8, range: [2.0, 4.0], label: 'CGC 9.5 Gem Mint' },
+                    'BGS 10 Black': { mult: 12.0, range: [8.0, 20.0], label: 'BGS 10 Black Label' },
+                    'BGS 10': { mult: 6.5, range: [4.5, 10.0], label: 'BGS 10 Pristine' },
+                    'BGS 9.5': { mult: 3.5, range: [2.5, 5.0], label: 'BGS 9.5 Gem Mint' },
+                } : isSAR ? {
+                    // Special Art Rare (SAR) - high premiums (3-5x for PSA 10)
+                    'PSA 10': { mult: 3.5, range: [2.5, 5.5], label: 'PSA 10 Gem Mint' },
+                    'PSA 9': { mult: 2.0, range: [1.5, 2.8], label: 'PSA 9 Mint' },
+                    'PSA 8': { mult: 1.4, range: [1.1, 1.7], label: 'PSA 8 NM-MT' },
+                    'CGC 10': { mult: 2.8, range: [2.0, 4.4], label: 'CGC 10 Pristine' },
+                    'CGC 9.5': { mult: 2.2, range: [1.6, 3.0], label: 'CGC 9.5 Gem Mint' },
+                    'BGS 10 Black': { mult: 9.0, range: [6.0, 14.0], label: 'BGS 10 Black Label' },
+                    'BGS 10': { mult: 5.0, range: [3.5, 7.5], label: 'BGS 10 Pristine' },
+                    'BGS 9.5': { mult: 2.8, range: [2.0, 4.0], label: 'BGS 9.5 Gem Mint' },
+                } : (isChaseCard || isHyperRare) ? {
+                    // Chase cards (VMAX, ex, Hyper Rare) - moderate premiums (2.5-4x for PSA 10)
+                    'PSA 10': { mult: 3.0, range: [2.2, 4.5], label: 'PSA 10 Gem Mint' },
+                    'PSA 9': { mult: 1.8, range: [1.4, 2.3], label: 'PSA 9 Mint' },
+                    'PSA 8': { mult: 1.3, range: [1.05, 1.6], label: 'PSA 8 NM-MT' },
+                    'CGC 10': { mult: 2.4, range: [1.8, 3.6], label: 'CGC 10 Pristine' },
+                    'CGC 9.5': { mult: 1.9, range: [1.4, 2.5], label: 'CGC 9.5 Gem Mint' },
+                    'BGS 10 Black': { mult: 7.5, range: [5.0, 12.0], label: 'BGS 10 Black Label' },
+                    'BGS 10': { mult: 4.2, range: [3.0, 6.0], label: 'BGS 10 Pristine' },
+                    'BGS 9.5': { mult: 2.4, range: [1.8, 3.2], label: 'BGS 9.5 Gem Mint' },
                 } : {
-                    // Regular modern cards (2015+) - conservative premiums
-                    'PSA 10': { mult: 2.5, range: [2.0, 3.5], label: 'PSA 10 Gem Mint' },
-                    'PSA 9': { mult: 1.5, range: [1.3, 1.8], label: 'PSA 9 Mint' },
-                    'PSA 8': { mult: 1.2, range: [1.1, 1.4], label: 'PSA 8 NM-MT' },
-                    'CGC 10': { mult: 2.0, range: [1.7, 2.5], label: 'CGC 10 Pristine' },
-                    'CGC 9.5': { mult: 1.7, range: [1.4, 2.0], label: 'CGC 9.5 Gem Mint' },
-                    'BGS 10 Black': { mult: 6.0, range: [4.5, 8.0], label: 'BGS 10 Black Label' },
-                    'BGS 10': { mult: 3.5, range: [2.8, 4.5], label: 'BGS 10 Pristine' },
-                    'BGS 9.5': { mult: 2.0, range: [1.7, 2.5], label: 'BGS 9.5 Gem Mint' },
+                    // Regular modern cards (2015+) - conservative premiums (1.8-2.5x for PSA 10)
+                    'PSA 10': { mult: 2.5, range: [1.8, 4.0], label: 'PSA 10 Gem Mint' },
+                    'PSA 9': { mult: 1.5, range: [1.2, 2.0], label: 'PSA 9 Mint' },
+                    'PSA 8': { mult: 1.2, range: [1.0, 1.5], label: 'PSA 8 NM-MT' },
+                    'CGC 10': { mult: 2.0, range: [1.5, 3.2], label: 'CGC 10 Pristine' },
+                    'CGC 9.5': { mult: 1.7, range: [1.3, 2.2], label: 'CGC 9.5 Gem Mint' },
+                    'BGS 10 Black': { mult: 6.0, range: [4.0, 10.0], label: 'BGS 10 Black Label' },
+                    'BGS 10': { mult: 3.5, range: [2.5, 5.0], label: 'BGS 10 Pristine' },
+                    'BGS 9.5': { mult: 2.0, range: [1.5, 2.8], label: 'BGS 9.5 Gem Mint' },
                 };
                 
                 // Calculate graded prices
@@ -9736,7 +9786,7 @@
                 
                 priceHtml += `
                     <div style="grid-column: 1 / -1; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0.25rem;">
-                        Graded Prices ${isVintage ? '(Vintage)' : isHighValueCard ? '(High-Value Modern)' : '(Modern)'} — <span style="color: var(--accent);">~</span> = Est. from eBay
+                        Graded Prices (${cardTypeLabel}) — <span style="color: var(--accent);">~</span> = Est. from eBay
                     </div>
                 `;
                 
