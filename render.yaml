@@ -13,4 +13,3 @@ services:
       - key: PYTHONPATH
         value: /opt/render/project/src
     plan: free
-# Last deploy: 2026-01-27T06:15:53Z
