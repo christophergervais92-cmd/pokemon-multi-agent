@@ -10,6 +10,10 @@ services:
         value: "3.11.0"
       - key: POKEMON_TCG_API_KEY
         sync: false  # Set this in Render dashboard
+      - key: POKEMON_PRICE_TRACKER_API_KEY
+        sync: false  # FREE - get at https://pokemonpricetracker.com/api-keys
+      - key: COLLECTR_API_KEY
+        sync: false  # PAID - get at https://getcollectr.com/api
       - key: PYTHONPATH
         value: /opt/render/project/src
     plan: free

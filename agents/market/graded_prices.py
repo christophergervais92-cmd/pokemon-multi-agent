@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Graded Card Price Checker
+Graded Card Price Checker - Multi-Source Price Aggregator
 
 Fetches real-time prices for:
 - Raw (ungraded) cards
@@ -8,11 +8,12 @@ Fetches real-time prices for:
 - CGC 10, CGC 9.5, CGC 9 graded cards  
 - BGS/Beckett 10, 9.5, 9 graded cards
 
-Data sources:
-1. Pokemon TCG API (TCGPlayer raw prices)
-2. eBay sold listings (graded card prices)
-3. PSA Price Guide
-4. Price estimation based on multipliers
+Data sources (in priority order):
+1. PokemonPriceTracker API (FREE - has PSA/CGC/BGS graded prices from eBay)
+2. Pokemon TCG API (TCGPlayer raw prices)
+3. eBay sold listings scraping (graded card prices)
+4. Collectr API (if key provided - 400k+ products)
+5. Price estimation based on multipliers (fallback)
 
 Author: LO TCG Bot
 """
@@ -55,6 +56,14 @@ POKEMON_TCG_API_TIMEOUT = int(os.environ.get("POKEMON_TCG_API_TIMEOUT", "45"))
 # Pokemon TCG API Key (get free key at https://dev.pokemontcg.io)
 # Without key: 1000 requests/day, 30/minute - WITH key: 20,000/day
 POKEMON_TCG_API_KEY = os.environ.get("POKEMON_TCG_API_KEY", "")
+
+# PokemonPriceTracker API Key (FREE - get at https://pokemonpricetracker.com/api-keys)
+# Free tier: 100 calls/day - has PSA/CGC/BGS graded prices from eBay
+POKEMON_PRICE_TRACKER_API_KEY = os.environ.get("POKEMON_PRICE_TRACKER_API_KEY", "")
+
+# Collectr API Key (PAID - get at https://getcollectr.com/api)
+# Has 400k+ products including graded cards and sealed products
+COLLECTR_API_KEY = os.environ.get("COLLECTR_API_KEY", "")
 
 
 # =============================================================================
@@ -609,6 +618,254 @@ def get_ebay_graded_prices(card_name: str) -> Dict[str, GradedPrice]:
 
 
 # =============================================================================
+# POKEMONPRICETRACKER API - FREE GRADED PRICES
+# =============================================================================
+
+def get_price_tracker_prices(card_name: str, set_name: str = "") -> Optional[Dict]:
+    """
+    Get prices from PokemonPriceTracker API (FREE).
+    Includes raw prices AND graded card prices (PSA/CGC/BGS from eBay).
+    
+    Get free API key at: https://pokemonpricetracker.com/api-keys
+    Free tier: 100 calls/day
+    """
+    if not POKEMON_PRICE_TRACKER_API_KEY:
+        print("[PriceTracker] No API key set - skipping (set POKEMON_PRICE_TRACKER_API_KEY)")
+        return None
+    
+    try:
+        api_url = "https://www.pokemonpricetracker.com/api/v2/cards"
+        headers = {
+            "Authorization": f"Bearer {POKEMON_PRICE_TRACKER_API_KEY}",
+            "Accept": "application/json"
+        }
+        
+        # Build search query
+        search_term = card_name
+        if set_name:
+            search_term = f"{card_name} {set_name}"
+        
+        params = {
+            "search": search_term,
+            "limit": 5,
+            "includeHistory": "true",
+            "includeEbay": "true",  # This gives us PSA/CGC/BGS prices!
+            "days": 30
+        }
+        
+        response = requests.get(api_url, headers=headers, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            cards = data.get("data", [])
+            
+            if cards:
+                card = cards[0]  # Best match
+                
+                # Extract prices
+                result = {
+                    "card_name": card.get("name", card_name),
+                    "set_name": card.get("setName", set_name),
+                    "tcg_player_id": card.get("tcgPlayerId"),
+                    "raw_price": card.get("prices", {}).get("market", 0) or card.get("price", 0),
+                    "raw_low": card.get("prices", {}).get("low", 0),
+                    "raw_high": card.get("prices", {}).get("high", 0),
+                    "image_url": card.get("imageUrl", ""),
+                    "source": "PokemonPriceTracker",
+                    "graded": {}
+                }
+                
+                # Extract eBay graded prices (this is the gold!)
+                ebay_data = card.get("ebay", {})
+                
+                # PSA grades
+                if "psa10" in ebay_data:
+                    psa10 = ebay_data["psa10"]
+                    result["graded"]["PSA 10"] = {
+                        "price": psa10.get("avg", 0) or psa10.get("median", 0),
+                        "price_low": psa10.get("min", 0),
+                        "price_high": psa10.get("max", 0),
+                        "sales_count": psa10.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "PSA"
+                    }
+                
+                if "psa9" in ebay_data:
+                    psa9 = ebay_data["psa9"]
+                    result["graded"]["PSA 9"] = {
+                        "price": psa9.get("avg", 0) or psa9.get("median", 0),
+                        "price_low": psa9.get("min", 0),
+                        "price_high": psa9.get("max", 0),
+                        "sales_count": psa9.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "PSA"
+                    }
+                
+                if "psa8" in ebay_data:
+                    psa8 = ebay_data["psa8"]
+                    result["graded"]["PSA 8"] = {
+                        "price": psa8.get("avg", 0) or psa8.get("median", 0),
+                        "price_low": psa8.get("min", 0),
+                        "price_high": psa8.get("max", 0),
+                        "sales_count": psa8.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "PSA"
+                    }
+                
+                # CGC grades
+                if "cgc10" in ebay_data:
+                    cgc10 = ebay_data["cgc10"]
+                    result["graded"]["CGC 10"] = {
+                        "price": cgc10.get("avg", 0) or cgc10.get("median", 0),
+                        "price_low": cgc10.get("min", 0),
+                        "price_high": cgc10.get("max", 0),
+                        "sales_count": cgc10.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "CGC"
+                    }
+                
+                if "cgc9.5" in ebay_data or "cgc95" in ebay_data:
+                    cgc95 = ebay_data.get("cgc9.5") or ebay_data.get("cgc95", {})
+                    result["graded"]["CGC 9.5"] = {
+                        "price": cgc95.get("avg", 0) or cgc95.get("median", 0),
+                        "price_low": cgc95.get("min", 0),
+                        "price_high": cgc95.get("max", 0),
+                        "sales_count": cgc95.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "CGC"
+                    }
+                
+                # BGS grades
+                if "bgs10" in ebay_data:
+                    bgs10 = ebay_data["bgs10"]
+                    result["graded"]["BGS 10"] = {
+                        "price": bgs10.get("avg", 0) or bgs10.get("median", 0),
+                        "price_low": bgs10.get("min", 0),
+                        "price_high": bgs10.get("max", 0),
+                        "sales_count": bgs10.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "BGS"
+                    }
+                
+                if "bgs9.5" in ebay_data or "bgs95" in ebay_data:
+                    bgs95 = ebay_data.get("bgs9.5") or ebay_data.get("bgs95", {})
+                    result["graded"]["BGS 9.5"] = {
+                        "price": bgs95.get("avg", 0) or bgs95.get("median", 0),
+                        "price_low": bgs95.get("min", 0),
+                        "price_high": bgs95.get("max", 0),
+                        "sales_count": bgs95.get("count", 0),
+                        "source": "eBay Sold (PriceTracker)",
+                        "company": "BGS"
+                    }
+                
+                # Price history
+                history = card.get("priceHistory", [])
+                if history:
+                    result["price_history"] = history[-30:]  # Last 30 days
+                
+                print(f"[PriceTracker] Found {card.get('name')} - Raw: ${result['raw_price']:.2f}, Graded prices: {len(result['graded'])}")
+                return result
+        
+        elif response.status_code == 401:
+            print("[PriceTracker] Invalid API key")
+        elif response.status_code == 429:
+            print("[PriceTracker] Rate limit exceeded (100/day free)")
+        else:
+            print(f"[PriceTracker] API error: {response.status_code}")
+    
+    except Exception as e:
+        print(f"[PriceTracker] Error: {e}")
+    
+    return None
+
+
+# =============================================================================
+# COLLECTR API - PREMIUM DATA (Requires subscription)
+# =============================================================================
+
+def get_collectr_prices(card_name: str, set_name: str = "") -> Optional[Dict]:
+    """
+    Get prices from Collectr API (PAID subscription required).
+    Has 400k+ products including raw cards, graded cards, and sealed products.
+    
+    Get API key at: https://getcollectr.com/api
+    """
+    if not COLLECTR_API_KEY:
+        return None  # Silently skip if no key
+    
+    try:
+        # Collectr API endpoint (based on their SwaggerHub docs)
+        api_url = "https://api.getcollectr.com/v1/products/search"
+        headers = {
+            "Authorization": f"Bearer {COLLECTR_API_KEY}",
+            "Accept": "application/json"
+        }
+        
+        search_term = f"{card_name} {set_name}".strip() if set_name else card_name
+        
+        params = {
+            "q": search_term,
+            "category": "pokemon",
+            "limit": 10
+        }
+        
+        response = requests.get(api_url, headers=headers, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            products = data.get("data", data.get("products", []))
+            
+            if products:
+                # Group by raw vs graded
+                raw_products = [p for p in products if not p.get("graded", False)]
+                graded_products = [p for p in products if p.get("graded", False)]
+                
+                result = {
+                    "card_name": card_name,
+                    "set_name": set_name,
+                    "raw_price": 0,
+                    "source": "Collectr",
+                    "graded": {}
+                }
+                
+                # Get raw price
+                if raw_products:
+                    best_raw = raw_products[0]
+                    result["raw_price"] = best_raw.get("price", 0) or best_raw.get("marketPrice", 0)
+                    result["raw_low"] = best_raw.get("lowPrice", result["raw_price"] * 0.8)
+                    result["raw_high"] = best_raw.get("highPrice", result["raw_price"] * 1.2)
+                
+                # Get graded prices
+                for gp in graded_products:
+                    grade = gp.get("grade", "")
+                    company = gp.get("gradingCompany", "")
+                    price = gp.get("price", 0) or gp.get("marketPrice", 0)
+                    
+                    if grade and company and price:
+                        grade_key = f"{company} {grade}"
+                        result["graded"][grade_key] = {
+                            "price": price,
+                            "price_low": gp.get("lowPrice", price * 0.85),
+                            "price_high": gp.get("highPrice", price * 1.15),
+                            "source": "Collectr",
+                            "company": company
+                        }
+                
+                print(f"[Collectr] Found {len(products)} products for {card_name}")
+                return result
+        
+        elif response.status_code == 401:
+            print("[Collectr] Invalid API key")
+        elif response.status_code == 403:
+            print("[Collectr] Subscription required")
+    
+    except Exception as e:
+        print(f"[Collectr] Error: {e}")
+    
+    return None
+
+
+# =============================================================================
 # PRICE ESTIMATION (FALLBACK)
 # =============================================================================
 
@@ -657,68 +914,150 @@ def estimate_graded_prices(raw_price: float, card_rarity: str = "holo") -> Dict[
 
 class GradedPriceChecker:
     """
-    Unified graded card price checker.
+    Unified graded card price checker - Multi-Source Aggregator.
     
-    Fetches prices from multiple sources and provides
-    comprehensive price data for raw and graded cards.
+    Fetches prices from multiple sources in priority order:
+    1. PokemonPriceTracker API (FREE - best for graded prices)
+    2. Collectr API (if key provided)
+    3. Pokemon TCG API (raw prices)
+    4. eBay scraping (fallback)
+    5. Known prices database
+    6. Estimation (last resort)
     """
     
-    def __init__(self, use_ebay: bool = True):
+    def __init__(self, use_ebay: bool = True, use_all_sources: bool = True):
         """
         Initialize the checker.
         
         Args:
             use_ebay: Whether to search eBay for graded prices (slower but more accurate)
+            use_all_sources: Whether to try all available price sources
         """
         self.use_ebay = use_ebay
+        self.use_all_sources = use_all_sources
     
     def get_prices(self, card_name: str, set_name: str = "") -> CardPriceReport:
         """
-        Get comprehensive price data for a card.
+        Get comprehensive price data for a card from all available sources.
+        
+        Priority order:
+        1. PokemonPriceTracker API (has eBay graded prices built-in)
+        2. Collectr API (if subscribed)
+        3. Pokemon TCG API + eBay scraping
+        4. Known prices database
+        5. Estimation
         
         Returns raw price and all graded prices (PSA, CGC, BGS).
         """
         # Check cache first
         cached = PriceCache.get(card_name, set_name)
         if cached and "report" in cached:
-            # Reconstruct report from cache
             return self._dict_to_report(cached["report"])
         
-        # Get raw price from Pokemon TCG API
-        raw_data = get_raw_price_from_api(card_name, set_name)
+        raw_price = 0
+        raw_low = 0
+        raw_high = 0
+        raw_data = {}
+        graded_prices = {}
+        source = "Unknown"
+        image_url = ""
+        tcgplayer_url = ""
         
-        # Check for known prices (more accurate)
+        # =================================================================
+        # SOURCE 1: PokemonPriceTracker API (FREE - has graded prices!)
+        # =================================================================
+        if self.use_all_sources:
+            tracker_data = get_price_tracker_prices(card_name, set_name)
+            if tracker_data:
+                raw_price = tracker_data.get("raw_price", 0)
+                raw_low = tracker_data.get("raw_low", raw_price * 0.85)
+                raw_high = tracker_data.get("raw_high", raw_price * 1.15)
+                image_url = tracker_data.get("image_url", "")
+                source = "PokemonPriceTracker"
+                
+                # Extract graded prices from PriceTracker (eBay data)
+                for grade_key, grade_data in tracker_data.get("graded", {}).items():
+                    if grade_data.get("price", 0) > 0:
+                        graded_prices[grade_key] = GradedPrice(
+                            grade=grade_key,
+                            company=grade_data.get("company", grade_key.split()[0]),
+                            price=grade_data["price"],
+                            price_range=(grade_data.get("price_low", 0), grade_data.get("price_high", 0)),
+                            source=grade_data.get("source", "PriceTracker"),
+                            sales_count=grade_data.get("sales_count", 0),
+                            trend="stable",
+                        )
+        
+        # =================================================================
+        # SOURCE 2: Collectr API (if subscribed)
+        # =================================================================
+        if self.use_all_sources and not graded_prices:
+            collectr_data = get_collectr_prices(card_name, set_name)
+            if collectr_data:
+                if not raw_price:
+                    raw_price = collectr_data.get("raw_price", 0)
+                    raw_low = collectr_data.get("raw_low", raw_price * 0.85)
+                    raw_high = collectr_data.get("raw_high", raw_price * 1.15)
+                    source = "Collectr"
+                
+                for grade_key, grade_data in collectr_data.get("graded", {}).items():
+                    if grade_key not in graded_prices and grade_data.get("price", 0) > 0:
+                        graded_prices[grade_key] = GradedPrice(
+                            grade=grade_key,
+                            company=grade_data.get("company", grade_key.split()[0]),
+                            price=grade_data["price"],
+                            price_range=(grade_data.get("price_low", 0), grade_data.get("price_high", 0)),
+                            source="Collectr",
+                            sales_count=0,
+                            trend="stable",
+                        )
+        
+        # =================================================================
+        # SOURCE 3: Pokemon TCG API (raw prices from TCGPlayer)
+        # =================================================================
+        if not raw_price:
+            raw_data = get_raw_price_from_api(card_name, set_name)
+            if raw_data:
+                raw_price = raw_data.get("raw_price", 0)
+                raw_low = raw_data.get("raw_low", raw_price * 0.85)
+                raw_high = raw_data.get("raw_high", raw_price * 1.15)
+                image_url = image_url or raw_data.get("image_url", "")
+                tcgplayer_url = raw_data.get("tcgplayer_url", "")
+                if source == "Unknown":
+                    source = "Pokemon TCG API"
+        
+        # =================================================================
+        # SOURCE 4: Known prices database (curated accurate prices)
+        # =================================================================
         fallback_data = self._get_fallback_raw_price(card_name)
         known_graded = fallback_data.get("known_graded", {})
         is_known = fallback_data.get("is_known", False)
         
-        # Use API data if available, otherwise use known prices
-        if not raw_data or raw_data.get("raw_price", 0) == 0:
-            raw_data = fallback_data
+        if not raw_price:
+            raw_price = fallback_data.get("raw_price", 0)
+            raw_low = fallback_data.get("raw_low", raw_price * 0.85)
+            raw_high = fallback_data.get("raw_high", raw_price * 1.15)
+            if source == "Unknown":
+                source = "Known Prices Database"
         
-        raw_price = raw_data.get("raw_price", 0)
-        
-        # Get graded prices
-        graded_prices = {}
-        
-        # First, use known graded prices if available (most accurate)
-        if is_known and known_graded:
-            for grade_key, known_price in [
+        # Use known graded prices if we don't have API data
+        if is_known and known_graded and not graded_prices:
+            for grade_key, known_key in [
                 ("PSA 10", "psa10"), ("PSA 9", "psa9"), ("PSA 8", "psa8"), ("PSA 7", "psa7")
             ]:
-                if known_price in known_graded:
-                    price = known_graded[known_price]
+                if known_key in known_graded:
+                    price = known_graded[known_key]
                     graded_prices[grade_key] = GradedPrice(
                         grade=grade_key,
                         company="PSA",
                         price=price,
                         price_range=(price * 0.85, price * 1.15),
-                        source="Recent Sales Data",
+                        source="Known Sales Data",
                         sales_count=10,
                         trend="stable",
                     )
             
-            # Estimate CGC/BGS from PSA prices (CGC ~80% of PSA, BGS varies)
+            # Estimate CGC/BGS from PSA prices
             if "PSA 10" in graded_prices:
                 psa10 = graded_prices["PSA 10"].price
                 graded_prices["CGC 10"] = GradedPrice(
@@ -738,7 +1077,9 @@ class GradedPriceChecker:
                     price_range=(psa10 * 0.4, psa10 * 0.7), source="Estimated from PSA", sales_count=0, trend="stable"
                 )
         
-        # Try eBay for additional data
+        # =================================================================
+        # SOURCE 5: eBay scraping (slow but comprehensive)
+        # =================================================================
         if self.use_ebay and raw_price >= 10 and not graded_prices:
             graded_prices = get_ebay_graded_prices(card_name)
         
