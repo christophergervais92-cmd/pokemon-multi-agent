@@ -8064,6 +8064,51 @@
             }
         }
         
+        // Price cache to avoid recalculating (must be before displayChaseCards)
+        const priceCache = new Map();
+        
+        function getBestCardPrice(card) {
+            // Check cache first
+            const cardId = card.id;
+            if (cardId && priceCache.has(cardId)) {
+                return priceCache.get(cardId);
+            }
+            
+            // Check for direct price field first (from our backend API)
+            if (card.price && card.price > 0) {
+                if (cardId) priceCache.set(cardId, card.price);
+                return card.price;
+            }
+            
+            const prices = card.tcgplayer?.prices || {};
+            const MAX_VALID_PRICE = 5000;
+            
+            // Dynamically check ALL available price keys
+            const allPrices = [];
+            
+            // Loop through all price variants (holofoil, reverseHolofoil, normal, etc.)
+            Object.keys(prices).forEach(variant => {
+                const variantPrices = prices[variant];
+                if (variantPrices && typeof variantPrices === 'object') {
+                    // Check market, mid, AND high prices
+                    const price = variantPrices.market || variantPrices.mid || variantPrices.high;
+                    if (price && price > 0 && price < MAX_VALID_PRICE) {
+                        allPrices.push(price);
+                    }
+                }
+            });
+            
+            // Return highest valid price found
+            const bestPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+            
+            // Cache the result
+            if (cardId) {
+                priceCache.set(cardId, bestPrice);
+            }
+            
+            return bestPrice;
+        }
+        
         function displayChaseCards(cards, setInfo) {
             console.log('[Display] displayChaseCards called with', cards?.length || 0, 'cards');
             const chaseGrid = document.getElementById('chaseCardsGrid');
@@ -8393,63 +8438,6 @@
             } catch (error) {
                 console.error('Error in displaySetStats:', error);
             }
-        }
-        
-        // Price cache to avoid recalculating
-        const priceCache = new Map();
-        
-        function getBestCardPrice(card) {
-            // Check cache first
-            const cardId = card.id;
-            if (cardId && priceCache.has(cardId)) {
-                return priceCache.get(cardId);
-            }
-            
-            // Check for direct price field first (from our backend API)
-            if (card.price && card.price > 0) {
-                if (cardId) priceCache.set(cardId, card.price);
-                return card.price;
-            }
-            
-            const prices = card.tcgplayer?.prices || {};
-            const MAX_VALID_PRICE = 5000;
-            
-            // Dynamically check ALL available price keys
-            const allPrices = [];
-            
-            // Loop through all price variants (holofoil, reverseHolofoil, normal, etc.)
-            Object.keys(prices).forEach(variant => {
-                const variantPrices = prices[variant];
-                if (variantPrices && typeof variantPrices === 'object') {
-                    // Check market, mid, AND high prices
-                    const price = variantPrices.market || variantPrices.mid || variantPrices.high;
-                    if (price && price > 0 && price < MAX_VALID_PRICE) {
-                        allPrices.push(price);
-                    }
-                }
-            });
-            
-            // Return highest valid price found
-            const bestPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
-            
-            // Cache the result
-            if (cardId) {
-                priceCache.set(cardId, bestPrice);
-            }
-            
-            return bestPrice;
-        }
-        
-        // Debug function to show all price keys for a card
-        function debugCardPrices(card) {
-            const prices = card.tcgplayer?.prices || {};
-            const bestPrice = getBestCardPrice(card);
-            console.log(`  Price keys for ${card.name} (#${card.number}): [${Object.keys(prices).join(', ')}] -> Best: $${bestPrice.toFixed(2)}`);
-            Object.entries(prices).forEach(([key, val]) => {
-                if (val?.market || val?.mid) {
-                    console.log(`    ${key}: market=$${val?.market || 'N/A'}, mid=$${val?.mid || 'N/A'}`);
-                }
-            });
         }
         
         function getPullOddsForRarity(rarity, pullRates) {
