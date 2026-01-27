@@ -2562,6 +2562,8 @@ def _get_known_price(card_name: str, card_number: str = "") -> float:
     """
     Look up real price from KNOWN_CARD_PRICES database.
     Returns the raw price if found, 0 otherwise.
+    
+    Matching is strict - the Pokemon name must match, not just common words like "ex".
     """
     try:
         from market.graded_prices import KNOWN_CARD_PRICES
@@ -2569,38 +2571,49 @@ def _get_known_price(card_name: str, card_number: str = "") -> float:
         card_lower = (card_name or "").lower().strip()
         number_str = str(card_number).strip() if card_number else ""
         
+        # Extract the Pokemon name (first word before "ex", "v", "vmax", etc.)
+        pokemon_name = card_lower.split()[0] if card_lower else ""
+        
         # Try exact match first
         if card_lower in KNOWN_CARD_PRICES:
             return KNOWN_CARD_PRICES[card_lower].get("raw", 0)
         
-        # Try with card number
+        # Try with card number (e.g., "charizard ex 199")
         if number_str:
             key_with_number = f"{card_lower} {number_str}"
             if key_with_number in KNOWN_CARD_PRICES:
                 return KNOWN_CARD_PRICES[key_with_number].get("raw", 0)
             
-            # Try format like "charizard ex 199"
+            # Try format like "charizard ex 199" or "charizard ex 199/165"
             for known_name, prices in KNOWN_CARD_PRICES.items():
-                if number_str in known_name and any(word in known_name for word in card_lower.split()):
+                if number_str in known_name and pokemon_name in known_name:
                     return prices.get("raw", 0)
         
-        # Try partial match (card name contains known name or vice versa)
+        # Try match requiring the Pokemon name to be present
         best_match = None
         best_score = 0
         
         for known_name, prices in KNOWN_CARD_PRICES.items():
-            # Skip if no common words
+            # STRICT: The Pokemon name must be in the known entry
+            if pokemon_name not in known_name:
+                continue
+            
             known_words = set(known_name.split())
             card_words = set(card_lower.split())
             common = known_words & card_words
             
-            if len(common) < 2:  # Need at least 2 matching words
+            # Must have at least the Pokemon name + one other word (like "ex")
+            if len(common) < 2:
                 continue
             
             score = len(common)
             
             # Bonus for exact substring match
             if known_name in card_lower or card_lower in known_name:
+                score += 5
+            
+            # Bonus for matching card number
+            if number_str and number_str in known_name:
                 score += 3
             
             if score > best_score:
