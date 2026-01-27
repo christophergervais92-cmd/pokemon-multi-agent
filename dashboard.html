@@ -7555,7 +7555,7 @@
         }
         
         // Request coalescing - prevent duplicate API calls
-        const pendingRequests = new Map();
+        // (uses pendingRequests Map defined earlier)
         
         async function coalesceRequest(key, requestFn) {
             // If request already pending, return existing promise
