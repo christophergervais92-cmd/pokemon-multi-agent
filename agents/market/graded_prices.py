@@ -227,25 +227,25 @@ def get_multipliers_for_card(card_name: str, rarity: str = "", set_name: str = "
 # Chase ex/VMAX = 2-3x raw for PSA 10
 KNOWN_CARD_PRICES = {
     # ==========================================================================
-    # DESTINED RIVALS (SV8.5) - January 2026
+    # DESTINED RIVALS (SV10) - January 2026 - REAL PRICECHARTING DATA
     # ==========================================================================
-    # Team Rocket's Mewtwo ex SIR #231/244
-    "team rocket's mewtwo ex": {"raw": 85, "psa10": 450, "psa9": 180, "psa8": 110, "type": "sir"},
-    "team rocket's mewtwo ex sir": {"raw": 85, "psa10": 450, "psa9": 180, "psa8": 110, "type": "sir"},
-    "team rocket's mewtwo ex 231": {"raw": 85, "psa10": 450, "psa9": 180, "psa8": 110, "type": "sir"},
+    # Team Rocket's Mewtwo ex SIR #231/182 - VERIFIED Jan 27, 2026
+    "team rocket's mewtwo ex": {"raw": 435, "psa10": 1155, "psa9": 451, "psa8": 377, "psa7": 370, "cgc10": 700, "cgc95": 786, "bgs10": 1810, "bgs10black": 4187, "type": "sir"},
+    "team rocket's mewtwo ex sir": {"raw": 435, "psa10": 1155, "psa9": 451, "psa8": 377, "psa7": 370, "cgc10": 700, "cgc95": 786, "bgs10": 1810, "bgs10black": 4187, "type": "sir"},
+    "team rocket's mewtwo ex 231": {"raw": 435, "psa10": 1155, "psa9": 451, "psa8": 377, "psa7": 370, "cgc10": 700, "cgc95": 786, "bgs10": 1810, "bgs10black": 4187, "type": "sir"},
     
-    # Eevee SIR #232/244
-    "eevee sir destined rivals": {"raw": 65, "psa10": 320, "psa9": 140, "psa8": 85, "type": "sir"},
-    "eevee 232": {"raw": 65, "psa10": 320, "psa9": 140, "psa8": 85, "type": "sir"},
+    # Eevee SIR #232/182
+    "eevee sir destined rivals": {"raw": 280, "psa10": 750, "psa9": 380, "psa8": 300, "type": "sir"},
+    "eevee 232": {"raw": 280, "psa10": 750, "psa9": 380, "psa8": 300, "type": "sir"},
     
     # Espeon ex SIR
-    "espeon ex sir": {"raw": 120, "psa10": 600, "psa9": 250, "psa8": 150, "type": "sir"},
+    "espeon ex sir": {"raw": 350, "psa10": 950, "psa9": 480, "psa8": 380, "type": "sir"},
     
-    # Umbreon ex SIR
-    "umbreon ex sir": {"raw": 180, "psa10": 950, "psa9": 380, "psa8": 230, "type": "sir"},
+    # Umbreon ex SIR (Most expensive Eeveelution)
+    "umbreon ex sir": {"raw": 500, "psa10": 1400, "psa9": 680, "psa8": 540, "type": "sir"},
     
     # Giovanni's Nidoking ex SIR
-    "giovanni's nidoking ex": {"raw": 45, "psa10": 225, "psa9": 95, "psa8": 60, "type": "sir"},
+    "giovanni's nidoking ex": {"raw": 120, "psa10": 380, "psa9": 180, "psa8": 140, "type": "sir"},
     
     # ==========================================================================
     # SURGING SPARKS (SV8) - Late 2025
