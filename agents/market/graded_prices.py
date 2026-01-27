@@ -1496,40 +1496,37 @@ class GradedPriceChecker:
         
         # Use known graded prices if we don't have API data
         if is_known and known_graded and not graded_prices:
-            for grade_key, known_key in [
-                ("PSA 10", "psa10"), ("PSA 9", "psa9"), ("PSA 8", "psa8"), ("PSA 7", "psa7")
-            ]:
+            # Extract ALL known graded prices (PSA, CGC, BGS)
+            grade_mappings = [
+                # PSA grades
+                ("PSA 10", "psa10", "PSA"),
+                ("PSA 9", "psa9", "PSA"),
+                ("PSA 8", "psa8", "PSA"),
+                ("PSA 7", "psa7", "PSA"),
+                # CGC grades
+                ("CGC 10", "cgc10", "CGC"),
+                ("CGC 9.5", "cgc95", "CGC"),
+                ("CGC 10 Pristine", "cgc10pristine", "CGC"),
+                # BGS grades
+                ("BGS 10", "bgs10", "BGS"),
+                ("BGS 9.5", "bgs95", "BGS"),
+                ("BGS 10 Black Label", "bgs10black", "BGS"),
+            ]
+            
+            for grade_key, known_key, company in grade_mappings:
                 if known_key in known_graded:
                     price = known_graded[known_key]
                     graded_prices[grade_key] = GradedPrice(
                         grade=grade_key,
-                        company="PSA",
+                        company=company,
                         price=price,
                         price_range=(price * 0.85, price * 1.15),
-                        source="Known Sales Data",
+                        source="Known Sales Data (PriceCharting)",
                         sales_count=10,
                         trend="stable",
                     )
             
-            # Estimate CGC/BGS from PSA prices
-            if "PSA 10" in graded_prices:
-                psa10 = graded_prices["PSA 10"].price
-                graded_prices["CGC 10"] = GradedPrice(
-                    grade="CGC 10", company="CGC", price=round(psa10 * 0.75, 2),
-                    price_range=(psa10 * 0.6, psa10 * 0.9), source="Estimated from PSA", sales_count=0, trend="stable"
-                )
-                graded_prices["CGC 9.5"] = GradedPrice(
-                    grade="CGC 9.5", company="CGC", price=round(psa10 * 0.45, 2),
-                    price_range=(psa10 * 0.35, psa10 * 0.55), source="Estimated from PSA", sales_count=0, trend="stable"
-                )
-                graded_prices["BGS 10"] = GradedPrice(
-                    grade="BGS 10", company="BGS", price=round(psa10 * 1.3, 2),
-                    price_range=(psa10 * 1.0, psa10 * 1.6), source="Estimated from PSA", sales_count=0, trend="stable"
-                )
-                graded_prices["BGS 9.5"] = GradedPrice(
-                    grade="BGS 9.5", company="BGS", price=round(psa10 * 0.55, 2),
-                    price_range=(psa10 * 0.4, psa10 * 0.7), source="Estimated from PSA", sales_count=0, trend="stable"
-                )
+            # NO MORE ESTIMATES - only use real data from known_graded
         
         # =================================================================
         # NO MORE ESTIMATES - Only show REAL prices from actual sales data
