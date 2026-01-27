@@ -7895,10 +7895,10 @@
                         if (!aIsHighAlt && bIsHighAlt) return 1;
                     }
                     
-                    // If prices exist and differ significantly, sort by price
+                    // If prices exist and differ significantly, sort by price (lowest to highest)
                     if (a.price > 0 || b.price > 0) {
                         if (Math.abs(a.price - b.price) >= 5) {
-                            return b.price - a.price;
+                            return a.price - b.price;
                         }
                     }
                     
