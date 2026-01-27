@@ -1891,13 +1891,14 @@
             
             <!-- Chase Cards Grid -->
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 0.875rem;">Chase Cards (Highest Value)</h3>
-                    <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <h3 style="margin: 0; font-size: 0.875rem;">Chase Cards (Sorted by Price)</h3>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <button class="btn btn-sm chase-filter active" data-rarity="all" onclick="filterChaseCards('all')">All</button>
+                        <button class="btn btn-sm chase-filter" data-rarity="special" onclick="filterChaseCards('special')">Special Art Rare</button>
                         <button class="btn btn-sm chase-filter" data-rarity="illustration" onclick="filterChaseCards('illustration')">Illustration Rare</button>
-                        <button class="btn btn-sm chase-filter" data-rarity="special" onclick="filterChaseCards('special')">Special Art</button>
-                        <button class="btn btn-sm chase-filter" data-rarity="holo" onclick="filterChaseCards('holo')">Holo</button>
+                        <button class="btn btn-sm chase-filter" data-rarity="holo" onclick="filterChaseCards('holo')">Ultra/Holo Rare</button>
+                        <button class="btn btn-sm chase-filter" data-rarity="other" onclick="filterChaseCards('other')">Other</button>
                     </div>
                 </div>
                 <div id="chaseCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem;">
@@ -8365,32 +8366,40 @@
         function getRarityCategory(rarity) {
             const rarityLower = (rarity || '').toLowerCase();
             
-            // Illustration Rare category (SV era)
-            if (rarityLower === 'illustration rare' || 
-                rarityLower.includes('illustration rare')) return 'illustration';
-            
-            // Special Art category (SIR, Full Art, Secret, Hyper, Rainbow, Gold)
-            if (rarityLower === 'special illustration rare' ||
-                rarityLower.includes('special illustration') ||
+            // Special Art category (SIR, Full Art, Secret, Hyper, Rainbow, Gold, Alt Art)
+            // These are the most valuable cards
+            if (rarityLower.includes('special illustration') ||
                 rarityLower.includes('secret') ||
                 rarityLower.includes('hyper') ||
                 rarityLower.includes('rainbow') ||
                 rarityLower.includes('gold') ||
+                rarityLower.includes('alt art') ||
+                rarityLower.includes('alternate') ||
+                rarityLower.includes('full art') ||
                 rarityLower === 'rare ultra' ||
                 rarityLower === 'rare secret' ||
-                rarityLower === 'rare rainbow') return 'special';
+                rarityLower === 'rare rainbow' ||
+                rarityLower === 'shiny rare' ||
+                rarityLower === 'amazing rare' ||
+                rarityLower === 'radiant rare') return 'special';
+            
+            // Illustration Rare category (SV era)
+            if (rarityLower === 'illustration rare' || 
+                rarityLower.includes('illustration rare')) return 'illustration';
             
             // Holo/Ultra category (Double Rare, Ultra Rare, V, VMAX, VSTAR, ex, GX)
             if (rarityLower === 'double rare' ||
                 rarityLower === 'ultra rare' ||
-                rarityLower.includes('rare holo v') ||
+                rarityLower.includes('rare holo') ||
                 rarityLower.includes('vmax') ||
                 rarityLower.includes('vstar') ||
                 rarityLower.includes('holo') ||
                 rarityLower === 'rare' ||
                 rarityLower.includes(' ex') ||
-                rarityLower.includes(' gx')) return 'holo';
+                rarityLower.includes(' gx') ||
+                rarityLower.includes('promo')) return 'holo';
             
+            // Everything else (Common, Uncommon, etc)
             return 'other';
         }
         
