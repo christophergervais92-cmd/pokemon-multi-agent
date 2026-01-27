@@ -2282,8 +2282,6 @@ def get_set_cards(set_id: str):
         set_info = None
         
         # Map Pokemon TCG API set IDs to TCGdex IDs
-        # TCGdex uses different ID format (e.g., "sv8pt5" -> "sv08.5")
-        # Map Pokemon TCG API set IDs to TCGdex IDs
         # TCGdex uses different formats: sv08.5 instead of sv8pt5, but swsh7 stays swsh7
         TCGDEX_ID_MAP = {
             # Scarlet & Violet - TCGdex uses sv0X.X format
