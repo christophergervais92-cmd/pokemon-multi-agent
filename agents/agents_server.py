@@ -14,10 +14,54 @@ import time
 import queue
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, Optional
 from flask import Flask, request, jsonify, Response, stream_with_context
+
+# Load .env file for API keys
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"[Server] Loaded .env from {env_path}")
+except ImportError:
+    print("[Server] python-dotenv not installed, using system environment only")
 
 app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
+
+# =============================================================================
+# =============================================================================
+# IN-MEMORY CACHE FOR MARKET ENDPOINTS
+# =============================================================================
+
+_market_cache: Dict[str, tuple] = {}  # key -> (data, timestamp)
+MARKET_CACHE_TTL = 300  # 5 minutes cache for market data (was 60s - too short when Oracle polls)
+ORDERBOOK_CACHE_TTL = 600  # 10 minutes cache for orderbook (TCG API is very slow)
+
+# Pokemon TCG API Key (get free key at https://dev.pokemontcg.io)
+# Without key: 1000 requests/day, 30/minute
+# With key: 20,000 requests/day
+POKEMON_TCG_API_KEY = os.environ.get("POKEMON_TCG_API_KEY", "")
+if POKEMON_TCG_API_KEY:
+    print(f"[Server] Pokemon TCG API Key loaded: {POKEMON_TCG_API_KEY[:8]}...")
+else:
+    print("[Server] WARNING: No POKEMON_TCG_API_KEY set - API rate limits will be restricted")
+
+def _get_cached_market(key: str, ttl: Optional[int] = None) -> Optional[Dict]:
+    """Get cached market data if not expired."""
+    if key not in _market_cache:
+        return None
+    data, cached_at = _market_cache[key]
+    cache_ttl = ttl or MARKET_CACHE_TTL
+    if (datetime.now() - cached_at).total_seconds() > cache_ttl:
+        del _market_cache[key]
+        return None
+    return data
+
+def _set_cached_market(key: str, data: Dict):
+    """Cache market data with timestamp."""
+    _market_cache[key] = (data, datetime.now())
 
 # =============================================================================
 # CORS SUPPORT - Restricted to allowed origins
@@ -34,6 +78,7 @@ ALLOWED_ORIGINS = [
     'https://pokemon-multi-agent.vercel.app',
     'https://poke-agent.vercel.app',
     'https://pokemon-multi-agent.onrender.com',
+    'https://*.vercel.app',  # Allow all Vercel subdomains
 ]
 
 def get_cors_origin():
@@ -49,7 +94,7 @@ def get_cors_origin():
         return origin
     
     # Allow any vercel.app subdomain for preview deployments
-    if origin.endswith('.vercel.app'):
+    if origin.endswith('.vercel.app') or origin.endswith('.onrender.com'):
         return origin
     
     # Default: return first allowed origin (restrictive)
@@ -75,6 +120,11 @@ def add_cors_headers(response):
     # Cache static data longer (sets, card info)
     if request.endpoint and any(x in request.endpoint for x in ['sets', 'cards/info']):
         response.cache_control.max_age = 300  # 5 minutes
+        response.cache_control.public = True
+    
+    # Cache market endpoints (60s) for performance
+    if request.endpoint and any(x in request.endpoint for x in ['market_sealed', 'market_raw', 'market_slabs']):
+        response.cache_control.max_age = 60
         response.cache_control.public = True
     
     # Enable compression hint (server should compress)
@@ -966,26 +1016,188 @@ def market_analysis():
 
 @app.get("/market/sealed")
 def market_sealed():
-    """Get market data for sealed Pokemon products (ETBs, Booster Boxes)."""
+    """Get market data for sealed Pokemon products (ETBs, Booster Boxes). Cached 60s."""
+    cached = _get_cached_market("sealed")
+    if cached is not None:
+        return jsonify(cached)
     script = str((BASE_DIR / "market" / "market_analysis_agent.py").resolve())
     out = run_cmd(["python3", script], stdin_json={"category": "sealed"})
+    _set_cached_market("sealed", out)
     return jsonify(out)
 
 
 @app.get("/market/raw")
 def market_raw():
-    """Get market data for raw (ungraded) cards."""
+    """Get market data for raw (ungraded) cards. Cached 60s."""
+    cached = _get_cached_market("raw")
+    if cached is not None:
+        return jsonify(cached)
     script = str((BASE_DIR / "market" / "market_analysis_agent.py").resolve())
     out = run_cmd(["python3", script], stdin_json={"category": "raw"})
+    _set_cached_market("raw", out)
     return jsonify(out)
 
 
 @app.get("/market/slabs")
 def market_slabs():
-    """Get market data for graded cards (PSA, CGC, BGS slabs)."""
+    """Get market data for graded cards (PSA, CGC, BGS slabs). Cached 60s."""
+    cached = _get_cached_market("slabs")
+    if cached is not None:
+        return jsonify(cached)
     script = str((BASE_DIR / "market" / "market_analysis_agent.py").resolve())
     out = run_cmd(["python3", script], stdin_json={"category": "slabs"})
+    _set_cached_market("slabs", out)
     return jsonify(out)
+
+
+# =============================================================================
+# ASSET CONFIGURATION MAPPING
+# =============================================================================
+
+ASSET_CONFIG = {
+    "charizard-base-psa10": {
+        "card_name": "Charizard",
+        "set_name": "Base Set",
+        "category": "slabs",
+        "grade": "PSA 10",
+        "card_number": "4/102",
+        "image_url": "https://images.pokemontcg.io/base1/4_hires.png",
+    },
+    "van-gogh-pikachu-psa10": {
+        "card_name": "Pikachu with Grey Felt Hat",
+        "set_name": "Scarlet & Violet Promos",
+        "category": "slabs",
+        "grade": "PSA 10",
+        "card_number": "85",
+        "image_url": "https://images.pokemontcg.io/svp/85_hires.png",
+    },
+    "bubble-mew-psa10": {
+        "card_name": "Mew ex",
+        "set_name": "Paldean Fates",
+        "category": "slabs",
+        "grade": "PSA 10",
+        "card_number": "232/091",
+        "image_url": "https://images.pokemontcg.io/sv4pt5/232_hires.png",
+    },
+    "team-rockets-mewtwo-psa10": {
+        "card_name": "Rocket's Mewtwo",
+        "set_name": "Gym Challenge",
+        "category": "slabs",
+        "grade": "PSA 10",
+        "card_number": "14/132",
+        "image_url": "https://images.pokemontcg.io/gym2/14_hires.png",
+    },
+    "charizard-ex-sar-raw": {
+        "card_name": "Charizard ex",
+        "set_name": "Obsidian Flames",
+        "category": "raw",
+        "grade": None,
+    },
+    "moonbreon-raw": {
+        "card_name": "Umbreon V",
+        "set_name": "Evolving Skies",
+        "category": "raw",
+        "grade": None,
+        "card_number": "189/203",
+        "image_url": "https://images.pokemontcg.io/swsh6/189_hires.png",
+    },
+    "pikachu-vmax-rainbow-raw": {
+        "card_name": "Pikachu VMAX",
+        "set_name": "Vivid Voltage",
+        "category": "raw",
+        "grade": None,
+    },
+    "151-upc": {
+        "product_name": "Pokemon 151 Ultra Premium Collection",
+        "category": "sealed",
+        "card_name": None,
+        "set_name": None,
+        "grade": None,
+    },
+    "evolving-skies-bb": {
+        "product_name": "Evolving Skies Booster Box",
+        "category": "sealed",
+        "card_name": None,
+        "set_name": None,
+        "grade": None,
+    },
+    "crown-zenith-etb": {
+        "product_name": "Crown Zenith Elite Trainer Box",
+        "category": "sealed",
+        "card_name": None,
+        "set_name": None,
+        "grade": None,
+    },
+}
+
+
+@app.get("/market/asset/<asset_id>")
+def get_asset_metadata(asset_id: str):
+    """
+    Get asset metadata (card_name, set_name, category, grade) by asset_id.
+    Returns the configuration for the asset, or 404 if not found.
+    """
+    asset_id_lower = asset_id.lower().strip()
+    if asset_id_lower not in ASSET_CONFIG:
+        return jsonify({"success": False, "error": f"Asset '{asset_id}' not found"}), 404
+    return jsonify({"success": True, "asset_id": asset_id, **ASSET_CONFIG[asset_id_lower]})
+
+
+@app.get("/market/orderbook")
+def market_orderbook():
+    """
+    Order-book-style volume by marketplace (TCGPlayer, eBay, etc.).
+    Query: asset_id (OR card_name + set_name + category + grade).
+    If asset_id is provided, it will be used to look up card_name, set_name, category, and grade.
+    Cached 5 min.
+    """
+    # Check for asset_id first
+    asset_id = request.args.get("asset_id", "").strip()
+    if asset_id:
+        asset_id_lower = asset_id.lower()
+        if asset_id_lower in ASSET_CONFIG:
+            config = ASSET_CONFIG[asset_id_lower]
+            card_name = config.get("card_name", "").strip()
+            set_name = config.get("set_name", "").strip()
+            category = config.get("category", "raw").strip().lower() or "raw"
+            product_name = config.get("product_name", "").strip() or None
+            grade = config.get("grade", "").strip() if config.get("grade") else None
+        else:
+            return jsonify({"success": False, "error": f"Asset '{asset_id}' not found"}), 404
+    else:
+        # Fall back to explicit parameters
+        card_name = request.args.get("card_name", "").strip()
+        set_name = request.args.get("set_name", "").strip()
+        category = request.args.get("category", "raw").strip().lower() or "raw"
+        product_name = request.args.get("product_name", "").strip() or None
+        grade = request.args.get("grade", "").strip() or None
+    
+    if not card_name and not product_name:
+        return jsonify({"success": False, "error": "asset_id, card_name, or product_name required"})
+    
+    name = product_name or card_name
+    cache_key = f"ob:{name}:{set_name}:{category}:{product_name or ''}:{grade or ''}"
+    # Use longer cache for orderbook since TCG API is very slow (10 minutes)
+    cached = _get_cached_market(cache_key, ttl=ORDERBOOK_CACHE_TTL)
+    if cached is not None:
+        return jsonify(cached)
+    
+    try:
+        from market.graded_prices import get_orderbook_sources
+        sources = get_orderbook_sources(
+            card_name=card_name or name,
+            set_name=set_name,
+            category=category,
+            product_name=product_name,
+            grade=grade,
+        )
+        out = {"success": True, "sources": sources}
+        _set_cached_market(cache_key, out)
+        return jsonify(out)
+    except ImportError as e:
+        return jsonify({"success": False, "error": f"Import error: {e}"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 # =============================================================================
@@ -1007,6 +1219,7 @@ def get_graded_prices(card_name: str = None):
     GET /prices/card/Charizard%20VMAX
     or
     POST with {"card_name": "Charizard VMAX", "set": "Champion's Path", "include_ebay": false}
+    Cached 5 minutes (TCG API is slow).
     """
     try:
         from market.graded_prices import get_card_prices
@@ -1023,12 +1236,20 @@ def get_graded_prices(card_name: str = None):
         if not card_name:
             return jsonify({"error": "card_name required"})
         
+        # Cache price lookups since TCG API is slow (5 minutes)
+        cache_key = f"price:{card_name}:{set_name}:{include_ebay}"
+        cached = _get_cached_market(cache_key, ttl=300)
+        if cached is not None:
+            return jsonify(cached)
+        
         prices = get_card_prices(card_name, set_name, include_ebay=include_ebay)
         
-        return jsonify({
+        result = {
             "success": True,
             **prices,
-        })
+        }
+        _set_cached_market(cache_key, result)
+        return jsonify(result)
         
     except ImportError as e:
         return jsonify({"error": f"Import error: {e}"})
@@ -1972,6 +2193,360 @@ def get_notification_settings(discord_id):
 def health_check():
     """Health check endpoint."""
     return jsonify({"status": "ok", "service": "pokemon-multi-agent"})
+
+# =============================================================================
+# POKEMON TCG API PROXY (CORS bypass) + SET CARDS CACHE
+# =============================================================================
+
+# Long-term cache for set cards (1 hour) - reduces API calls dramatically
+_set_cards_cache: Dict[str, tuple] = {}
+SET_CARDS_CACHE_TTL = 3600  # 1 hour cache for set card data
+
+def _get_cached_set_cards(set_id: str) -> Optional[Dict]:
+    """Get cached set cards if not expired."""
+    if set_id not in _set_cards_cache:
+        return None
+    data, cached_at = _set_cards_cache[set_id]
+    if (datetime.now() - cached_at).total_seconds() > SET_CARDS_CACHE_TTL:
+        del _set_cards_cache[set_id]
+        return None
+    return data
+
+def _set_cached_set_cards(set_id: str, data: Dict):
+    """Cache set cards with timestamp."""
+    _set_cards_cache[set_id] = (data, datetime.now())
+
+
+@app.get("/api/sets/<set_id>/cards")
+def get_set_cards(set_id: str):
+    """
+    Get ALL cards for a set with prices. Cached for 1 hour.
+    
+    Uses TCGdex API (free, reliable) for card data + price estimation.
+    Falls back to Pokemon TCG API if TCGdex fails.
+    
+    Example: /api/sets/sv8pt5/cards
+    """
+    try:
+        import requests
+        
+        # Check cache first
+        cached = _get_cached_set_cards(set_id)
+        if cached is not None:
+            cached["from_cache"] = True
+            return jsonify(cached)
+        
+        chase_cards = []
+        set_info = None
+        
+        # Map Pokemon TCG API set IDs to TCGdex IDs
+        # TCGdex uses different ID format (e.g., "sv8pt5" -> "sv08.5")
+        TCGDEX_ID_MAP = {
+            # Scarlet & Violet
+            "sv1": "sv01", "sv2": "sv02", "sv3": "sv03", "sv3pt5": "sv03.5",
+            "sv4": "sv04", "sv4pt5": "sv04.5", "sv5": "sv05", "sv6": "sv06",
+            "sv6pt5": "sv06.5", "sv7": "sv07", "sv8": "sv08", "sv8pt5": "sv08.5",
+            "sv9": "sv09", "sv10": "sv10",
+            # Sword & Shield
+            "swsh1": "swsh01", "swsh2": "swsh02", "swsh3": "swsh03", "swsh4": "swsh04",
+            "swsh5": "swsh05", "swsh6": "swsh06", "swsh7": "swsh07", "swsh8": "swsh08",
+            "swsh9": "swsh09", "swsh10": "swsh10", "swsh11": "swsh11", "swsh12": "swsh12",
+            "swsh12pt5": "swsh12.5",
+            # Sun & Moon
+            "sm1": "sm01", "sm2": "sm02", "sm3": "sm03", "sm4": "sm04",
+            "sm5": "sm05", "sm6": "sm06", "sm7": "sm07", "sm8": "sm08",
+            "sm9": "sm09", "sm10": "sm10", "sm11": "sm11", "sm12": "sm12",
+        }
+        tcgdex_id = TCGDEX_ID_MAP.get(set_id.lower(), set_id.lower())
+        
+        # Try TCGdex first (more reliable, no API key needed)
+        try:
+            print(f"[Set Cards] Trying TCGdex for {set_id}")
+            # Get set info
+            set_response = requests.get(f"https://api.tcgdex.net/v2/en/sets/{tcgdex_id}", timeout=10)
+            if set_response.status_code == 200:
+                set_data = set_response.json()
+                set_info = {
+                    "id": set_id,
+                    "name": set_data.get("name", set_id),
+                    "series": set_data.get("serie", {}).get("name", ""),
+                    "releaseDate": set_data.get("releaseDate", ""),
+                    "printedTotal": set_data.get("cardCount", {}).get("total", 0),
+                    "total": set_data.get("cardCount", {}).get("total", 0),
+                    "images": {
+                        "logo": set_data.get("logo", ""),
+                        "symbol": set_data.get("symbol", "")
+                    }
+                }
+                
+                # Get cards from set
+                card_list = set_data.get("cards", [])
+                print(f"[Set Cards] TCGdex returned {len(card_list)} cards")
+                
+                for card in card_list:
+                    # Get full card details for image
+                    card_id = card.get("id", "")
+                    
+                    # Estimate price based on rarity
+                    rarity = card.get("rarity", "Common")
+                    price = _estimate_price_by_rarity(rarity, card.get("name", ""))
+                    
+                    chase_cards.append({
+                        "id": f"{set_id}-{card.get('localId', card_id)}",
+                        "name": card.get("name", "Unknown"),
+                        "number": str(card.get("localId", "")),
+                        "rarity": rarity,
+                        "images": {
+                            "small": card.get("image", "") + "/low.webp" if card.get("image") else "",
+                            "large": card.get("image", "") + "/high.webp" if card.get("image") else ""
+                        },
+                        "set": set_info,
+                        "price": price,
+                        "price_low": price * 0.8,
+                        "price_high": price * 1.2,
+                        "tcgplayer_url": "",
+                        "tcgplayer": {"prices": {"holofoil": {"market": price}}}
+                    })
+        except Exception as e:
+            print(f"[Set Cards] TCGdex failed: {e}, trying Pokemon TCG API")
+        
+        # If TCGdex didn't work, try Pokemon TCG API
+        if not chase_cards:
+            headers = {"Accept": "application/json"}
+            if POKEMON_TCG_API_KEY:
+                headers["X-Api-Key"] = POKEMON_TCG_API_KEY
+            
+            api_url = "https://api.pokemontcg.io/v2/cards"
+            params = {
+                "q": f"set.id:{set_id}",
+                "pageSize": "250",
+                "select": "id,name,number,images,rarity,set,tcgplayer"
+            }
+            
+            response = requests.get(api_url, params=params, headers=headers, timeout=60)
+            if response.status_code == 200:
+                data = response.json()
+                for card in data.get("data", []):
+                    tcgplayer = card.get("tcgplayer", {})
+                    prices = tcgplayer.get("prices", {})
+                    price_tier = prices.get("holofoil") or prices.get("normal") or {}
+                    market_price = price_tier.get("market", 0) or 0
+                    
+                    if not market_price:
+                        market_price = _estimate_price_by_rarity(card.get("rarity", ""), card.get("name", ""))
+                    
+                    if not set_info:
+                        set_info = card.get("set", {})
+                    
+                    chase_cards.append({
+                        "id": card.get("id"),
+                        "name": card.get("name"),
+                        "number": card.get("number"),
+                        "rarity": card.get("rarity", "Unknown"),
+                        "images": card.get("images", {}),
+                        "set": card.get("set", {}),
+                        "price": market_price,
+                        "price_low": price_tier.get("low", market_price * 0.8),
+                        "price_high": price_tier.get("high", market_price * 1.2),
+                        "tcgplayer_url": tcgplayer.get("url", ""),
+                        "tcgplayer": tcgplayer
+                    })
+        
+        # Sort by price descending
+        chase_cards.sort(key=lambda x: x.get("price", 0), reverse=True)
+        
+        result = {
+            "success": True,
+            "set_id": set_id,
+            "total_cards": len(chase_cards),
+            "data": chase_cards,
+            "source": "tcgdex" if chase_cards else "pokemontcg",
+            "cached_at": datetime.now().isoformat()
+        }
+        
+        # Cache the result
+        if chase_cards:
+            _set_cached_set_cards(set_id, result)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e), "success": False, "set_id": set_id}), 500
+
+
+def _estimate_price_by_rarity(rarity: str, name: str = "") -> float:
+    """Estimate card price based on rarity and name."""
+    rarity = (rarity or "").lower()
+    name = (name or "").lower()
+    
+    # Special cards
+    if "charizard" in name:
+        return 150.0 if "rare" in rarity else 50.0
+    if "pikachu" in name and ("illustration" in rarity or "special" in rarity):
+        return 100.0
+    if "umbreon" in name:
+        return 200.0 if "rare" in rarity else 40.0
+    if "eevee" in name and ("illustration" in rarity or "special" in rarity):
+        return 80.0
+    
+    # Rarity-based pricing
+    if "special illustration" in rarity or "hyper" in rarity:
+        return 75.0
+    if "illustration" in rarity or "alt art" in rarity:
+        return 50.0
+    if "secret" in rarity or "gold" in rarity:
+        return 40.0
+    if "ultra" in rarity or "full art" in rarity:
+        return 25.0
+    if "holo" in rarity:
+        return 5.0
+    if "rare" in rarity:
+        return 2.0
+    if "uncommon" in rarity:
+        return 0.50
+    
+    return 0.25  # Common
+
+
+@app.get("/api/sets")
+def get_all_sets():
+    """
+    Get all Pokemon TCG sets. Cached for 1 hour.
+    """
+    try:
+        import requests
+        
+        # Check cache
+        cached = _get_cached_market("all_sets", ttl=3600)
+        if cached is not None:
+            return jsonify(cached)
+        
+        headers = {"Accept": "application/json"}
+        if POKEMON_TCG_API_KEY:
+            headers["X-Api-Key"] = POKEMON_TCG_API_KEY
+        
+        response = requests.get(
+            "https://api.pokemontcg.io/v2/sets",
+            headers=headers,
+            params={"orderBy": "-releaseDate"},
+            timeout=30
+        )
+        response.raise_for_status()
+        
+        data = response.json()
+        result = {
+            "success": True,
+            "data": data.get("data", []),
+            "total": data.get("totalCount", 0)
+        }
+        
+        _set_cached_market("all_sets", result)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+
+@app.get("/api/tcg/cards")
+@app.post("/api/tcg/cards")
+def proxy_tcg_cards():
+    """
+    Proxy endpoint for Pokemon TCG API cards endpoint.
+    Bypasses CORS restrictions by making server-side requests.
+    
+    Query params match Pokemon TCG API:
+    - q: Query string (e.g., "set.id:sv8pt5")
+    - pageSize: Number of results (default: 250)
+    - page: Page number (default: 1)
+    - select: Fields to return (comma-separated)
+    - orderBy: Sort order (e.g., "-set.releaseDate")
+    
+    Example: /api/tcg/cards?q=set.id:sv8pt5&pageSize=250
+    """
+    try:
+        import requests
+        
+        # Get query parameters
+        query = request.args.get("q", "")
+        page_size = request.args.get("pageSize", "250")
+        page = request.args.get("page", "1")
+        select = request.args.get("select", "")
+        order_by = request.args.get("orderBy", "")
+        
+        # Build API URL
+        api_url = "https://api.pokemontcg.io/v2/cards"
+        params = {}
+        if query:
+            params["q"] = query
+        if page_size:
+            params["pageSize"] = page_size
+        if page:
+            params["page"] = page
+        if select:
+            params["select"] = select
+        if order_by:
+            params["orderBy"] = order_by
+        
+        # Build headers with API key if available
+        headers = {"Accept": "application/json"}
+        if POKEMON_TCG_API_KEY:
+            headers["X-Api-Key"] = POKEMON_TCG_API_KEY
+        
+        # Make request to TCG API
+        response = requests.get(api_url, params=params, headers=headers, timeout=45)
+        response.raise_for_status()
+        
+        return jsonify(response.json())
+        
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request timeout - TCG API is slow", "success": False}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e), "success": False}), 500
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
+
+
+@app.get("/api/tcg/sets")
+@app.get("/api/tcg/sets/<set_id>")
+def proxy_tcg_sets(set_id: str = None):
+    """
+    Proxy endpoint for Pokemon TCG API sets endpoint.
+    Bypasses CORS restrictions by making server-side requests.
+    
+    GET /api/tcg/sets - List all sets
+    GET /api/tcg/sets/sv8pt5 - Get specific set info
+    """
+    try:
+        import requests
+        
+        if set_id:
+            api_url = f"https://api.pokemontcg.io/v2/sets/{set_id}"
+        else:
+            api_url = "https://api.pokemontcg.io/v2/sets"
+            # Add query params for listing
+            page_size = request.args.get("pageSize", "250")
+            page = request.args.get("page", "1")
+            api_url += f"?pageSize={page_size}&page={page}"
+        
+        # Build headers with API key if available
+        headers = {"Accept": "application/json"}
+        if POKEMON_TCG_API_KEY:
+            headers["X-Api-Key"] = POKEMON_TCG_API_KEY
+        
+        # Make request to TCG API
+        response = requests.get(api_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        return jsonify(response.json())
+        
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request timeout - TCG API is slow", "success": False}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e), "success": False}), 500
+    except Exception as e:
+        return jsonify({"error": str(e), "success": False}), 500
 
 
 @app.get("/agents")
@@ -3231,6 +3806,256 @@ def get_all_drop_intel():
         return jsonify({'error': str(e)}), 500
 
 
+# =============================================================================
+# VIDEO GENERATION ENDPOINTS
+# =============================================================================
+
+from agents.video_orchestrator import VideoOrchestrator
+from agents.content.script_database import ScriptDatabase as VideoScriptDB
+from agents.social.post_scheduler import PostScheduler
+from agents.social.tiktok_uploader import TikTokUploader
+
+video_orchestrator = None
+video_script_db = None
+video_post_scheduler = None
+video_uploader = None
+
+def get_video_orchestrator():
+    """Get or create video orchestrator."""
+    global video_orchestrator
+    if video_orchestrator is None:
+        video_orchestrator = VideoOrchestrator()
+    return video_orchestrator
+
+def get_video_script_db():
+    """Get or create video script database."""
+    global video_script_db
+    if video_script_db is None:
+        video_script_db = VideoScriptDB()
+    return video_script_db
+
+def get_post_scheduler():
+    """Get or create post scheduler."""
+    global video_post_scheduler
+    if video_post_scheduler is None:
+        video_post_scheduler = PostScheduler()
+    return video_post_scheduler
+
+def get_video_uploader():
+    """Get or create TikTok uploader."""
+    global video_uploader
+    if video_uploader is None:
+        video_uploader = TikTokUploader()
+    return video_uploader
+
+@app.post("/video/generate")
+def video_generate():
+    """
+    Generate complete TikTok video from scratch.
+    
+    Body params:
+    - category: Topic category (optional)
+    - location: Geographic location (optional)
+    - duration: Video duration in seconds (default: 30)
+    - auto_post: Auto-post to TikTok (default: false)
+    """
+    try:
+        data = request.get_json() or {}
+        
+        orchestrator = get_video_orchestrator()
+        
+        result = orchestrator.generate_video(
+            category=data.get('category'),
+            location=data.get('location'),
+            duration=data.get('duration', 30),
+            auto_post=data.get('auto_post', False)
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.post("/video/generate/batch")
+def video_generate_batch():
+    """
+    Generate multiple videos in batch.
+    
+    Body params:
+    - count: Number of videos (default: 3)
+    - auto_post: Auto-post to TikTok (default: false)
+    """
+    try:
+        data = request.get_json() or {}
+        
+        orchestrator = get_video_orchestrator()
+        
+        results = orchestrator.generate_batch(
+            count=data.get('count', 3),
+            auto_post=data.get('auto_post', False)
+        )
+        
+        return jsonify({
+            'success': True,
+            'videos': results,
+            'count': len(results)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.get("/video/status/<int:script_id>")
+def video_status(script_id):
+    """Get video generation status by script ID."""
+    try:
+        db = get_video_script_db()
+        script = db.get_script(script_id)
+        
+        if not script:
+            return jsonify({'error': 'Script not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'script': script
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.get("/video/queue")
+def video_queue():
+    """Get pending and rendering videos."""
+    try:
+        db = get_video_script_db()
+        
+        pending = db.get_pending_scripts(limit=20)
+        rendered = db.get_rendered_scripts(limit=20)
+        
+        return jsonify({
+            'success': True,
+            'pending': pending,
+            'rendered': rendered,
+            'pending_count': len(pending),
+            'rendered_count': len(rendered)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.post("/video/render")
+def video_render():
+    """
+    Render video from existing script.
+    
+    Body params:
+    - script_id: Script database ID
+    """
+    try:
+        data = request.get_json() or {}
+        script_id = data.get('script_id')
+        
+        if not script_id:
+            return jsonify({'error': 'script_id required'}), 400
+        
+        db = get_video_script_db()
+        script = db.get_script(script_id)
+        
+        if not script:
+            return jsonify({'error': 'Script not found'}), 404
+        
+        # TODO: Implement render-only logic
+        
+        return jsonify({
+            'success': True,
+            'message': 'Render started',
+            'script_id': script_id
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.post("/tiktok/post")
+def tiktok_post():
+    """
+    Manually post video to TikTok.
+    
+    Body params:
+    - video_path: Path to video file
+    - caption: Video caption
+    - hashtags: List of hashtags
+    """
+    try:
+        data = request.get_json() or {}
+        
+        video_path = data.get('video_path')
+        caption = data.get('caption')
+        hashtags = data.get('hashtags', [])
+        
+        if not video_path or not caption:
+            return jsonify({'error': 'video_path and caption required'}), 400
+        
+        uploader = get_video_uploader()
+        
+        result = uploader.upload_video(
+            video_path=video_path,
+            caption=caption,
+            hashtags=hashtags
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.get("/tiktok/stats")
+def tiktok_stats():
+    """Get TikTok posting statistics."""
+    try:
+        db = get_video_script_db()
+        scheduler = get_post_scheduler()
+        
+        db_stats = db.get_stats()
+        post_stats = scheduler.get_stats()
+        
+        return jsonify({
+            'success': True,
+            'database': db_stats,
+            'posting': post_stats
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.get("/video/schedule")
+def video_schedule():
+    """
+    Get optimal posting schedule.
+    
+    Query params:
+    - num_posts: Number of posts to schedule (default: 5)
+    - avoid_weekends: Skip weekends (default: false)
+    """
+    try:
+        num_posts = int(request.args.get('num_posts', 5))
+        avoid_weekends = request.args.get('avoid_weekends', 'false').lower() == 'true'
+        
+        scheduler = get_post_scheduler()
+        
+        schedule = scheduler.get_posting_schedule(
+            num_posts=num_posts,
+            avoid_weekends=avoid_weekends
+        )
+        
+        return jsonify({
+            'success': True,
+            'schedule': [dt.isoformat() for dt in schedule],
+            'count': len(schedule)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == "__main__":
     print("🎴 LO TCG Multi-Agent Server Starting...")
     print("📡 Endpoints available at http://127.0.0.1:5001")
@@ -3276,5 +4101,14 @@ if __name__ == "__main__":
     print("")
     print("👥 MULTI-USER:")
     print("   - /users/notify, /users/autobuy, /users/stats")
+    print("")
+    print("🎬 VIDEO GENERATION (TikTok Pipeline):")
+    print("   - /video/generate (generate complete video)")
+    print("   - /video/generate/batch (generate multiple videos)")
+    print("   - /video/status/<id> (check generation status)")
+    print("   - /video/queue (view pending videos)")
+    print("   - /video/schedule (get optimal posting times)")
+    print("   - /tiktok/post (upload to TikTok)")
+    print("   - /tiktok/stats (posting statistics)")
     print("")
     app.run(host="127.0.0.1", port=5001, debug=True)

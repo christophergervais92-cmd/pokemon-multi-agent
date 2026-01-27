@@ -4,6 +4,7 @@ User Database for Discord Bot
 
 Stores user preferences, watchlists, and encrypted payment info.
 Uses SQLite for simplicity - can be upgraded to PostgreSQL for production.
+Optimized with connection pooling and indexes.
 """
 import sqlite3
 import json
@@ -13,10 +14,49 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pathlib import Path
+from contextlib import contextmanager
+from functools import lru_cache
 from cryptography.fernet import Fernet
+
+# Try to use connection pooling if available
+try:
+    from agents.utils.db_pool import get_pool
+    USE_POOLING = True
+except ImportError:
+    USE_POOLING = False
 
 # Database path
 DB_PATH = Path(__file__).parent.parent.parent / "pokemon_users.db"
+
+# Cache for connection pool
+_pool = None
+
+def _get_pool():
+    """Get or create connection pool."""
+    global _pool
+    if _pool is None and USE_POOLING:
+        _pool = get_pool("pokemon_users", DB_PATH)
+    return _pool
+
+@contextmanager
+def _get_connection():
+    """Get database connection (with pooling if available)."""
+    if USE_POOLING and _get_pool():
+        with _get_pool().get_connection() as conn:
+            yield conn
+    else:
+        # Fallback to direct connection
+        conn = sqlite3.connect(str(DB_PATH), timeout=10)
+        conn.row_factory = sqlite3.Row
+        # Enable WAL mode for better concurrency
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA cache_size=10000")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        try:
+            yield conn
+        finally:
+            conn.close()
 
 # Encryption key for sensitive data (generate once and store securely)
 ENCRYPTION_KEY = os.environ.get("POKEMON_ENCRYPTION_KEY", "")
@@ -52,9 +92,9 @@ def decrypt_data(data: str) -> str:
 
 
 def init_db():
-    """Initialize the user database."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
+    """Initialize the user database with indexes."""
+    with _get_connection() as conn:
+        cursor = conn.cursor()
     
     # Users table
     cursor.execute("""
@@ -152,63 +192,79 @@ def init_db():
         )
     """)
     
+    # Create indexes for better query performance
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_discord_id ON users(discord_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_autobuy ON users(autobuy_enabled, is_active)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_zip_code ON users(zip_code)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_watchlists_discord_id ON watchlists(discord_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_watchlists_item_name ON watchlists(item_name)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_info_discord_id ON payment_info(discord_id, retailer)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_history_discord_id ON purchase_history(discord_id, created_at DESC)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alert_history_discord_id ON alert_history(discord_id, sent_at DESC)")
+    
     conn.commit()
-    conn.close()
 
 
 # Initialize on import
 init_db()
 
 
+@lru_cache(maxsize=500)
 def get_user(discord_id: str) -> Optional[Dict[str, Any]]:
-    """Get user by Discord ID."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM users WHERE discord_id = ?", (discord_id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    return dict(row) if row else None
+    """Get user by Discord ID with caching."""
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE discord_id = ?", (discord_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+def clear_user_cache(discord_id: Optional[str] = None):
+    """Clear user cache (call after updates)."""
+    if discord_id:
+        get_user.cache_clear()
+    else:
+        get_user.cache_clear()
 
 
 def create_user(discord_id: str, discord_username: str) -> Dict[str, Any]:
     """Create a new user."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO users (discord_id, discord_username, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        """, (discord_id, discord_username))
+        conn.commit()
     
-    cursor.execute("""
-        INSERT OR REPLACE INTO users (discord_id, discord_username, updated_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-    """, (discord_id, discord_username))
-    
-    conn.commit()
-    conn.close()
-    
+    clear_user_cache(discord_id)
     return get_user(discord_id)
 
 
 def update_user_settings(discord_id: str, settings: Dict[str, Any]) -> bool:
-    """Update user settings."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
-    
+    """Update user settings (optimized batch update)."""
     allowed_fields = [
         'notification_enabled', 'autobuy_enabled', 
         'max_price_limit', 'daily_spend_limit',
         'zip_code', 'search_radius_miles', 'local_alerts_only'
     ]
     
-    for key, value in settings.items():
-        if key in allowed_fields:
-            cursor.execute(f"""
-                UPDATE users SET {key} = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE discord_id = ?
-            """, (value, discord_id))
+    updates = {k: v for k, v in settings.items() if k in allowed_fields}
+    if not updates:
+        return False
     
-    conn.commit()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        # Build dynamic UPDATE query
+        set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
+        values = list(updates.values()) + [discord_id]
+        cursor.execute(f"""
+            UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+            WHERE discord_id = ?
+        """, values)
+        conn.commit()
+    
+    clear_user_cache(discord_id)
     return True
 
 
@@ -227,34 +283,29 @@ def set_user_location(
         radius_miles: Search radius in miles (default 25)
         local_only: If True, only notify about local stock
     """
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users 
+            SET zip_code = ?, search_radius_miles = ?, local_alerts_only = ?, 
+                updated_at = CURRENT_TIMESTAMP
+            WHERE discord_id = ?
+        """, (zip_code, radius_miles, 1 if local_only else 0, discord_id))
+        conn.commit()
     
-    cursor.execute("""
-        UPDATE users 
-        SET zip_code = ?, search_radius_miles = ?, local_alerts_only = ?, 
-            updated_at = CURRENT_TIMESTAMP
-        WHERE discord_id = ?
-    """, (zip_code, radius_miles, 1 if local_only else 0, discord_id))
-    
-    conn.commit()
-    conn.close()
+    clear_user_cache(discord_id)
     return True
 
 
 def get_user_location(discord_id: str) -> Optional[Dict[str, Any]]:
     """Get user's location settings."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT zip_code, search_radius_miles, local_alerts_only 
-        FROM users WHERE discord_id = ?
-    """, (discord_id,))
-    
-    row = cursor.fetchone()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT zip_code, search_radius_miles, local_alerts_only 
+            FROM users WHERE discord_id = ?
+        """, (discord_id,))
+        row = cursor.fetchone()
     
     if row:
         return {
@@ -267,34 +318,26 @@ def get_user_location(discord_id: str) -> Optional[Dict[str, Any]]:
 
 def get_users_by_zip(zip_code: str) -> List[Dict[str, Any]]:
     """Get all active users with a specific zip code."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT * FROM users 
-        WHERE is_active = 1 AND zip_code = ?
-    """, (zip_code,))
-    
-    rows = cursor.fetchall()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM users 
+            WHERE is_active = 1 AND zip_code = ?
+        """, (zip_code,))
+        rows = cursor.fetchall()
     
     return [dict(row) for row in rows]
 
 
 def get_users_with_location() -> List[Dict[str, Any]]:
     """Get all active users who have set a location."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT * FROM users 
-        WHERE is_active = 1 AND zip_code IS NOT NULL AND zip_code != ''
-    """)
-    
-    rows = cursor.fetchall()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM users 
+            WHERE is_active = 1 AND zip_code IS NOT NULL AND zip_code != ''
+        """)
+        rows = cursor.fetchall()
     
     return [dict(row) for row in rows]
 
@@ -307,51 +350,44 @@ def save_payment_info(
     shipping: Dict[str, str]
 ) -> bool:
     """Save encrypted payment/shipping info for a user."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        INSERT OR REPLACE INTO payment_info 
-        (discord_id, retailer, encrypted_email, encrypted_password,
-         shipping_name, shipping_address, shipping_city, shipping_state, shipping_zip,
-         updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    """, (
-        discord_id,
-        retailer,
-        encrypt_data(email),
-        encrypt_data(password),
-        shipping.get('name', ''),
-        shipping.get('address', ''),
-        shipping.get('city', ''),
-        shipping.get('state', ''),
-        shipping.get('zip', ''),
-    ))
-    
-    conn.commit()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO payment_info 
+            (discord_id, retailer, encrypted_email, encrypted_password,
+             shipping_name, shipping_address, shipping_city, shipping_state, shipping_zip,
+             updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """, (
+            discord_id,
+            retailer,
+            encrypt_data(email),
+            encrypt_data(password),
+            shipping.get('name', ''),
+            shipping.get('address', ''),
+            shipping.get('city', ''),
+            shipping.get('state', ''),
+            shipping.get('zip', ''),
+        ))
+        conn.commit()
     return True
 
 
 def get_payment_info(discord_id: str, retailer: str = None) -> Optional[Dict[str, Any]]:
     """Get decrypted payment info for a user."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    if retailer:
-        cursor.execute(
-            "SELECT * FROM payment_info WHERE discord_id = ? AND retailer = ?",
-            (discord_id, retailer)
-        )
-    else:
-        cursor.execute(
-            "SELECT * FROM payment_info WHERE discord_id = ?",
-            (discord_id,)
-        )
-    
-    row = cursor.fetchone()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        if retailer:
+            cursor.execute(
+                "SELECT * FROM payment_info WHERE discord_id = ? AND retailer = ?",
+                (discord_id, retailer)
+            )
+        else:
+            cursor.execute(
+                "SELECT * FROM payment_info WHERE discord_id = ?",
+                (discord_id,)
+            )
+        row = cursor.fetchone()
     
     if row:
         info = dict(row)
@@ -373,52 +409,42 @@ def add_to_watchlist(
     autobuy_on_deal: bool = False
 ) -> int:
     """Add item to user's watchlist."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        INSERT INTO watchlists 
-        (discord_id, item_type, item_name, target_price, notify_on_stock, autobuy_on_deal)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (discord_id, item_type, item_name, target_price, notify_on_stock, autobuy_on_deal))
-    
-    watchlist_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO watchlists 
+            (discord_id, item_type, item_name, target_price, notify_on_stock, autobuy_on_deal)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (discord_id, item_type, item_name, target_price, notify_on_stock, autobuy_on_deal))
+        watchlist_id = cursor.lastrowid
+        conn.commit()
     
     return watchlist_id
 
 
 def get_watchlist(discord_id: str) -> List[Dict[str, Any]]:
     """Get user's watchlist."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "SELECT * FROM watchlists WHERE discord_id = ? ORDER BY created_at DESC",
-        (discord_id,)
-    )
-    
-    rows = cursor.fetchall()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM watchlists WHERE discord_id = ? ORDER BY created_at DESC",
+            (discord_id,)
+        )
+        rows = cursor.fetchall()
     
     return [dict(row) for row in rows]
 
 
 def remove_from_watchlist(discord_id: str, watchlist_id: int) -> bool:
     """Remove item from watchlist."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "DELETE FROM watchlists WHERE id = ? AND discord_id = ?",
-        (watchlist_id, discord_id)
-    )
-    
-    conn.commit()
-    deleted = cursor.rowcount > 0
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM watchlists WHERE id = ? AND discord_id = ?",
+            (watchlist_id, discord_id)
+        )
+        conn.commit()
+        deleted = cursor.rowcount > 0
     
     return deleted
 
@@ -432,97 +458,84 @@ def log_purchase(
     status: str
 ) -> int:
     """Log a purchase."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO purchase_history 
+            (discord_id, product_name, retailer, price, purchase_id, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (discord_id, product_name, retailer, price, purchase_id, status))
+        
+        # Update daily spent
+        cursor.execute("""
+            UPDATE users SET daily_spent = daily_spent + ?
+            WHERE discord_id = ?
+        """, (price, discord_id))
+        
+        log_id = cursor.lastrowid
+        conn.commit()
     
-    cursor.execute("""
-        INSERT INTO purchase_history 
-        (discord_id, product_name, retailer, price, purchase_id, status)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (discord_id, product_name, retailer, price, purchase_id, status))
-    
-    # Update daily spent
-    cursor.execute("""
-        UPDATE users SET daily_spent = daily_spent + ?
-        WHERE discord_id = ?
-    """, (price, discord_id))
-    
-    log_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    
+    clear_user_cache(discord_id)
     return log_id
 
 
 def get_purchase_history(discord_id: str, limit: int = 10) -> List[Dict[str, Any]]:
     """Get user's purchase history."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT * FROM purchase_history 
-        WHERE discord_id = ? 
-        ORDER BY created_at DESC 
-        LIMIT ?
-    """, (discord_id, limit))
-    
-    rows = cursor.fetchall()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM purchase_history 
+            WHERE discord_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """, (discord_id, limit))
+        rows = cursor.fetchall()
     
     return [dict(row) for row in rows]
 
 
 def get_all_users_with_autobuy() -> List[Dict[str, Any]]:
     """Get all users who have auto-buy enabled."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT * FROM users 
-        WHERE is_active = 1 AND autobuy_enabled = 1
-    """)
-    
-    rows = cursor.fetchall()
-    conn.close()
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM users 
+            WHERE is_active = 1 AND autobuy_enabled = 1
+        """)
+        rows = cursor.fetchall()
     
     return [dict(row) for row in rows]
 
 
 def get_users_watching(product_name: str) -> List[Dict[str, Any]]:
-    """Get users who are watching a specific product."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT u.*, w.target_price, w.autobuy_on_deal
-        FROM users u
-        JOIN watchlists w ON u.discord_id = w.discord_id
-        WHERE u.is_active = 1 
-        AND u.notification_enabled = 1
-        AND (w.item_name LIKE ? OR ? LIKE '%' || w.item_name || '%')
-    """, (f"%{product_name}%", product_name))
-    
-    rows = cursor.fetchall()
-    conn.close()
+    """Get users who are watching a specific product (optimized with indexes)."""
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT u.*, w.target_price, w.autobuy_on_deal
+            FROM users u
+            JOIN watchlists w ON u.discord_id = w.discord_id
+            WHERE u.is_active = 1 
+            AND u.notification_enabled = 1
+            AND (w.item_name LIKE ? OR ? LIKE '%' || w.item_name || '%')
+        """, (f"%{product_name}%", product_name))
+        rows = cursor.fetchall()
     
     return [dict(row) for row in rows]
 
 
 def reset_daily_spend():
     """Reset daily spend for all users (run at midnight)."""
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
-    
     today = datetime.now().date().isoformat()
     
-    cursor.execute("""
-        UPDATE users 
-        SET daily_spent = 0, last_spend_reset = ?
-        WHERE last_spend_reset IS NULL OR last_spend_reset < ?
-    """, (today, today))
+    with _get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users 
+            SET daily_spent = 0, last_spend_reset = ?
+            WHERE last_spend_reset IS NULL OR last_spend_reset < ?
+        """, (today, today))
+        conn.commit()
     
-    conn.commit()
-    conn.close()
+    # Clear all user caches after reset
+    clear_user_cache()

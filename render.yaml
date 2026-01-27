@@ -8,4 +8,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
+      - key: POKEMON_TCG_API_KEY
+        sync: false  # Set this in Render dashboard
+      - key: PYTHONPATH
+        value: /opt/render/project/src
     plan: free

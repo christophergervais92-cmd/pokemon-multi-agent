@@ -46,8 +46,10 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 PRICE_API_URL = os.environ.get("POKEMON_PRICE_API_URL", "")
 PRICE_API_KEY = os.environ.get("POKEMON_PRICE_API_KEY", "")
 
-# Pokemon TCG API (free, no key needed)
+# Pokemon TCG API
+# Without key: 1000 requests/day, 30/minute - WITH key: 20,000/day
 POKEMON_TCG_API = "https://api.pokemontcg.io/v2"
+POKEMON_TCG_API_KEY = os.environ.get("POKEMON_TCG_API_KEY", "")
 
 
 # =============================================================================
@@ -58,7 +60,7 @@ POKEMON_TCG_API = "https://api.pokemontcg.io/v2"
 KNOWN_CARDS = {
     "charizard": {
         "base_set": {"name": "Charizard", "set": "Base Set", "number": "4/102", "rarity": "Holo Rare", 
-                     "raw_price": 350, "psa_9": 2500, "psa_10": 45000},
+                     "raw_price": 350, "psa_9": 2500, "psa_10": 50000},
         "vmax": {"name": "Charizard VMAX", "set": "Champion's Path", "number": "074/073", "rarity": "Secret Rare",
                 "raw_price": 150, "psa_9": 350, "psa_10": 800},
         "ex": {"name": "Charizard ex", "set": "Obsidian Flames", "number": "223/197", "rarity": "Special Art Rare",
@@ -399,9 +401,13 @@ class CardScanner:
         # Try Pokemon TCG API for basic info
         try:
             search_name = identification.get("card_name", "").replace(" ", "+")
+            headers = {"Accept": "application/json"}
+            if POKEMON_TCG_API_KEY:
+                headers["X-Api-Key"] = POKEMON_TCG_API_KEY
             response = requests.get(
                 f"{POKEMON_TCG_API}/cards",
                 params={"q": f"name:{search_name}"},
+                headers=headers,
                 timeout=10,
             )
             if response.status_code == 200:

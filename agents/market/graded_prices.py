@@ -52,6 +52,10 @@ except ImportError:
 # Pokemon TCG API timeout (can be slow)
 POKEMON_TCG_API_TIMEOUT = int(os.environ.get("POKEMON_TCG_API_TIMEOUT", "45"))
 
+# Pokemon TCG API Key (get free key at https://dev.pokemontcg.io)
+# Without key: 1000 requests/day, 30/minute - WITH key: 20,000/day
+POKEMON_TCG_API_KEY = os.environ.get("POKEMON_TCG_API_KEY", "")
+
 
 # =============================================================================
 # CONFIGURATION
@@ -94,7 +98,7 @@ GRADE_MULTIPLIERS = {
 # Note: Modern cards (2020+) have much lower PSA 10 premiums than vintage
 KNOWN_CARD_PRICES = {
     # Base Set (VINTAGE - higher premiums)
-    "charizard base set": {"raw": 280, "psa10": 8500, "psa9": 1400, "psa8": 550, "psa7": 320},
+    "charizard base set": {"raw": 280, "psa10": 50000, "psa9": 1400, "psa8": 550, "psa7": 320},
     "charizard base set unlimited": {"raw": 180, "psa10": 5500, "psa9": 900, "psa8": 380},
     "charizard base set 1st edition": {"raw": 12000, "psa10": 350000, "psa9": 65000, "psa8": 22000},
     "blastoise base set": {"raw": 75, "psa10": 2800, "psa9": 450, "psa8": 200},
@@ -110,6 +114,8 @@ KNOWN_CARD_PRICES = {
     
     # Pikachu
     "pikachu illustrator": {"raw": 450000, "psa10": 4500000, "psa9": 1800000, "psa8": 800000},
+    "pikachu with grey felt hat": {"raw": 400, "psa10": 950, "psa9": 550, "psa8": 320},
+    "van gogh pikachu": {"raw": 400, "psa10": 950, "psa9": 550, "psa8": 320},
     "pikachu vmax rainbow": {"raw": 120, "psa10": 280, "psa9": 165, "psa8": 135},
     "pikachu v full art": {"raw": 18, "psa10": 48, "psa9": 28, "psa8": 22},
     "flying pikachu v": {"raw": 6, "psa10": 18, "psa9": 10, "psa8": 7},
@@ -123,6 +129,8 @@ KNOWN_CARD_PRICES = {
     
     # Mew
     "mew ex 151": {"raw": 80, "psa10": 195, "psa9": 115, "psa8": 90},
+    "mew ex paldean fates": {"raw": 85, "psa10": 1050, "psa9": 580, "psa8": 340},
+    "bubble mew": {"raw": 85, "psa10": 1050, "psa9": 580, "psa8": 340},
     "mew vmax alt": {"raw": 145, "psa10": 340, "psa9": 200, "psa8": 165},
     "mew vmax": {"raw": 22, "psa10": 58, "psa9": 35, "psa8": 26},
     "ancient mew": {"raw": 38, "psa10": 450, "psa9": 120, "psa8": 55},  # Promo, higher premium
@@ -133,6 +141,8 @@ KNOWN_CARD_PRICES = {
     "mewtwo vstar": {"raw": 9, "psa10": 28, "psa9": 16, "psa8": 11},
     "mewtwo gx": {"raw": 6, "psa10": 22, "psa9": 12, "psa8": 8},
     "mewtwo base set": {"raw": 28, "psa10": 380, "psa9": 95, "psa8": 45},  # Vintage
+    "rockets mewtwo": {"raw": 200, "psa10": 430, "psa9": 280, "psa8": 180},
+    "rocket's mewtwo": {"raw": 200, "psa10": 430, "psa9": 280, "psa8": 180},
     "mewtwo ex": {"raw": 18, "psa10": 52, "psa9": 30, "psa8": 22},
     
     # Eevee Heroes / Eeveelutions (Alt arts - moderate premium)
@@ -297,6 +307,9 @@ def get_raw_price_from_api(card_name: str, set_name: str = "") -> Optional[Dict]
         
         headers = get_stealth_headers()
         headers["Accept"] = "application/json"
+        # Add API key if available (increases rate limit from 1000/day to 20000/day)
+        if POKEMON_TCG_API_KEY:
+            headers["X-Api-Key"] = POKEMON_TCG_API_KEY
         
         params = {"q": query, "pageSize": 5, "orderBy": "-tcgplayer.prices.holofoil.market"}
         
@@ -344,82 +357,215 @@ def get_raw_price_from_api(card_name: str, set_name: str = "") -> Optional[Dict]
 # EBAY SOLD LISTINGS - GRADED PRICES
 # =============================================================================
 
-def search_ebay_sold(card_name: str, grade: str = "PSA 10") -> List[Dict]:
-    """
-    Search eBay sold listings for graded card prices.
-    
-    This provides real market data for graded cards.
-    """
+def _significant_words(s: str) -> List[str]:
+    """Extract significant words (len > 1, skip stopwords) for title matching."""
+    if not s:
+        return []
+    words = re.findall(r"[a-z0-9]+", s.lower())
+    stop = {"the", "a", "an", "or", "in", "of", "to", "for", "pokemon", "card", "cards"}
+    return [w for w in words if len(w) > 1 and w not in stop]
+
+
+def _listing_matches_asset(
+    title: str,
+    card_name: str,
+    set_name: str,
+    category: str,
+    product_name: Optional[str],
+    grade: Optional[str],
+) -> bool:
+    """Return True only if the listing title matches the asset."""
+    t = (title or "").lower()
+    for suffix in ("opens in a new window or tab", "opens in a new window", "new listing"):
+        if suffix in t:
+            t = t.replace(suffix, "").strip()
+    if category == "slabs" and grade:
+        if grade.lower() not in t:
+            return False
+        words = _significant_words(card_name or "")
+        if words and not all(w in t for w in words):
+            return False
+        sw = _significant_words(set_name or "")
+        if sw and not all(w in t for w in sw):
+            return False
+        # Exclude Celebrations / 25th anniversary reprints when matching vintage Base Set
+        if set_name and "base" in (set_name or "").lower() and "set" in (set_name or "").lower():
+            if "celebration" in t or "25th" in t:
+                return False
+        return True
+    if product_name:
+        words = _significant_words(product_name)
+        return len(words) > 0 and all(w in t for w in words)
+    cw = _significant_words(card_name or "")
+    sw = _significant_words(set_name or "")
+    if cw and not all(w in t for w in cw):
+        return False
+    if sw and not all(w in t for w in sw):
+        return False
+    return True
+
+
+def search_ebay_sold(
+    card_name: str,
+    grade: str = "PSA 10",
+    set_name: Optional[str] = None,
+) -> List[Dict]:
+    """Search eBay sold listings for graded cards. Only returns listings matching grade + card name + set (if provided)."""
     results = []
-    
     try:
-        # eBay sold listings URL
-        search_query = f"{card_name} {grade} pokemon"
+        query_parts = [card_name]
+        if set_name and set_name.strip():
+            query_parts.append(set_name.strip())
+        query_parts.append(grade)
+        search_query = " ".join(query_parts) + " pokemon"
         search_url = "https://www.ebay.com/sch/i.html"
-        
-        params = {
-            "_nkw": search_query,
-            "_sacat": "0",
-            "LH_Sold": "1",  # Sold listings only
-            "LH_Complete": "1",
-            "_sop": "13",  # Sort by price + shipping lowest first
-            "rt": "nc",
-        }
-        
+        params = {"_nkw": search_query, "_sacat": "0", "LH_Sold": "1", "LH_Complete": "1", "_sop": "13", "rt": "nc"}
         headers = get_stealth_headers()
-        
         time.sleep(get_random_delay())
-        
         resp = requests.get(search_url, params=params, headers=headers, timeout=15)
-        
         if resp.status_code == 200 and BS4_AVAILABLE:
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            # Find sold items
-            items = soup.select('.s-item, .srp-results .s-item__wrapper')
-            
-            for item in items[:10]:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            items = soup.select(".srp-results li.s-card, .s-item, .srp-results .s-item__wrapper")
+            set_words = _significant_words(set_name or "")
+            for item in items[:20]:
                 try:
-                    title_elem = item.select_one('.s-item__title, .s-item__title--has-tags')
-                    price_elem = item.select_one('.s-item__price')
-                    date_elem = item.select_one('.s-item__endedDate, .s-item__listingDate')
-                    
+                    title_elem = item.select_one(".s-item__title, .s-item__title--has-tags, [class*='title']")
+                    price_elem = item.select_one(".s-item__price, [class*='price']")
+                    date_elem = item.select_one(".s-item__endedDate, .s-item__listingDate, [class*='date'], [class*='ended']")
                     if not title_elem or not price_elem:
                         continue
-                    
                     title = title_elem.get_text(strip=True)
-                    
-                    # Skip if doesn't match grade
-                    if grade.lower() not in title.lower():
+                    t = title.lower()
+                    if grade.lower() not in t:
                         continue
-                    
-                    # Parse price
-                    price_text = price_elem.get_text(strip=True)
-                    price_text = ''.join(c for c in price_text if c.isdigit() or c == '.')
-                    try:
-                        price = float(price_text)
-                    except:
+                    words = _significant_words(card_name or "")
+                    if words and not all(w in t for w in words):
                         continue
-                    
-                    # Get date
-                    date_str = ""
-                    if date_elem:
-                        date_str = date_elem.get_text(strip=True)
-                    
-                    results.append({
-                        "title": title,
-                        "price": price,
-                        "date": date_str,
-                        "grade": grade,
-                    })
-                    
-                except:
+                    if set_words and not all(w in t for w in set_words):
+                        continue
+                    if set_name and "base" in set_name.lower() and "set" in set_name.lower():
+                        if "celebration" in t or "25th" in t:
+                            continue
+                    price_text = "".join(c for c in price_elem.get_text(strip=True) if c.isdigit() or c == ".")
+                    if not price_text:
+                        continue
+                    price = float(price_text)
+                    date_str = date_elem.get_text(strip=True) if date_elem else ""
+                    results.append({"title": title, "price": price, "date": date_str, "grade": grade})
+                except Exception:
                     continue
-    
     except Exception as e:
         print(f"eBay search error: {e}")
-    
     return results
+
+
+def search_ebay_sold_generic(query: str, limit: int = 15) -> List[Dict]:
+    """
+    Search eBay sold listings for raw/sealed. Returns list of {title, price, date}.
+    Caller should filter with _listing_matches_asset for accuracy.
+    """
+    results = []
+    try:
+        search_url = "https://www.ebay.com/sch/i.html"
+        params = {
+            "_nkw": f"{query} pokemon",
+            "_sacat": "0",
+            "LH_Sold": "1",
+            "LH_Complete": "1",
+            "_sop": "13",
+            "rt": "nc",
+        }
+        headers = get_stealth_headers()
+        time.sleep(get_random_delay())
+        resp = requests.get(search_url, params=params, headers=headers, timeout=15)
+        if resp.status_code == 200 and BS4_AVAILABLE:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            items = soup.select(".srp-results li.s-card, .s-item, .srp-results .s-item__wrapper")
+            for item in items[:limit * 2]:
+                try:
+                    title_elem = item.select_one(".s-item__title, .s-item__title--has-tags, [class*='title']")
+                    price_elem = item.select_one(".s-item__price, [class*='price']")
+                    date_elem = item.select_one(".s-item__endedDate, .s-item__listingDate, [class*='date'], [class*='ended']")
+                    if not title_elem or not price_elem:
+                        continue
+                    title = title_elem.get_text(strip=True)
+                    price_text = "".join(c for c in price_elem.get_text(strip=True) if c.isdigit() or c == ".")
+                    if not price_text:
+                        continue
+                    price = float(price_text)
+                    date_str = date_elem.get_text(strip=True) if date_elem else ""
+                    results.append({"title": title, "price": price, "date": date_str})
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f"eBay generic search error: {e}")
+    return results
+
+
+def get_orderbook_sources(
+    card_name: str,
+    set_name: str = "",
+    category: str = "raw",
+    product_name: Optional[str] = None,
+    grade: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Aggregate order-book-style volume from TCGPlayer, eBay, etc.
+    Returns list of {source, type, count, volume_usd, avg_price}.
+    """
+    sources: List[Dict[str, Any]] = []
+
+    # TCGPlayer (market price only; no listing count from Pokemon TCG API)
+    if category == "raw":
+        raw = get_raw_price_from_api(card_name, set_name)
+        if raw and raw.get("raw_price"):
+            sources.append({
+                "source": "TCGPlayer",
+                "type": "listings",
+                "count": None,
+                "volume_usd": None,
+                "avg_price": round(float(raw["raw_price"]), 2),
+            })
+
+    # eBay sold listings
+    if category == "slabs" and grade:
+        sales = search_ebay_sold(card_name, grade, set_name=set_name or None)
+    else:
+        q = (product_name or f"{card_name} {set_name}").strip()
+        sales = search_ebay_sold_generic(q, limit=15)
+    # Filter to only listings that match the asset (card/set/grade/product)
+    sales = [
+        s for s in sales
+        if _listing_matches_asset(
+            s.get("title", ""),
+            card_name,
+            set_name,
+            category,
+            product_name,
+            grade,
+        )
+    ]
+    if sales:
+        prices = [s["price"] for s in sales]
+        vol = sum(prices)
+        transactions = [
+            {
+                "price": round(s["price"], 2),
+                "date": s.get("date", ""),
+                "title": (s.get("title") or "")[:60],
+            }
+            for s in sales[:10]
+        ]
+        sources.append({
+            "source": "eBay",
+            "type": "sold",
+            "count": len(sales),
+            "volume_usd": round(vol, 2),
+            "avg_price": round(vol / len(sales), 2),
+            "transactions": transactions,
+        })
+
+    return sources
 
 
 def get_ebay_graded_prices(card_name: str) -> Dict[str, GradedPrice]:

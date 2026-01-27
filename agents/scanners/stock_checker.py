@@ -49,6 +49,10 @@ CACHE_DIR = Path(__file__).parent.parent.parent / ".stock_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_TTL_SECONDS = 180  # 3 minute cache for better performance
 
+# Pokemon TCG API Key (get free key at https://dev.pokemontcg.io)
+# Without key: 1000 requests/day, 30/minute - WITH key: 20,000/day
+POKEMON_TCG_API_KEY = os.environ.get("POKEMON_TCG_API_KEY", "")
+
 # Fast mode - minimal delays, higher risk of blocks
 FAST_MODE = os.environ.get("FAST_SCAN", "true").lower() == "true"
 MIN_DELAY = 0.05 if FAST_MODE else 0.3
@@ -779,6 +783,9 @@ def scan_cards(card_name: str = "", set_name: str = "") -> List[Product]:
         
         headers = get_stealth_headers()
         headers["Accept"] = "application/json"
+        # Add API key if available (increases rate limit from 1000/day to 20000/day)
+        if POKEMON_TCG_API_KEY:
+            headers["X-Api-Key"] = POKEMON_TCG_API_KEY
         
         params = {"q": q, "pageSize": 24, "orderBy": "-tcgplayer.prices.holofoil.market"}
         
