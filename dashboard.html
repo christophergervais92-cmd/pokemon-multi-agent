@@ -6070,9 +6070,9 @@
                 
                 return `
                     <div class="card" style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap;">
-                        <img src="${product.image}" alt="${product.name}" 
-                             style="width: 100px; height: auto; border-radius: 8px; flex-shrink: 0;"
-                             onerror="this.style.display='none'">
+                        <img src="${getProductImage(product.name)}" alt="${product.name}" 
+                             style="width: 100px; height: auto; border-radius: 8px; flex-shrink: 0; object-fit: contain;"
+                             onerror="this.src='https://images.pokemontcg.io/sv8/logo.png'; this.style.objectFit='contain';">
                         <div style="flex: 1; min-width: 200px;">
                             <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">${product.name}</div>
                             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
@@ -6113,7 +6113,9 @@
                     quantity: p.stock ? 1 : 0,
                     aisle: 'Check store',
                     price: p.price || 0,
-                    image_url: p.image_url || getProductImage(p.name),
+                    // Always use getProductImage for stock checker results (all are sealed products)
+                    // Ignore p.image_url which may contain card art from retailer APIs
+                    image_url: getProductImage(p.name),
                     url: p.url || ''
                 });
             }
@@ -6624,14 +6626,9 @@
                             ${s.products.map(p => {
                                 const buyUrl = getBuyUrl(s.chain, p.name, p.sku);
                                 const setInfo = getSetInfo(p.name);
-                                // Always use getProductImage for sealed products - shows actual packaging, not card art
-                                // Ignore p.image_url for sealed products as it may contain card images
-                                const isSealedProduct = (p.name || '').toLowerCase().includes('booster box') || 
-                                                       (p.name || '').toLowerCase().includes('elite trainer box') ||
-                                                       (p.name || '').toLowerCase().includes('etb') ||
-                                                       (p.name || '').toLowerCase().includes('collection box') ||
-                                                       (p.name || '').toLowerCase().includes('booster bundle');
-                                const productImg = isSealedProduct ? getProductImage(p.name) : (p.image_url || getProductImage(p.name));
+                                // Stock checker ONLY returns sealed products (booster boxes, ETBs, etc.)
+                                // ALWAYS use getProductImage (set logos) - NEVER use p.image_url which contains card art from retailer APIs
+                                const productImg = getProductImage(p.name);
                                 return `
                                 <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center;">
                                     <div style="position: relative; width: 55px; height: 75px; flex-shrink: 0;">
