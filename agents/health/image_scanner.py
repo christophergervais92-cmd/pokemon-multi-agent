@@ -49,18 +49,28 @@ class FoundImage:
         return asdict(self)
 
 
-# Search terms for finding obesity-related images
+# Search terms for finding pictures of fat/obese people
 IMAGE_SEARCH_TERMS = [
-    "weight loss transformation before after",
-    "obesity weight loss progress",
-    "morbid obesity transformation",
-    "bariatric surgery before after",
-    "weight loss journey progress pics",
-    "obese to fit transformation",
-    "300 pound weight loss",
-    "gastric sleeve before after",
-    "weight loss motivation progress",
-    "plus size fitness journey",
+    # Direct searches
+    "obese person weight loss",
+    "fat person transformation",
+    "morbidly obese progress pics",
+    "overweight before after",
+    "obese man weight loss",
+    "obese woman weight loss", 
+    "fat to fit transformation",
+    "300 lb person weight loss",
+    "400 pound person progress",
+    "super obese transformation",
+    # Journey pics
+    "obesity progress pictures",
+    "overweight transformation photos",
+    "bariatric surgery before after photos",
+    "gastric sleeve progress pics",
+    "weight loss journey obese",
+    "morbid obesity before after",
+    "plus size weight loss pics",
+    "heavy person fitness journey",
 ]
 
 # User agent for requests
@@ -310,9 +320,86 @@ def search_reddit_images(subreddit: str, limit: int = 10) -> List[Dict]:
     return results[:limit]
 
 
-def scan_for_obesity_images(max_per_source: int = 5) -> List[FoundImage]:
+def search_reddit_for_fat_people_pics(query: str, limit: int = 25) -> List[Dict]:
     """
-    Scan internet for obesity/weight loss related images.
+    Search all of Reddit for pictures of fat/obese people.
+    
+    Args:
+        query: Search query
+        limit: Max results
+    
+    Returns:
+        List of image info dicts
+    """
+    results = []
+    
+    try:
+        url = "https://www.reddit.com/search.json"
+        headers = {"User-Agent": "HealthEncouragementAgent/1.0"}
+        
+        params = {
+            "q": query,
+            "limit": limit,
+            "sort": "relevance",
+            "t": "all",
+            "type": "link",
+        }
+        
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        posts = data.get("data", {}).get("children", [])
+        
+        for post in posts:
+            post_data = post.get("data", {})
+            
+            url = post_data.get("url", "")
+            
+            # Check if it's an image
+            is_image = (
+                any(url.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]) or
+                "i.redd.it" in url or
+                "i.imgur.com" in url
+            )
+            
+            if is_image:
+                results.append({
+                    "url": url,
+                    "title": post_data.get("title", ""),
+                    "source": f"r/{post_data.get('subreddit', 'unknown')}",
+                    "source_page": f"https://reddit.com{post_data.get('permalink', '')}",
+                    "score": post_data.get("score", 0),
+                })
+            
+            # Check for gallery
+            elif post_data.get("is_gallery"):
+                media_metadata = post_data.get("media_metadata", {})
+                for media_id, media_info in list(media_metadata.items())[:1]:
+                    if media_info.get("status") == "valid" and "s" in media_info:
+                        img_url = media_info["s"].get("u", "").replace("&amp;", "&")
+                        if img_url:
+                            results.append({
+                                "url": img_url,
+                                "title": post_data.get("title", ""),
+                                "source": f"r/{post_data.get('subreddit', 'unknown')}",
+                                "source_page": f"https://reddit.com{post_data.get('permalink', '')}",
+                                "score": post_data.get("score", 0),
+                            })
+                            break
+        
+    except Exception as e:
+        print(f"    Reddit search error: {e}")
+    
+    return results
+
+
+def scan_for_fat_people_pictures(max_per_source: int = 10) -> List[FoundImage]:
+    """
+    Scan the internet for pictures of fat/obese people.
+    
+    Searches Reddit and web for images, downloads them,
+    and overlays "HN" text for encouragement.
     
     Returns list of FoundImage with HN overlay applied.
     """
@@ -321,42 +408,48 @@ def scan_for_obesity_images(max_per_source: int = 5) -> List[FoundImage]:
         return []
     
     found_images = []
+    seen_urls = set()
     
-    # Reddit subreddits with progress pics
+    print("=" * 60)
+    print("SCANNING INTERNET FOR PICTURES OF FAT PEOPLE")
+    print("(For encouragement purposes)")
+    print("=" * 60)
+    
+    # === REDDIT SUBREDDITS ===
     reddit_subs = [
         "progresspics",
-        "loseit",
+        "loseit", 
         "SuperMorbidlyObese",
         "GastricSleeve",
         "wls",
+        "gastricbypass",
         "intermittentfasting",
-        "BTFC",  # Body Transformation Fitness Challenge
+        "BTFC",
+        "brogress",
+        "xxfitness",
+        "PlusSize",
     ]
     
-    print("Scanning internet for obesity encouragement images...")
-    print("=" * 50)
+    print("\n[1/3] Scanning Reddit subreddits for progress pics...")
     
-    # Scan Reddit
     for sub in reddit_subs:
-        print(f"  Scanning r/{sub}...")
+        print(f"  r/{sub}...", end=" ", flush=True)
         
         images = search_reddit_images(sub, limit=max_per_source)
+        count = 0
         
         for img_info in images:
+            if img_info["url"] in seen_urls:
+                continue
+            seen_urls.add(img_info["url"])
+            
             try:
-                # Download image
                 img = download_image(img_info["url"])
-                if not img:
-                    continue
-                
-                # Skip tiny images
-                if img.width < 200 or img.height < 200:
+                if not img or img.width < 200 or img.height < 200:
                     continue
                 
                 # Apply HN overlay
                 processed = overlay_hn_text(img, "HN", position="bottom-right")
-                
-                # Convert to base64
                 b64 = image_to_base64(processed)
                 
                 found_image = FoundImage(
@@ -364,28 +457,105 @@ def scan_for_obesity_images(max_per_source: int = 5) -> List[FoundImage]:
                     original_url=img_info["url"],
                     source_page=img_info.get("source_page", ""),
                     source_name=img_info.get("source", f"r/{sub}"),
-                    title=img_info.get("title", img_info.get("alt", "")),
+                    title=img_info.get("title", ""),
                     alt_text=img_info.get("alt", ""),
                     width=img.width,
                     height=img.height,
                     processed_b64=b64,
                     found_at=datetime.now().isoformat(),
-                    category="progress" if "progress" in sub.lower() else "community",
+                    category="progress",
                 )
                 
                 found_images.append(found_image)
-                print(f"    Found: {found_image.title[:50]}...")
+                count += 1
                 
             except Exception as e:
-                print(f"    Error processing image: {e}")
                 continue
         
-        time.sleep(1)  # Be nice to Reddit
+        print(f"found {count}")
+        time.sleep(1)
     
-    print("=" * 50)
-    print(f"Total images found: {len(found_images)}")
+    # === REDDIT-WIDE SEARCH ===
+    print("\n[2/3] Searching all of Reddit for fat people pictures...")
+    
+    search_queries = [
+        "obese weight loss progress pics",
+        "morbidly obese transformation",
+        "fat person before after",
+        "300 pound weight loss",
+        "400 lb transformation",
+        "super obese progress",
+        "overweight to fit journey",
+    ]
+    
+    for query in search_queries:
+        print(f"  '{query}'...", end=" ", flush=True)
+        
+        images = search_reddit_for_fat_people_pics(query, limit=max_per_source)
+        count = 0
+        
+        for img_info in images:
+            if img_info["url"] in seen_urls:
+                continue
+            seen_urls.add(img_info["url"])
+            
+            try:
+                img = download_image(img_info["url"])
+                if not img or img.width < 200 or img.height < 200:
+                    continue
+                
+                processed = overlay_hn_text(img, "HN", position="bottom-right")
+                b64 = image_to_base64(processed)
+                
+                found_image = FoundImage(
+                    id=generate_image_id(img_info["url"]),
+                    original_url=img_info["url"],
+                    source_page=img_info.get("source_page", ""),
+                    source_name=img_info.get("source", "Reddit Search"),
+                    title=img_info.get("title", ""),
+                    alt_text="",
+                    width=img.width,
+                    height=img.height,
+                    processed_b64=b64,
+                    found_at=datetime.now().isoformat(),
+                    category="search",
+                )
+                
+                found_images.append(found_image)
+                count += 1
+                
+            except Exception as e:
+                continue
+        
+        print(f"found {count}")
+        time.sleep(2)
+    
+    # === SORT BY SCORE ===
+    print("\n[3/3] Sorting by engagement...")
+    
+    # Sort by title containing encouraging keywords
+    def score_image(img):
+        title_lower = img.title.lower()
+        score = 0
+        if any(kw in title_lower for kw in ["progress", "lost", "down", "transformation"]):
+            score += 100
+        if any(kw in title_lower for kw in ["obese", "morbid", "300", "400", "200 lb"]):
+            score += 50
+        return score
+    
+    found_images.sort(key=score_image, reverse=True)
+    
+    print("\n" + "=" * 60)
+    print(f"TOTAL PICTURES FOUND: {len(found_images)}")
+    print("=" * 60)
     
     return found_images
+
+
+# Keep old function name as alias
+def scan_for_obesity_images(max_per_source: int = 5) -> List[FoundImage]:
+    """Alias for scan_for_fat_people_pictures."""
+    return scan_for_fat_people_pictures(max_per_source)
 
 
 def create_image_gallery_html(images: List[FoundImage]) -> str:
@@ -496,22 +666,43 @@ def create_image_gallery_html(images: List[FoundImage]) -> str:
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Scan for obesity images and overlay HN text")
-    parser.add_argument("--scan", action="store_true", help="Scan for images")
+    parser = argparse.ArgumentParser(
+        description="Scan internet for pictures of fat people and overlay HN text (for encouragement)"
+    )
+    parser.add_argument("--scan", action="store_true", help="Scan for pictures of fat people")
     parser.add_argument("--output", type=str, default="hn_gallery.html", help="Output HTML file")
-    parser.add_argument("--limit", type=int, default=5, help="Max images per source")
+    parser.add_argument("--limit", type=int, default=10, help="Max images per source")
+    parser.add_argument("--json", type=str, help="Also save results as JSON")
     
     args = parser.parse_args()
     
     if args.scan:
-        images = scan_for_obesity_images(max_per_source=args.limit)
+        print("\n" + "=" * 60)
+        print("HN HEALTH ENCOURAGEMENT - IMAGE SCANNER")
+        print("Scanning for pictures of fat/obese people")
+        print("Purpose: ENCOURAGEMENT, not mockery")
+        print("=" * 60 + "\n")
+        
+        images = scan_for_fat_people_pictures(max_per_source=args.limit)
         
         if images:
+            # Save HTML gallery
             html = create_image_gallery_html(images)
             with open(args.output, "w") as f:
                 f.write(html)
-            print(f"\nGallery saved to {args.output}")
+            print(f"\nGallery saved to: {args.output}")
+            
+            # Optionally save JSON
+            if args.json:
+                import json
+                with open(args.json, "w") as f:
+                    json.dump([img.to_dict() for img in images], f, indent=2)
+                print(f"JSON saved to: {args.json}")
+            
+            print(f"\nOpen {args.output} in a browser to view images with HN overlay")
         else:
             print("No images found")
     else:
         parser.print_help()
+        print("\nExample:")
+        print("  python -m agents.health.image_scanner --scan --limit 10")
