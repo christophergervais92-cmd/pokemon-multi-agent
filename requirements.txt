@@ -31,6 +31,9 @@ blinker>=1.7.0
 # RSS feed parsing (health encouragement agent)
 feedparser>=6.0.0
 
+# Image processing (HN overlay on images)
+Pillow>=10.0.0
+
 # Optional packages (comment out if deploy fails):
 # undetected-chromedriver>=3.5.0  # Needs Chrome installed
 # selenium>=4.15.0                 # Needs Chrome installed
