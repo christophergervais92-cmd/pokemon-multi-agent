@@ -4122,7 +4122,13 @@
                 <div class="grid grid-2">
                     ${products.map(p => {
                         const buyUrl = getBuyUrl(p.retailer, p.name, p.sku);
-                        const imgUrl = p.cardImg || p.image_url || getSealedProductImage(p.name);
+                        // For sealed products, always use getSealedProductImage (set logos), ignore API image_url which may be card art
+                        const isSealedProduct = (p.name || '').toLowerCase().includes('booster box') || 
+                                               (p.name || '').toLowerCase().includes('elite trainer box') ||
+                                               (p.name || '').toLowerCase().includes('etb') ||
+                                               (p.name || '').toLowerCase().includes('collection box') ||
+                                               (p.name || '').toLowerCase().includes('booster bundle');
+                        const imgUrl = isSealedProduct ? getSealedProductImage(p.name) : (p.cardImg || p.image_url || getSealedProductImage(p.name));
                         const priceNum = parseFloat(p.price);
                         const priceDisplay = !isNaN(priceNum) && priceNum > 0 ? priceNum.toFixed(2) : estimateProductPrice(p.name).toFixed(2);
                         
@@ -6619,7 +6625,13 @@
                                 const buyUrl = getBuyUrl(s.chain, p.name, p.sku);
                                 const setInfo = getSetInfo(p.name);
                                 // Always use getProductImage for sealed products - shows actual packaging, not card art
-                                const productImg = getProductImage(p.name);
+                                // Ignore p.image_url for sealed products as it may contain card images
+                                const isSealedProduct = (p.name || '').toLowerCase().includes('booster box') || 
+                                                       (p.name || '').toLowerCase().includes('elite trainer box') ||
+                                                       (p.name || '').toLowerCase().includes('etb') ||
+                                                       (p.name || '').toLowerCase().includes('collection box') ||
+                                                       (p.name || '').toLowerCase().includes('booster bundle');
+                                const productImg = isSealedProduct ? getProductImage(p.name) : (p.image_url || getProductImage(p.name));
                                 return `
                                 <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center;">
                                     <div style="position: relative; width: 55px; height: 75px; flex-shrink: 0;">
@@ -10572,9 +10584,13 @@
             // sv3 = Obsidian Flames
             
             // Check specific product names (most specific first)
+            if (nameLower.includes('journey together')) {
+                // Journey Together - use SV10 logo
+                return 'https://images.pokemontcg.io/sv10/logo.png';
+            }
             if (nameLower.includes('destined rivals')) {
-                // Destined Rivals is upcoming - use Scarlet & Violet base logo as placeholder
-                return 'https://images.pokemontcg.io/sv1/logo.png';
+                // Destined Rivals - use SV10 logo
+                return 'https://images.pokemontcg.io/sv10/logo.png';
             }
             if (nameLower.includes('prismatic evolution')) {
                 return 'https://images.pokemontcg.io/sv8pt5/logo.png';
