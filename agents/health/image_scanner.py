@@ -118,22 +118,22 @@ def download_image(url: str, timeout: int = 10) -> Optional[Image.Image]:
 def overlay_hn_text(
     img: Image.Image,
     text: str = "HN",
-    position: str = "bottom-right",
+    position: str = "bottom-center",
     font_size: int = None,
     opacity: float = 0.85,
 ) -> Image.Image:
     """
-    Overlay "HN" text on an image.
+    Overlay "HN" text on an image in white meme-style text.
     
     Args:
         img: PIL Image
         text: Text to overlay (default "HN")
-        position: Where to place text (bottom-right, bottom-left, center, etc.)
+        position: Where to place text (bottom-center for meme style)
         font_size: Font size (auto-calculated if None)
         opacity: Text opacity (0-1)
     
     Returns:
-        Image with text overlay
+        Image with white meme text overlay at bottom
     """
     if not PIL_AVAILABLE:
         return img
@@ -141,56 +141,61 @@ def overlay_hn_text(
     # Make a copy
     img = img.copy()
     
-    # Calculate font size based on image dimensions
+    # Calculate font size - BIG for meme style
     if font_size is None:
-        font_size = max(24, min(img.width, img.height) // 8)
+        font_size = max(48, min(img.width, img.height) // 5)
     
     # Create drawing context
     draw = ImageDraw.Draw(img)
     
-    # Try to load a bold font, fall back to default
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-    except:
+    # Try to load Impact font (classic meme font), fall back to bold fonts
+    font = None
+    font_paths = [
+        "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",  # Linux with msttcorefonts
+        "/usr/share/fonts/truetype/impact.ttf",
+        "C:/Windows/Fonts/impact.ttf",  # Windows
+        "/System/Library/Fonts/Impact.ttf",  # Mac
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # Fallback
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    ]
+    
+    for font_path in font_paths:
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+            break
+        except:
+            continue
+    
+    if font is None:
         try:
             font = ImageFont.truetype("arial.ttf", font_size)
         except:
             font = ImageFont.load_default()
+    
+    # Text is uppercase
+    text = text.upper()
     
     # Get text size
     bbox = draw.textbbox((0, 0), text, font=font)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
     
-    # Calculate position
-    padding = 15
+    # Position at bottom center (meme style)
+    x = (img.width - text_width) // 2
+    y = img.height - text_height - 20  # 20px from bottom
     
-    if position == "bottom-right":
-        x = img.width - text_width - padding
-        y = img.height - text_height - padding
-    elif position == "bottom-left":
-        x = padding
-        y = img.height - text_height - padding
-    elif position == "top-right":
-        x = img.width - text_width - padding
-        y = padding
-    elif position == "top-left":
-        x = padding
-        y = padding
-    elif position == "center":
-        x = (img.width - text_width) // 2
-        y = (img.height - text_height) // 2
-    else:  # bottom-center
-        x = (img.width - text_width) // 2
-        y = img.height - text_height - padding
+    # Draw thick black outline (meme style)
+    outline_color = (0, 0, 0)
+    outline_width = max(3, font_size // 15)
     
-    # Draw shadow/outline for visibility
-    shadow_color = (0, 0, 0)
-    for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2), (-2, 0), (2, 0), (0, -2), (0, 2)]:
-        draw.text((x + dx, y + dy), text, font=font, fill=shadow_color)
+    # Draw outline by drawing text multiple times offset
+    for dx in range(-outline_width, outline_width + 1):
+        for dy in range(-outline_width, outline_width + 1):
+            if dx != 0 or dy != 0:
+                draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
     
-    # Draw main text (orange like HN)
-    text_color = (255, 102, 0)  # HN orange
+    # Draw main text in WHITE (meme style)
+    text_color = (255, 255, 255)  # Pure white
     draw.text((x, y), text, font=font, fill=text_color)
     
     return img
@@ -448,8 +453,8 @@ def scan_for_fat_people_pictures(max_per_source: int = 10) -> List[FoundImage]:
                 if not img or img.width < 200 or img.height < 200:
                     continue
                 
-                # Apply HN overlay
-                processed = overlay_hn_text(img, "HN", position="bottom-right")
+                # Apply HN overlay - white meme text at bottom center
+                processed = overlay_hn_text(img, "HN", position="bottom-center")
                 b64 = image_to_base64(processed)
                 
                 found_image = FoundImage(
@@ -504,7 +509,8 @@ def scan_for_fat_people_pictures(max_per_source: int = 10) -> List[FoundImage]:
                 if not img or img.width < 200 or img.height < 200:
                     continue
                 
-                processed = overlay_hn_text(img, "HN", position="bottom-right")
+                # Apply HN overlay - white meme text at bottom center
+                processed = overlay_hn_text(img, "HN", position="bottom-center")
                 b64 = image_to_base64(processed)
                 
                 found_image = FoundImage(

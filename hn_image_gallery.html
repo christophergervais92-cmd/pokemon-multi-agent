@@ -103,24 +103,31 @@
             display: block;
         }
         
-        /* HN Overlay */
+        /* HN Overlay - White meme text style */
         .hn-overlay {
             position: absolute;
-            bottom: 10px;
-            right: 10px;
-            font-size: 32px;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+            font-size: 48px;
             font-weight: bold;
-            color: #ff6600;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: 3px;
             text-shadow: 
+                -3px -3px 0 #000,
+                3px -3px 0 #000,
+                -3px 3px 0 #000,
+                3px 3px 0 #000,
+                0 -3px 0 #000,
+                0 3px 0 #000,
+                -3px 0 0 #000,
+                3px 0 0 #000,
                 -2px -2px 0 #000,
                 2px -2px 0 #000,
                 -2px 2px 0 #000,
-                2px 2px 0 #000,
-                0 -2px 0 #000,
-                0 2px 0 #000,
-                -2px 0 0 #000,
-                2px 0 0 #000;
-            letter-spacing: 2px;
+                2px 2px 0 #000;
         }
         
         .image-info {
