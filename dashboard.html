@@ -2854,6 +2854,36 @@
         const DB_VERSION = 1;
         const DB_STORE = 'images';
         
+        // Set name to ID mapping (must be defined early - used by getProductImage/getSetInfo)
+        const SET_NAME_TO_ID = {
+            'destined rivals': 'sv10', 'destined': 'sv10',
+            'journey together': 'sv10',
+            'prismatic evolutions': 'sv8pt5', 'prismatic': 'sv8pt5',
+            'surging sparks': 'sv8', 'surging': 'sv8',
+            'stellar crown': 'sv7', 'stellar': 'sv7',
+            'shrouded fable': 'sv6pt5',
+            'twilight masquerade': 'sv6',
+            'temporal forces': 'sv5',
+            'paldean fates': 'sv4pt5', 'paldean': 'sv4pt5',
+            'paradox rift': 'sv4',
+            '151': 'sv3pt5', 'pokemon 151': 'sv3pt5', 'sv 151': 'sv3pt5',
+            'obsidian flames': 'sv3', 'obsidian': 'sv3',
+            'paldea evolved': 'sv2',
+            'scarlet violet': 'sv1', 'scarlet & violet base': 'sv1',
+            'crown zenith': 'swsh12pt5',
+            'silver tempest': 'swsh12',
+            'lost origin': 'swsh11',
+            'astral radiance': 'swsh10',
+            'brilliant stars': 'swsh9',
+            'fusion strike': 'swsh8',
+            'evolving skies': 'swsh7',
+            'chilling reign': 'swsh6',
+            'battle styles': 'swsh5',
+            'shining fates': 'swsh45',
+            'vivid voltage': 'swsh4',
+            'champions path': 'swsh35', "champion's path": 'swsh35',
+        };
+        
         // Debug mode - set to true to see all console logs
         const DEBUG_MODE = true;
         function debugLog(...args) {
@@ -10545,33 +10575,8 @@
             'swsh35': { logo: 'https://images.pokemontcg.io/swsh35/logo.png', symbol: 'https://images.pokemontcg.io/swsh35/symbol.png', name: "Champion's Path" },
         };
         
-        // Set name to ID mapping
-        const SET_NAME_TO_ID = {
-            'destined rivals': 'sv9', 'destined': 'sv9',
-            'prismatic evolutions': 'sv8', 'prismatic': 'sv8',
-            'surging sparks': 'sv7', 'stellar crown': 'sv7',
-            'shrouded fable': 'sv6pt5',
-            'twilight masquerade': 'sv6',
-            'temporal forces': 'sv5',
-            'paldean fates': 'sv4pt5', 'paldean': 'sv4pt5',
-            'paradox rift': 'sv4',
-            '151': 'sv3pt5', 'pokemon 151': 'sv3pt5', 'sv 151': 'sv3pt5',
-            'obsidian flames': 'sv3', 'obsidian': 'sv3',
-            'paldea evolved': 'sv2',
-            'scarlet violet': 'sv1', 'scarlet & violet base': 'sv1',
-            'crown zenith': 'swsh12pt5',
-            'silver tempest': 'swsh12',
-            'lost origin': 'swsh11',
-            'astral radiance': 'swsh10',
-            'brilliant stars': 'swsh9',
-            'fusion strike': 'swsh8',
-            'evolving skies': 'swsh7',
-            'chilling reign': 'swsh6',
-            'battle styles': 'swsh5',
-            'shining fates': 'swsh45',
-            'vivid voltage': 'swsh4',
-            'champions path': 'swsh35', "champion's path": 'swsh35',
-        };
+        // SET_NAME_TO_ID is defined at the top of the script (line ~2856)
+        // to avoid temporal dead zone errors
         
         function getProductImage(productName) {
             const nameLower = (productName || '').toLowerCase();
