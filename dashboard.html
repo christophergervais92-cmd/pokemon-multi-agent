@@ -5969,61 +5969,69 @@
         
         async function findStock() {
             const zip = document.getElementById('stockZip').value || settings.zip || '90210';
-            const query = document.getElementById('stockQuery').value || 'pokemon';
+            const query = document.getElementById('stockQuery').value || 'pokemon trading cards';
             const results = document.getElementById('stockResults');
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Searching sealed products...</div>';
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Scanning retailers for stock...</div>';
             
-            // Filter sealed products by search query
-            const queryLower = query.toLowerCase();
-            const matchingProducts = SEALED_PRODUCTS.filter(p => {
-                const searchText = `${p.name} ${p.set} ${p.type}`.toLowerCase();
-                // Match if any word from query is in the product (words > 2 chars)
-                return queryLower.split(' ').some(word => word.length > 2 && searchText.includes(word));
-            });
-            
-            // Sort by release date (newest first)
-            matchingProducts.sort((a, b) => new Date(b.release) - new Date(a.release));
-            
-            // Get selected retailer filter
-            const retailerFilter = currentRetailerFilter || 'all';
-            
-            // Render products directly
-            if (matchingProducts.length > 0) {
-                renderSealedProducts(matchingProducts, retailerFilter);
+            try {
+                // Call the real stock checker API
+                const cacheBuster = new Date().getTime();
+                const data = await api(`/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&_=${cacheBuster}`, { timeout: 30000 });
+                
+                if (data.error) {
+                    results.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>Error: ${data.error}</div></div>`;
+                    return;
+                }
+                
+                const products = data.products || [];
+                
+                if (products.length === 0) {
+                    results.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 2rem;">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">📦</div>
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">No Stock Found</div>
+                            <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+                                No products found for "<strong>${query}</strong>".<br>
+                                Try searching for "pokemon", "etb", "booster box", or a set name.
+                            </div>
+                        </div>
+                    `;
+                    // Reset stats
+                    document.getElementById('statStores').textContent = '0';
+                    document.getElementById('statInStock').textContent = '0';
+                    document.getElementById('statProducts').textContent = '0';
+                    document.getElementById('statUnits').textContent = '0';
+                    return;
+                }
+                
+                // Convert API products to store format
+                const stores = convertRealProductsToStores(products, zip, query);
+                allStockStores = stores; // Store for filtering
+                
+                // Render results
+                renderStockResults(stores);
                 
                 // Update stats
-                const totalRetailers = retailerFilter === 'all' ? 7 : 1;
-                document.getElementById('statStores').textContent = totalRetailers;
-                document.getElementById('statInStock').textContent = matchingProducts.length;
-                document.getElementById('statProducts').textContent = matchingProducts.length;
-                document.getElementById('statUnits').textContent = '-';
-                return;
+                const totalUnits = stores.reduce((sum, s) => sum + (s.total_quantity || 0), 0);
+                const storesWithStock = stores.filter(s => s.has_stock).length;
+                const totalProducts = stores.reduce((sum, s) => sum + (s.products?.length || 0), 0);
+                
+                document.getElementById('statStores').textContent = stores.length;
+                document.getElementById('statInStock').textContent = storesWithStock;
+                document.getElementById('statProducts').textContent = totalProducts;
+                document.getElementById('statUnits').textContent = totalUnits;
+                
+            } catch (error) {
+                console.error('Stock check error:', error);
+                results.innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon">⚠️</div>
+                        <div>Error loading stock: ${error.message || 'Unknown error'}</div>
+                        <button class="btn btn-sm" onclick="findStock()" style="margin-top: 1rem;">Try Again</button>
+                    </div>
+                `;
             }
-            
-            // No products matched - show helpful message
-            results.innerHTML = `
-                <div class="card" style="text-align: center; padding: 2rem;">
-                    <div style="font-size: 2rem; margin-bottom: 1rem;">📦</div>
-                    <div style="font-weight: 600; margin-bottom: 0.5rem;">No Products Found</div>
-                    <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
-                        No sealed products found for "<strong>${query}</strong>".<br>
-                        Try searching for a set name or product type.
-                    </div>
-                    <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
-                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='prismatic evolutions'; findStock();">Prismatic Evolutions</button>
-                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='destined rivals'; findStock();">Destined Rivals</button>
-                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='booster box'; findStock();">Booster Box</button>
-                        <button class="btn btn-sm" onclick="document.getElementById('stockQuery').value='etb'; findStock();">Elite Trainer Box</button>
-                    </div>
-                </div>
-            `;
-            
-            // Reset stats
-            document.getElementById('statStores').textContent = '0';
-            document.getElementById('statInStock').textContent = '0';
-            document.getElementById('statProducts').textContent = '0';
-            document.getElementById('statUnits').textContent = '0';
         }
         
         // Render sealed products with direct retailer links
