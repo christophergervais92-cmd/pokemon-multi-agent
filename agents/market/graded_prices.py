@@ -242,8 +242,9 @@ KNOWN_CARD_PRICES = {
     # Espeon ex SIR
     "espeon ex sir": {"raw": 350, "psa10": 950, "psa9": 480, "psa8": 380, "cgc10": 450, "cgc95": 400, "bgs10": 850, "bgs10black": 2200, "type": "sir"},
     
-    # Umbreon ex SIR (Most expensive Eeveelution)
-    "umbreon ex sir": {"raw": 500, "psa10": 1400, "psa9": 680, "psa8": 540, "cgc10": 650, "cgc95": 580, "bgs10": 1200, "bgs10black": 3500, "type": "sir"},
+    # Umbreon ex SIR - Updated to Prismatic Evolutions prices (most current)
+    "umbreon ex sir": {"raw": 1049, "psa10": 1148, "psa9": 950, "psa8": 850, "cgc10": 1000, "cgc95": 900, "cgc10pristine": 1500, "bgs10": 1100, "bgs95": 950, "bgs10black": 3000, "type": "sir"},
+    "umbreon ex": {"raw": 1049, "psa10": 1148, "psa9": 950, "psa8": 850, "cgc10": 1000, "cgc95": 900, "cgc10pristine": 1500, "bgs10": 1100, "bgs95": 950, "bgs10black": 3000, "type": "sir"},
     
     # Giovanni's Nidoking ex SIR
     "giovanni's nidoking ex": {"raw": 120, "psa10": 380, "psa9": 180, "psa8": 140, "cgc10": 180, "cgc95": 160, "bgs10": 320, "bgs10black": 900, "type": "sir"},
@@ -322,11 +323,11 @@ KNOWN_CARD_PRICES = {
     # ==========================================================================
     # EVOLVING SKIES - VERIFIED PRICECHARTING.COM Jan 27, 2026
     # ==========================================================================
-    # Umbreon VMAX #215 Alt Art - REAL PRICECHARTING DATA (MOST VALUABLE MODERN CARD!)
-    "umbreon vmax alt": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
-    "umbreon vmax 215": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
-    "umbreon vmax alt art": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
-    "umbreon vmax evolving skies": {"raw": 1677, "psa10": 1737, "psa9": 1500, "psa8": 1300, "cgc10": 1600, "cgc95": 1400, "cgc10pristine": 2200, "bgs10": 1700, "bgs95": 1450, "bgs10black": 4500, "type": "chase"},
+    # Umbreon VMAX #215 Alt Art - REAL PRICECHARTING DATA Jan 28, 2026 (MOST VALUABLE MODERN CARD!)
+    "umbreon vmax alt": {"raw": 1691, "psa10": 1801, "psa9": 1550, "psa8": 1350, "cgc10": 1650, "cgc95": 1450, "cgc10pristine": 2300, "bgs10": 1750, "bgs95": 1500, "bgs10black": 4700, "type": "chase"},
+    "umbreon vmax 215": {"raw": 1691, "psa10": 1801, "psa9": 1550, "psa8": 1350, "cgc10": 1650, "cgc95": 1450, "cgc10pristine": 2300, "bgs10": 1750, "bgs95": 1500, "bgs10black": 4700, "type": "chase"},
+    "umbreon vmax alt art": {"raw": 1691, "psa10": 1801, "psa9": 1550, "psa8": 1350, "cgc10": 1650, "cgc95": 1450, "cgc10pristine": 2300, "bgs10": 1750, "bgs95": 1500, "bgs10black": 4700, "type": "chase"},
+    "umbreon vmax evolving skies": {"raw": 1691, "psa10": 1801, "psa9": 1550, "psa8": 1350, "cgc10": 1650, "cgc95": 1450, "cgc10pristine": 2300, "bgs10": 1750, "bgs95": 1500, "bgs10black": 4700, "type": "chase"},
     
     # Regular Umbreon VMAX (not alt art)
     "umbreon vmax": {"raw": 35, "psa10": 88, "psa9": 52, "psa8": 40, "cgc10": 48, "cgc95": 42, "bgs10": 75, "bgs10black": 220},
