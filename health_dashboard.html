@@ -403,8 +403,8 @@
     
     <!-- Encouragement Banner -->
     <div class="encouragement-banner">
-        <strong>Every step forward is progress.</strong>
-        You're doing great. Here's some encouragement from people on similar journeys.
+        <strong>You are not alone. You CAN do this.</strong>
+        Real stories from real people who started where you are. This is encouragement, not judgment.
     </div>
     
     <!-- Stats Bar -->
@@ -440,11 +440,12 @@
             <a href="#resources">Resources</a>
         </p>
         <p style="margin-top: 10px;">
-            This site aggregates encouraging content for people on their health journey.<br>
+            This site scans the internet for ENCOURAGING content about obesity and weight loss.<br>
+            No judgment. No shaming. Just support, success stories, and motivation.<br>
             Remember: Progress, not perfection. You've got this!
         </p>
         <p style="margin-top: 10px; font-size: 7pt;">
-            Sources: Reddit communities (r/loseit, r/progresspics, r/fitness), health news feeds
+            Sources: Reddit (r/loseit, r/progresspics, r/SuperMorbidlyObese, r/wls), health news, web search
         </p>
     </div>
 
@@ -661,32 +662,32 @@
             return div.innerHTML;
         }
         
-        // Demo content when API is not available
+        // Demo content when API is not available - Obesity-focused
         function getDemoContent() {
             return [
                 {
                     id: "demo1",
-                    title: "[SV] Down 50lbs in 6 months! Small consistent changes really do add up",
-                    url: "https://www.reddit.com/r/loseit/example1",
-                    source: "r/loseit",
+                    title: "[SV] Started at 412 lbs, now at 285! Morbidly obese to overweight - never thought I'd see this day",
+                    url: "https://www.reddit.com/r/SuperMorbidlyObese/example1",
+                    source: "r/SuperMorbidlyObese",
                     category: "success_story",
-                    summary: "Started at 280, now at 230. All I did was track calories and walk 30 min daily...",
-                    author: "healthyjourney2024",
-                    score: 1523,
-                    comments: 234,
+                    summary: "I was told I wouldn't live to see 40. I'm 38 now and healthier than I've been in 20 years. If I can do it, anyone can...",
+                    author: "from400tofit",
+                    score: 5823,
+                    comments: 834,
                     created_at: new Date(Date.now() - 3600000).toISOString(),
                     is_encouraging: true,
                     tags: ["SV"]
                 },
                 {
                     id: "demo2",
-                    title: "\"The only bad workout is the one that didn't happen.\"",
+                    title: "\"Your weight does not define your worth. Your journey does.\"",
                     url: "",
                     source: "Daily Motivation",
                     category: "motivation",
                     summary: "— Unknown",
                     author: "Unknown",
-                    score: 892,
+                    score: 1892,
                     comments: 0,
                     created_at: new Date().toISOString(),
                     is_encouraging: true,
@@ -694,55 +695,55 @@
                 },
                 {
                     id: "demo3",
-                    title: "[Progress Pic] M/32/5'10\" - From 320 to 195 in 18 months. If I can do it, so can you!",
+                    title: "[Progress] M/35/5'11\" - 485 lbs to 210 lbs in 2.5 years. My doctor cried at my last checkup.",
                     url: "https://www.reddit.com/r/progresspics/example",
                     source: "r/progresspics",
                     category: "success_story",
-                    summary: "This community kept me going when I wanted to give up...",
-                    author: "transformationking",
-                    score: 4521,
-                    comments: 567,
+                    summary: "I was bedridden at my heaviest. Now I run 5Ks. This community saved my life...",
+                    author: "obesetohealthy",
+                    score: 12521,
+                    comments: 1567,
                     created_at: new Date(Date.now() - 7200000).toISOString(),
                     is_encouraging: true,
                     tags: ["Progress"]
                 },
                 {
                     id: "demo4",
-                    title: "15 High-Protein Breakfast Ideas That Keep You Full Until Lunch",
-                    url: "https://www.healthline.com/nutrition/high-protein-breakfast",
-                    source: "Healthline",
-                    category: "tip",
-                    summary: "Starting your day with protein can help control hunger and support weight management...",
-                    author: "Healthline Nutrition",
-                    score: 234,
-                    comments: 45,
-                    created_at: new Date(Date.now() - 14400000).toISOString(),
+                    title: "6 months post gastric sleeve: Down 120 lbs and off all my diabetes medication",
+                    url: "https://www.reddit.com/r/gastricsleeve/example",
+                    source: "r/gastricsleeve",
+                    category: "success_story",
+                    summary: "Surgery isn't the easy way out - it's a tool. But it's a tool that saved my life...",
+                    author: "sleeve_success",
+                    score: 2341,
+                    comments: 389,
+                    created_at: new Date(Date.now() - 10800000).toISOString(),
                     is_encouraging: true,
-                    tags: []
+                    tags: ["WLS"]
                 },
                 {
                     id: "demo5",
-                    title: "[NSV] Walked up 3 flights of stairs without getting winded for the first time in years!",
+                    title: "[NSV] Fit into a restaurant booth for the first time in 10 years. I sobbed.",
                     url: "https://www.reddit.com/r/loseit/example2",
                     source: "r/loseit",
                     category: "success_story",
-                    summary: "It's the little things that remind me why I started this journey...",
-                    author: "stairs_are_easier_now",
-                    score: 2341,
-                    comments: 189,
-                    created_at: new Date(Date.now() - 10800000).toISOString(),
+                    summary: "The little things you take for granted. Started at 380, now at 260...",
+                    author: "booth_fitter",
+                    score: 8341,
+                    comments: 589,
+                    created_at: new Date(Date.now() - 14400000).toISOString(),
                     is_encouraging: true,
                     tags: ["NSV"]
                 },
                 {
                     id: "demo6",
-                    title: "\"Take care of your body. It's the only place you have to live.\"",
+                    title: "\"You didn't gain it overnight. You won't lose it overnight. But you WILL lose it.\"",
                     url: "",
                     source: "Daily Motivation",
                     category: "motivation",
-                    summary: "— Jim Rohn",
-                    author: "Jim Rohn",
-                    score: 756,
+                    summary: "— Unknown",
+                    author: "Unknown",
+                    score: 2756,
                     comments: 0,
                     created_at: new Date().toISOString(),
                     is_encouraging: true,
@@ -750,49 +751,49 @@
                 },
                 {
                     id: "demo7",
-                    title: "Simple meal prep that changed my life - 5 containers, 1 hour, whole week sorted",
-                    url: "https://www.reddit.com/r/MealPrepSunday/example",
-                    source: "r/MealPrepSunday",
+                    title: "For those starting at 300+ lbs: Here's what actually worked for me",
+                    url: "https://www.reddit.com/r/SuperMorbidlyObese/example2",
+                    source: "r/SuperMorbidlyObese",
                     category: "tip",
-                    summary: "Here's my go-to weekly prep that makes healthy eating almost effortless...",
-                    author: "mealprep_master",
-                    score: 1876,
-                    comments: 423,
+                    summary: "Forget the complicated diets. Start with these 3 simple things that got me through the first 6 months...",
+                    author: "smo_veteran",
+                    score: 3876,
+                    comments: 623,
                     created_at: new Date(Date.now() - 21600000).toISOString(),
                     is_encouraging: true,
                     tags: []
                 },
                 {
                     id: "demo8",
-                    title: "Study: Walking 10 minutes after meals significantly improves blood sugar control",
+                    title: "New research: Obesity is a disease, not a character flaw - treatment approach shifting",
                     url: "https://www.medicalnewstoday.com/example",
                     source: "Medical News Today",
                     category: "news",
-                    summary: "New research confirms that even short walks after eating can have major health benefits...",
+                    summary: "Medical community increasingly recognizing obesity as complex metabolic condition requiring compassionate care...",
                     author: "MNT Staff",
-                    score: 567,
-                    comments: 89,
+                    score: 1567,
+                    comments: 289,
                     created_at: new Date(Date.now() - 28800000).toISOString(),
                     is_encouraging: true,
                     tags: []
                 },
                 {
                     id: "demo9",
-                    title: "The xx fitness community helped me realize that strong is beautiful - my 1 year journey",
-                    url: "https://www.reddit.com/r/xxfitness/example",
-                    source: "r/xxfitness",
-                    category: "community",
-                    summary: "When I started, I was afraid of weights. Now I deadlift my bodyweight!",
-                    author: "strong_and_proud",
-                    score: 3421,
-                    comments: 312,
+                    title: "From mobility scooter to marathon: My 5-year journey losing 300 lbs",
+                    url: "https://www.reddit.com/r/loseit/example3",
+                    source: "r/loseit",
+                    category: "success_story",
+                    summary: "At 520 lbs I couldn't walk to my mailbox. This weekend I finished my first marathon...",
+                    author: "scooter_to_runner",
+                    score: 15421,
+                    comments: 2312,
                     created_at: new Date(Date.now() - 36000000).toISOString(),
                     is_encouraging: true,
                     tags: []
                 },
                 {
                     id: "demo10",
-                    title: "\"Progress, not perfection.\"",
+                    title: "\"100 pounds lost starts with the first pound. You've got this.\"",
                     url: "",
                     source: "Daily Motivation",
                     category: "motivation",
@@ -806,41 +807,41 @@
                 },
                 {
                     id: "demo11",
-                    title: "How I broke my plateau: Sometimes you need to eat MORE, not less",
-                    url: "https://www.reddit.com/r/CICO/example",
-                    source: "r/CICO",
-                    category: "tip",
-                    summary: "After 3 weeks of no progress, I increased calories slightly and the scale finally moved...",
-                    author: "cico_scientist",
-                    score: 945,
-                    comments: 178,
-                    created_at: new Date(Date.now() - 43200000).toISOString(),
+                    title: "Anyone else obese and just starting? Let's be accountability buddies",
+                    url: "https://www.reddit.com/r/loseit/example4",
+                    source: "r/loseit",
+                    category: "community",
+                    summary: "330 lbs here. Day 1. I'm scared but I'm ready. Looking for others in the same boat...",
+                    author: "starting_my_journey",
+                    score: 4892,
+                    comments: 1834,
+                    created_at: new Date(Date.now() - 1800000).toISOString(),
                     is_encouraging: true,
                     tags: []
                 },
                 {
                     id: "demo12",
-                    title: "F/28 - Intermittent fasting gave me a better relationship with food",
-                    url: "https://www.reddit.com/r/intermittentfasting/example",
-                    source: "r/intermittentfasting",
+                    title: "Gastric bypass 1 year update: 380 to 195, A1C from 11 to 5.2",
+                    url: "https://www.reddit.com/r/wls/example",
+                    source: "r/wls",
                     category: "success_story",
-                    summary: "It's not about restriction, it's about listening to your body's actual hunger signals...",
-                    author: "if_changed_my_life",
+                    summary: "For anyone considering WLS and scared - here's my honest experience, good and bad...",
+                    author: "bypass_believer",
                     score: 2134,
-                    comments: 287,
+                    comments: 487,
                     created_at: new Date(Date.now() - 50400000).toISOString(),
                     is_encouraging: true,
                     tags: ["Success Story"]
                 },
                 {
                     id: "demo13",
-                    title: "\"Believe you can and you're halfway there.\"",
+                    title: "\"You are not too far gone. You are not too heavy to start. Today is your day.\"",
                     url: "",
                     source: "Daily Motivation",
                     category: "motivation",
-                    summary: "— Theodore Roosevelt",
-                    author: "Theodore Roosevelt",
-                    score: 678,
+                    summary: "— Unknown",
+                    author: "Unknown",
+                    score: 978,
                     comments: 0,
                     created_at: new Date().toISOString(),
                     is_encouraging: true,
@@ -848,12 +849,12 @@
                 },
                 {
                     id: "demo14",
-                    title: "Budget-friendly healthy eating: My $50/week grocery list that helped me lose 30lbs",
-                    url: "https://www.reddit.com/r/EatCheapAndHealthy/example",
-                    source: "r/EatCheapAndHealthy",
+                    title: "Obese-friendly exercises that won't destroy your joints (from a 350lb person)",
+                    url: "https://www.reddit.com/r/fitness/example",
+                    source: "r/fitness",
                     category: "tip",
-                    summary: "You don't need expensive diet foods. Here's proof that healthy eating can be affordable...",
-                    author: "budget_health_warrior",
+                    summary: "Swimming, chair exercises, and resistance bands saved my knees. Here's my full routine...",
+                    author: "joint_saver",
                     score: 3567,
                     comments: 445,
                     created_at: new Date(Date.now() - 57600000).toISOString(),
@@ -862,15 +863,15 @@
                 },
                 {
                     id: "demo15",
-                    title: "Day 1 again, but this time I'm not giving up. Who's with me?",
-                    url: "https://www.reddit.com/r/loseit/example3",
+                    title: "I've lost and regained 100+ lbs three times. This time is different. Here's why.",
+                    url: "https://www.reddit.com/r/loseit/example5",
                     source: "r/loseit",
-                    category: "community",
-                    summary: "Every day 1 is a chance to start fresh. Let's do this together!",
-                    author: "never_give_up_2024",
-                    score: 4892,
-                    comments: 1234,
-                    created_at: new Date(Date.now() - 1800000).toISOString(),
+                    category: "success_story",
+                    summary: "Yo-yo dieting nearly killed me. But I finally understand what I was doing wrong...",
+                    author: "fourth_times_charm",
+                    score: 6892,
+                    comments: 934,
+                    created_at: new Date(Date.now() - 64800000).toISOString(),
                     is_encouraging: true,
                     tags: []
                 }
