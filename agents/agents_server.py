@@ -4094,6 +4094,345 @@ def get_all_drop_intel():
         return jsonify({'error': str(e)}), 500
 
 
+# =============================================================================
+# X/TWITTER CONTENT GENERATOR
+# =============================================================================
+
+# Import X content generator
+try:
+    from content.x_content_generator import XContentGenerator, ContentType, generate_tweet
+    from content.x_api_client import XAPIClient
+    X_CONTENT_AVAILABLE = True
+    print("[Server] X Content Generator loaded")
+except ImportError as e:
+    X_CONTENT_AVAILABLE = False
+    print(f"[Server] X Content Generator not available: {e}")
+
+# Initialize X content generator singleton
+_x_generator = None
+
+def get_x_generator():
+    """Get or create X content generator instance."""
+    global _x_generator
+    if _x_generator is None and X_CONTENT_AVAILABLE:
+        _x_generator = XContentGenerator()
+    return _x_generator
+
+
+@app.route('/x/generate', methods=['POST'])
+def x_generate_content():
+    """
+    Generate X/Twitter content.
+    
+    POST body:
+    {
+        "type": "restock|deal|market|drop|news|engagement|general",
+        "use_ai": false,
+        "data": {
+            // Type-specific data
+            // For restock: product_name, retailer, price, url
+            // For deal: product_name, retailer, original_price, sale_price, url
+            // For market: card_name, current_price, psa10_price, trend_percent, analysis
+            // For drop: product_name, release_date, msrp, description
+        },
+        "tone": "exciting|informative|casual|urgent"
+    }
+    """
+    if not X_CONTENT_AVAILABLE:
+        return jsonify({'error': 'X Content Generator not available'}), 503
+    
+    generator = get_x_generator()
+    if not generator:
+        return jsonify({'error': 'Could not initialize generator'}), 500
+    
+    try:
+        body = request.get_json() or {}
+        content_type_str = body.get('type', 'general')
+        use_ai = body.get('use_ai', False)
+        data = body.get('data', {})
+        tone = body.get('tone', 'exciting')
+        
+        # Map string to ContentType enum
+        try:
+            content_type = ContentType(content_type_str)
+        except ValueError:
+            content_type = ContentType.GENERAL
+        
+        # Generate content based on type
+        if use_ai:
+            content = generator.generate_ai_tweet(
+                content_type=content_type,
+                context=data,
+                tone=tone
+            )
+        else:
+            # Use template-based generation
+            if content_type == ContentType.RESTOCK:
+                content = generator.generate_restock_tweet(
+                    product_name=data.get('product_name', ''),
+                    retailer=data.get('retailer', ''),
+                    price=float(data.get('price', 0)),
+                    url=data.get('url', '')
+                )
+            elif content_type == ContentType.DEAL:
+                content = generator.generate_deal_tweet(
+                    product_name=data.get('product_name', ''),
+                    retailer=data.get('retailer', ''),
+                    original_price=float(data.get('original_price', 0)),
+                    sale_price=float(data.get('sale_price', 0)),
+                    url=data.get('url', '')
+                )
+            elif content_type == ContentType.MARKET:
+                content = generator.generate_market_tweet(
+                    card_name=data.get('card_name', ''),
+                    current_price=float(data.get('current_price', 0)),
+                    psa10_price=float(data.get('psa10_price', 0)),
+                    trend_percent=float(data.get('trend_percent', 0)),
+                    analysis=data.get('analysis', '')
+                )
+            elif content_type == ContentType.DROP:
+                content = generator.generate_drop_tweet(
+                    product_name=data.get('product_name', ''),
+                    release_date=data.get('release_date', ''),
+                    msrp=float(data.get('msrp', 0)),
+                    description=data.get('description', '')
+                )
+            else:
+                # For other types, use AI if available, otherwise return error
+                content = generator.generate_ai_tweet(content_type, data, tone)
+        
+        return jsonify({
+            'success': True,
+            'content': {
+                'type': content.content_type.value,
+                'text': content.text,
+                'hashtags': content.hashtags,
+                'full_tweet': content.full_tweet,
+                'length': content.length,
+                'is_valid': content.is_valid,
+                'source': content.source,
+                'generated_at': content.generated_at
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/x/post', methods=['POST'])
+def x_post_content():
+    """
+    Post content to X/Twitter.
+    
+    POST body:
+    {
+        "tweet": "Tweet text to post",
+        "reply_to": "optional tweet ID to reply to",
+        "quote_tweet_id": "optional tweet ID to quote"
+    }
+    
+    Or generate and post:
+    {
+        "generate": true,
+        "type": "restock",
+        "use_ai": false,
+        "data": {...}
+    }
+    """
+    if not X_CONTENT_AVAILABLE:
+        return jsonify({'error': 'X Content Generator not available'}), 503
+    
+    generator = get_x_generator()
+    if not generator:
+        return jsonify({'error': 'Could not initialize generator'}), 500
+    
+    try:
+        body = request.get_json() or {}
+        
+        if body.get('generate'):
+            # Generate and post
+            content_type_str = body.get('type', 'general')
+            try:
+                content_type = ContentType(content_type_str)
+            except ValueError:
+                content_type = ContentType.GENERAL
+            
+            result = generator.generate_and_post(
+                content_type=content_type,
+                use_ai=body.get('use_ai', False),
+                **body.get('data', {})
+            )
+        else:
+            # Post provided tweet
+            tweet_text = body.get('tweet', '')
+            if not tweet_text:
+                return jsonify({'error': 'No tweet text provided'}), 400
+            
+            result = generator.x_client.post_tweet(
+                text=tweet_text,
+                reply_to=body.get('reply_to'),
+                quote_tweet_id=body.get('quote_tweet_id')
+            )
+        
+        if result.success:
+            return jsonify({
+                'success': True,
+                'tweet_id': result.tweet_id,
+                'tweet_url': result.tweet_url
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error
+            }), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/x/thread', methods=['POST'])
+def x_post_thread():
+    """
+    Generate and post a thread.
+    
+    POST body:
+    {
+        "topic": "Thread topic",
+        "points": ["Point 1", "Point 2", "Point 3"],
+        "use_ai": true,
+        "post": true  // Set to false to just generate without posting
+    }
+    """
+    if not X_CONTENT_AVAILABLE:
+        return jsonify({'error': 'X Content Generator not available'}), 503
+    
+    generator = get_x_generator()
+    if not generator:
+        return jsonify({'error': 'Could not initialize generator'}), 500
+    
+    try:
+        body = request.get_json() or {}
+        topic = body.get('topic', '')
+        points = body.get('points', [])
+        use_ai = body.get('use_ai', True)
+        should_post = body.get('post', False)
+        
+        if not topic or not points:
+            return jsonify({'error': 'Topic and points required'}), 400
+        
+        # Generate thread
+        thread = generator.generate_thread(topic, points, use_ai)
+        
+        thread_content = [{
+            'text': t.text,
+            'full_tweet': t.full_tweet,
+            'length': t.length,
+            'is_valid': t.is_valid
+        } for t in thread]
+        
+        if should_post:
+            results = generator.post_thread(thread)
+            return jsonify({
+                'success': True,
+                'thread': thread_content,
+                'post_results': [{
+                    'success': r.success,
+                    'tweet_id': r.tweet_id,
+                    'tweet_url': r.tweet_url,
+                    'error': r.error
+                } for r in results]
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'thread': thread_content,
+                'post_results': None
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/x/status')
+def x_status():
+    """
+    Get X content generator status and verify credentials.
+    """
+    if not X_CONTENT_AVAILABLE:
+        return jsonify({
+            'available': False,
+            'error': 'X Content Generator module not available'
+        })
+    
+    generator = get_x_generator()
+    if not generator:
+        return jsonify({
+            'available': True,
+            'initialized': False
+        })
+    
+    # Check credentials
+    cred_check = generator.verify_credentials()
+    
+    return jsonify({
+        'available': True,
+        'initialized': True,
+        'credentials_valid': cred_check.get('valid', False),
+        'user': cred_check.get('user'),
+        'stats': generator.get_stats(),
+        'env_vars_configured': {
+            'X_API_KEY': bool(os.environ.get('X_API_KEY') or os.environ.get('TWITTER_API_KEY')),
+            'X_API_SECRET': bool(os.environ.get('X_API_SECRET') or os.environ.get('TWITTER_API_SECRET')),
+            'X_ACCESS_TOKEN': bool(os.environ.get('X_ACCESS_TOKEN') or os.environ.get('TWITTER_ACCESS_TOKEN')),
+            'X_ACCESS_TOKEN_SECRET': bool(os.environ.get('X_ACCESS_TOKEN_SECRET') or os.environ.get('TWITTER_ACCESS_TOKEN_SECRET')),
+            'OPENAI_API_KEY': bool(os.environ.get('OPENAI_API_KEY'))
+        }
+    })
+
+
+@app.route('/x/history')
+def x_history():
+    """Get posted tweet history."""
+    if not X_CONTENT_AVAILABLE:
+        return jsonify({'error': 'X Content Generator not available'}), 503
+    
+    generator = get_x_generator()
+    if not generator:
+        return jsonify({'error': 'Could not initialize generator'}), 500
+    
+    limit = request.args.get('limit', 50, type=int)
+    history = generator.get_post_history(limit)
+    
+    return jsonify({
+        'success': True,
+        'history': history,
+        'count': len(history)
+    })
+
+
+@app.route('/x/templates')
+def x_templates():
+    """Get available tweet templates."""
+    if not X_CONTENT_AVAILABLE:
+        return jsonify({'error': 'X Content Generator not available'}), 503
+    
+    from content.content_templates import TweetTemplates
+    
+    templates = {
+        'restock': [{'template': t.template, 'hashtags': t.hashtags} for t in TweetTemplates.RESTOCK_TEMPLATES],
+        'deal': [{'template': t.template, 'hashtags': t.hashtags} for t in TweetTemplates.DEAL_TEMPLATES],
+        'market': [{'template': t.template, 'hashtags': t.hashtags} for t in TweetTemplates.MARKET_TEMPLATES],
+        'drop': [{'template': t.template, 'hashtags': t.hashtags} for t in TweetTemplates.DROP_TEMPLATES],
+        'grading': [{'template': t.template, 'hashtags': t.hashtags} for t in TweetTemplates.GRADING_TEMPLATES]
+    }
+    
+    return jsonify({
+        'success': True,
+        'templates': templates,
+        'common_hashtags': TweetTemplates.COMMON_HASHTAGS
+    })
+
+
 if __name__ == "__main__":
     print("🎴 LO TCG Multi-Agent Server Starting...")
     print("📡 Endpoints available at http://127.0.0.1:5001")
@@ -4139,5 +4478,13 @@ if __name__ == "__main__":
     print("")
     print("👥 MULTI-USER:")
     print("   - /users/notify, /users/autobuy, /users/stats")
+    print("")
+    print("🐦 X/TWITTER CONTENT GENERATOR (NEW!):")
+    print("   - /x/generate (generate tweets - restock, deal, market, drop)")
+    print("   - /x/post (post to X/Twitter)")
+    print("   - /x/thread (create and post threads)")
+    print("   - /x/status (check credentials and stats)")
+    print("   - /x/history (view posted tweets)")
+    print("   - /x/templates (view available templates)")
     print("")
     app.run(host="127.0.0.1", port=5001, debug=True)
