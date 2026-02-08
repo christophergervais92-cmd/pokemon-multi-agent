@@ -113,6 +113,37 @@ You should see:
 📡 Endpoints available at http://127.0.0.1:5000
 ```
 
+## 🧩 Task Runner (Task Groups)
+
+This repo includes a lightweight "task group" system for running stock monitor tasks on an interval (tasks are stored in a local SQLite DB: `pokemon_tasks.db`).
+
+### Create A Group + Task (API)
+
+```bash
+# Create a task group
+curl -s -X POST http://127.0.0.1:5001/tasks/groups \\
+  -H 'Content-Type: application/json' \\
+  -d '{\"name\":\"pokemon\",\"default_interval_seconds\":60,\"default_zip_code\":\"90210\",\"enabled\":true}'
+
+# Create a task (one retailer + one query)
+curl -s -X POST http://127.0.0.1:5001/tasks \\
+  -H 'Content-Type: application/json' \\
+  -d '{\"group_id\":1,\"name\":\"target-etb\",\"retailer\":\"target\",\"query\":\"pokemon elite trainer box\"}'
+```
+
+### Run The Task Runner
+
+```bash
+# Run as a standalone process (recommended)
+python3 agents/run_task_runner.py
+```
+
+Or in-process (single-worker only):
+
+```bash
+curl -s -X POST http://127.0.0.1:5001/tasks/runner/start
+```
+
 ### 4. Import Workflow into n8n
 
 1. Open n8n at `http://localhost:5678`
