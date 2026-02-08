@@ -1,0 +1,14 @@
+---
+description: Security and quality gate — run before completing any task
+alwaysApply: true
+---
+
+# Security & quality gate
+
+Before completing any task, run these checks:
+
+- Scan for hardcoded secrets, API keys, passwords
+- Check for SQL injection, shell injection, path traversal
+- Verify all user inputs are validated
+- Run the test suite
+- Check for type errors

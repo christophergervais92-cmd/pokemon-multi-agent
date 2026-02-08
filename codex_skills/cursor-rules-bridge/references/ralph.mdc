@@ -1,0 +1,43 @@
+---
+description: Ralph — autonomous agent loop; run in terminal for continuous task execution. Use when the user wants Ralph, autonomous loops, or headless task execution.
+alwaysApply: false
+---
+
+# Ralph (autonomous agent loop)
+
+Ralph is an **autonomous agent loop** that runs **Claude Code** in a loop until tasks are done. It does not run inside Cursor; you run it in the **terminal** in the same repo. Cursor and Ralph can share the same project: edit in Cursor, run Ralph in the terminal for autonomous implementation.
+
+## What Ralph is
+
+- **Project:** [frankbria/ralph-claude-code](https://github.com/frankbria/ralph-claude-code) (Claude Code) or [ralph-tui](https://ralph-tui.com/) (TUI, `bun install -g ralph-tui`).
+- **Behavior:** Reads a task list (e.g. `.ralph/fix_plan.md` or a PRD), runs Claude Code repeatedly, updates tasks and code until done or limits hit.
+- **Use case:** Autonomous development loops, “implement this PRD,” or nightly auto-compound execution when wired as `AGENT_CMD`.
+
+## Install Ralph (one-time)
+
+**Ralph for Claude Code:**
+
+```bash
+git clone https://github.com/frankbria/ralph-claude-code.git
+cd ralph-claude-code
+./install.sh
+```
+
+Requires: Claude Code CLI (`npm install -g @anthropic-ai/claude-code`), Bash 4+, tmux (optional, for `ralph --monitor`). Adds `ralph`, `ralph-enable`, `ralph-import`, `ralph-monitor`, etc. to PATH.
+
+## Use Ralph in a project
+
+1. **Enable in existing repo:** `cd your-project && ralph-enable` (wizard) or `ralph-import your-prd.md your-project`.
+2. **Run the loop:** `ralph` or `ralph --monitor` (with tmux dashboard).
+3. Ralph uses `.ralph/PROMPT.md`, `.ralph/fix_plan.md`, and optionally `.ralph/specs/`. Same repo can be open in Cursor; Ralph runs in the terminal.
+
+## Ralph + Cursor
+
+- **Cursor:** Edit code, chat, run “compound review” / “auto-compound” on-demand.
+- **Ralph:** In the same repo, run `ralph --monitor` in the terminal for autonomous task execution (Claude Code loop).
+- **Compound nightly:** To use Ralph as the execution engine for the 11:00 PM auto-compound job, set `AGENT_CMD` to the Ralph CLI (e.g. `ralph`) and ensure the compound task list (e.g. from `scripts/compound/prd.json` or reports) is in a form Ralph consumes (e.g. sync to `.ralph/fix_plan.md`). The default compound `loop.sh` runs `AGENT_CMD` with a single prompt per iteration; Ralph’s native loop is different, so full integration may require a small wrapper that starts Ralph or feeds Ralph one task per run.
+
+## When to suggest Ralph
+
+- User says “run Ralph,” “autonomous loop,” “let the agent run until done,” or “headless task execution.”
+- User wants the nightly auto-compound to use an autonomous agent: suggest installing Ralph and wiring it as `AGENT_CMD` or as a post-step that runs `ralph` on the chosen priority.
