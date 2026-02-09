@@ -7396,22 +7396,25 @@
 	                        </div>
 	                    </div>
                     
-	                    ${(s.products || []).filter(p => (p.quantity ?? 0) > 0).length ? `
+	                    ${(s.products || []).length ? `
 	                        <div class="store-products">
 	                            <div style="padding: 0.5rem 0.75rem; font-size: 0.625rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
-	                                In-Stock Matches
+	                                Matches
 	                            </div>
-	                            ${(s.products || []).filter(p => (p.quantity ?? 0) > 0).map(p => {
+	                            ${(s.products || []).slice().sort((a, b) => (b.quantity ?? 0) - (a.quantity ?? 0)).map(p => {
 	                                const buyUrl = p.url || getBuyUrl(s.chain, p.name, p.sku);
 	                                const priceNum = typeof p.price === 'number' ? p.price : parseFloat(p.price);
 	                                const priceStr = (Number.isFinite(priceNum) && priceNum > 0) ? priceNum.toFixed(2) : '??';
 	                                const status = p.stock_status || 'In Stock';
+	                                const inStock = (p.quantity ?? 0) > 0;
+	                                const statusColor = inStock ? 'var(--green)' : 'var(--text-muted)';
+	                                const btnClass = inStock ? 'btn btn-buy btn-sm' : 'btn btn-outline btn-sm';
 	                                const setInfo = getSetInfo(p.name);
 	                                // Stock checker ONLY returns sealed products (booster boxes, ETBs, etc.)
 	                                // ALWAYS use getProductImage (set logos) - NEVER use p.image_url which contains card art from retailer APIs
 	                                const productImg = getProductImage(p.name);
 	                                return `
-	                                <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center;">
+	                                <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center; opacity: ${inStock ? 1 : 0.62};">
                                     <div style="position: relative; width: 55px; height: 75px; flex-shrink: 0;">
                                         <img src="${productImg}" 
                                              loading="lazy"
@@ -7423,14 +7426,14 @@
 	                                        <div class="store-product-meta">
 	                                            SKU: ${p.sku || 'N/A'} 
 	                                            ${p.aisle ? `• <strong>${p.aisle}</strong>` : ''}
-	                                            • <strong style="color: var(--green);">${status}</strong>
+	                                            • <strong style="color: ${statusColor};">${status}</strong>
 	                                        </div>
 	                                        ${setInfo ? `<div style="font-size: 0.5rem; color: var(--accent); margin-top: 0.125rem;">${setInfo.name}</div>` : ''}
 	                                    </div>
 	                                    <div class="store-product-right">
-	                                        <span class="store-product-qty">×${p.quantity ?? 1}</span>
+	                                        ${inStock ? `<span class="store-product-qty">×${p.quantity ?? 1}</span>` : ''}
 	                                        <span class="store-product-price">$${priceStr}</span>
-	                                        <a href="${buyUrl}" target="_blank" rel="noopener" class="btn btn-buy btn-sm">View</a>
+	                                        <a href="${buyUrl}" target="_blank" rel="noopener" class="${btnClass}">View</a>
 	                                    </div>
 	                                </div>
 	                            `}).join('')}
