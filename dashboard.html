@@ -2933,6 +2933,7 @@
         let allCardResults = [];
         let selectedCard = null;
         let allVariations = [];
+        let cardDetailRequestSeq = 0; // Prevent stale async price loads from overwriting the UI.
         
         // Chart-related globals - must be declared early
         let currentChartRange = '1M';
@@ -9255,7 +9256,7 @@
                 return;
             }
             
-            const card = currentSetCards[index];
+            let card = currentSetCards[index];
             console.log('Opening card detail for:', card.name);
             
             // Switch to the Cards tab
@@ -9309,28 +9310,7 @@
             } catch (e) {
                 console.log('Variation fetch failed:', e);
             }
-            
-	            // Fetch graded price data from backend
-	            let priceData = {};
-	            try {
-	                console.log('Fetching graded prices...');
-	                const setParam = card.set?.name ? `?set=${encodeURIComponent(card.set.name)}` : '';
-	                priceData = await Promise.race([
-	                    api(`/prices/card/${encodeURIComponent(card.name)}${setParam}`),
-	                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-	                ]).catch((e) => {
-	                    console.log('Price API call failed:', e.message);
-	                    return {};
-	                });
-            } catch (e) {
-                console.log('Error fetching price data:', e);
-            }
-            
-            // Store price data on the card
-            if (priceData && !priceData.error) {
-                card.priceData = priceData;
-            }
-            
+
             // Ensure card has basic price data from TCGPlayer
             if (!card.priceData && card.tcgplayer?.prices) {
                 const prices = card.tcgplayer.prices;
@@ -9361,6 +9341,25 @@
                     detailPrices.innerHTML = `<div style="grid-column: 1/-1; padding: 1rem; color: #ef4444;">Error loading prices: ${e.message}</div>`;
                 }
             }
+
+            // Fetch real graded prices asynchronously (PriceCharting can take >5s).
+            const requestId = ++cardDetailRequestSeq;
+            const cardRef = card;
+            const variationsRef = allVariations;
+            (async () => {
+                try {
+                    console.log('Fetching graded prices (async)...');
+                    const setParam = cardRef.set?.name ? `?set=${encodeURIComponent(cardRef.set.name)}` : '';
+                    const priceData = await api(`/prices/card/${encodeURIComponent(cardRef.name)}${setParam}`, { timeout: 25000 });
+                    if (requestId !== cardDetailRequestSeq || selectedCard !== cardRef) return;
+                    if (priceData && !priceData.error) {
+                        cardRef.priceData = priceData;
+                        displayCardDetail(cardRef, variationsRef);
+                    }
+                } catch (e) {
+                    console.log('Async graded price fetch failed:', e?.message || e);
+                }
+            })();
         }
         
         // Initialize database when section is shown
@@ -9753,29 +9752,7 @@
                 }
             }
             
-            // Fetch price data from backend
-	            let priceData = {};
-	            try {
-	                console.log('Fetching price data from backend...');
-	                const setParam = selectedCard.set?.name ? `?set=${encodeURIComponent(selectedCard.set.name)}` : '';
-	                priceData = await Promise.race([
-	                    api(`/prices/card/${encodeURIComponent(selectedCard.name)}${setParam}`),
-	                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-	                ]).catch((e) => {
-	                    console.log('Price API call failed or timed out:', e.message);
-	                    return {};
-	                });
-                console.log('Price data received:', priceData);
-            } catch (e) {
-                console.log('Error fetching price data:', e);
-            }
-            
-            // Store price data
-            if (priceData && !priceData.error) {
-                selectedCard.priceData = priceData;
-            }
-            
-            // Ensure card has basic price data from TCGPlayer if API failed
+            // Ensure card has basic raw price data immediately (use embedded TCGPlayer data).
             if (!selectedCard.priceData && selectedCard.tcgplayer?.prices) {
                 const prices = selectedCard.tcgplayer.prices;
                 selectedCard.priceData = {
@@ -9799,6 +9776,25 @@
                     detailPrices.innerHTML = `<div style="grid-column: 1 / -1; padding: 1rem; color: #ef4444;">Error loading prices: ${e.message}</div>`;
                 }
             }
+
+            // Fetch real graded prices asynchronously (PriceCharting can take >5s).
+            const requestId = ++cardDetailRequestSeq;
+            const cardRef = selectedCard;
+            const variationsRef = allVariations || [];
+            (async () => {
+                try {
+                    console.log('Fetching price data from backend (async)...');
+                    const setParam = cardRef.set?.name ? `?set=${encodeURIComponent(cardRef.set.name)}` : '';
+                    const priceData = await api(`/prices/card/${encodeURIComponent(cardRef.name)}${setParam}`, { timeout: 25000 });
+                    if (requestId !== cardDetailRequestSeq || selectedCard !== cardRef) return;
+                    if (priceData && !priceData.error) {
+                        cardRef.priceData = priceData;
+                        displayCardDetail(cardRef, variationsRef);
+                    }
+                } catch (e) {
+                    console.log('Async price fetch failed:', e?.message || e);
+                }
+            })();
         }
         
         function displayCardDetail(card, variations = null) {
@@ -10592,37 +10588,47 @@
             ).join('');
         }
         
-	        async function selectVariation() {
-	            const variationSelect = document.getElementById('variationSelect');
-	            if (!variationSelect) return;
-	            
-	            const index = parseInt(variationSelect.value);
-	            if (allVariations && allVariations[index]) {
-	                selectedCard = allVariations[index];
-	                
-	                // Fetch graded/raw prices for the specific variation (name + set).
-	                try {
-	                    const detailPrices = document.getElementById('detailPrices');
-	                    if (detailPrices) {
-	                        detailPrices.innerHTML = '<div class="loading"><div class="spinner"></div>Loading prices...</div>';
-	                    }
-	                    
-	                    const setParam = selectedCard.set?.name ? `?set=${encodeURIComponent(selectedCard.set.name)}` : '';
-	                    const priceData = await Promise.race([
-	                        api(`/prices/card/${encodeURIComponent(selectedCard.name)}${setParam}`),
-	                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 6000))
-	                    ]).catch(() => ({}));
-	                    
-	                    if (priceData && !priceData.error) {
-	                        selectedCard.priceData = priceData;
-	                    }
-	                } catch (e) {
-	                    // Non-fatal: fall back to TCGPlayer prices embedded on the card object.
-	                }
-	                
-	                displayCardDetail(selectedCard, allVariations);
-	            }
-	        }
+		        async function selectVariation() {
+		            const variationSelect = document.getElementById('variationSelect');
+		            if (!variationSelect) return;
+		            
+		            const index = parseInt(variationSelect.value);
+		            if (allVariations && allVariations[index]) {
+		                selectedCard = allVariations[index];
+		
+		                // Ensure raw price data immediately (use embedded TCGPlayer data).
+		                if (!selectedCard.priceData && selectedCard.tcgplayer?.prices) {
+		                    const prices = selectedCard.tcgplayer.prices;
+		                    selectedCard.priceData = {
+		                        raw: {
+		                            price: prices.holofoil?.market || prices.normal?.market || prices.reverseHolofoil?.market || 0,
+		                            low: prices.holofoil?.low || prices.normal?.low || 0,
+		                            high: prices.holofoil?.high || prices.normal?.high || 0
+		                        }
+		                    };
+		                }
+		
+		                // Render immediately, then upgrade with real graded prices when available.
+		                displayCardDetail(selectedCard, allVariations);
+		
+		                const requestId = ++cardDetailRequestSeq;
+		                const cardRef = selectedCard;
+		                const variationsRef = allVariations;
+		                (async () => {
+		                    try {
+		                        const setParam = cardRef.set?.name ? `?set=${encodeURIComponent(cardRef.set.name)}` : '';
+		                        const priceData = await api(`/prices/card/${encodeURIComponent(cardRef.name)}${setParam}`, { timeout: 25000 });
+		                        if (requestId !== cardDetailRequestSeq || selectedCard !== cardRef) return;
+		                        if (priceData && !priceData.error) {
+		                            cardRef.priceData = priceData;
+		                            displayCardDetail(cardRef, variationsRef);
+		                        }
+		                    } catch (e) {
+		                        // Non-fatal: keep raw-only view.
+		                    }
+		                })();
+		            }
+		        }
         
         // Price Chart Functions
         function generatePriceHistory(card) {
