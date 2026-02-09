@@ -14,6 +14,7 @@ Notes:
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -61,6 +62,65 @@ def _load_last_in_stock_keys(raw_json: Optional[str]) -> Set[str]:
 def _is_allowed_discord_webhook_url(url: str) -> bool:
     u = (url or "").strip().lower()
     return u.startswith("https://discord.com/api/webhooks/") or u.startswith("https://discordapp.com/api/webhooks/")
+
+
+def _is_allowed_live_send_url(url: str) -> bool:
+    """
+    Only allow posting to the local Flask server to avoid SSRF.
+
+    The runner may be deployed independently; we intentionally do not support
+    arbitrary URLs here.
+    """
+    try:
+        from urllib.parse import urlparse
+
+        u = urlparse((url or "").strip())
+        if u.scheme not in ("http", "https"):
+            return False
+        if u.hostname not in ("127.0.0.1", "localhost"):
+            return False
+        if u.path.rstrip("/") != "/live/send":
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def _send_live_alerts(products: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Post restock events into the app's SSE stream via /live/send.
+    """
+    url = os.environ.get("POKEAGENT_LIVE_SEND_URL", "http://127.0.0.1:5001/live/send")
+    if not _is_allowed_live_send_url(url):
+        return {"success": False, "skipped": True, "reason": "invalid_live_send_url"}
+
+    try:
+        import requests  # lazy import
+    except Exception:
+        return {"success": False, "skipped": True, "reason": "requests_not_available"}
+
+    attempted = min(len(products), 10)
+    sent = 0
+    for i, p in enumerate(products[:attempted]):
+        name = (p.get("name") or "Pokemon TCG Item").strip()
+        payload = {
+            "type": "alert",
+            "id": int(time.time() * 1000) + i,
+            "product_name": name,
+            "retailer": (p.get("retailer") or "").strip(),
+            "price": p.get("price"),
+            "url": (p.get("url") or "").strip(),
+            "stock": True,
+            "message": "Restock detected",
+        }
+        try:
+            r = requests.post(url, json=payload, timeout=3)
+            if 200 <= r.status_code < 300:
+                sent += 1
+        except Exception:
+            continue
+
+    return {"success": sent > 0, "skipped": False, "attempted": attempted, "sent": sent}
 
 
 def _send_discord_webhook(webhook_url: str, products: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -223,10 +283,12 @@ class TaskRunner:
         new_keys = cur_keys - prev_keys
 
         notify = {"success": True, "skipped": True, "reason": "no new in-stock items"}
+        live_send = {"success": True, "skipped": True, "reason": "no new in-stock items"}
         if new_keys:
             # Only alert on new in-stock keys to avoid spam.
             new_products = [p for p in in_stock if _product_key(p) in new_keys]
             notify = _notify_in_stock(new_products, webhook_url=task_row.get("group_notify_webhook_url"))
+            live_send = _send_live_alerts(new_products)
 
         update_task_run(
             task_id,
@@ -245,6 +307,7 @@ class TaskRunner:
             "in_stock_count": len(in_stock),
             "new_in_stock_count": len(new_keys),
             "notify": notify,
+            "live_send": live_send,
         }
 
     def _loop(self) -> None:
