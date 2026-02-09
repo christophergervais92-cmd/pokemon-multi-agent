@@ -53,6 +53,7 @@ def init_db() -> None:
                 enabled INTEGER NOT NULL DEFAULT 1,
                 default_interval_seconds INTEGER NOT NULL DEFAULT 60,
                 default_zip_code TEXT NOT NULL DEFAULT '90210',
+                notify_webhook_url TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -81,10 +82,27 @@ def init_db() -> None:
             """
         )
 
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS runner_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                last_heartbeat_at TEXT,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_group_id ON tasks(group_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_enabled ON tasks(enabled)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_task_groups_enabled ON task_groups(enabled)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_last_run_at ON tasks(last_run_at)")
+
+        # Lightweight migrations for existing DBs.
+        # Keep this compatible with older sqlite schemas.
+        cur.execute("PRAGMA table_info(task_groups)")
+        group_cols = {str(r[1]) for r in cur.fetchall()}
+        if "notify_webhook_url" not in group_cols:
+            cur.execute("ALTER TABLE task_groups ADD COLUMN notify_webhook_url TEXT")
 
         conn.commit()
 
@@ -96,6 +114,7 @@ class TaskGroup:
     enabled: bool
     default_interval_seconds: int
     default_zip_code: str
+    notify_webhook_url: Optional[str]
     created_at: str
     updated_at: str
 
@@ -136,6 +155,7 @@ def _row_to_group(row: sqlite3.Row) -> TaskGroup:
         enabled=bool(row["enabled"]),
         default_interval_seconds=int(row["default_interval_seconds"]),
         default_zip_code=str(row["default_zip_code"]),
+        notify_webhook_url=(str(row["notify_webhook_url"]) if row["notify_webhook_url"] is not None else None),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
@@ -165,16 +185,25 @@ def create_task_group(
     default_interval_seconds: int = 60,
     default_zip_code: str = "90210",
     enabled: bool = True,
+    notify_webhook_url: Optional[str] = None,
 ) -> int:
     now = _utc_now_iso()
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO task_groups (name, enabled, default_interval_seconds, default_zip_code, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO task_groups (name, enabled, default_interval_seconds, default_zip_code, notify_webhook_url, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (name, 1 if enabled else 0, int(default_interval_seconds), str(default_zip_code), now, now),
+            (
+                name,
+                1 if enabled else 0,
+                int(default_interval_seconds),
+                str(default_zip_code),
+                str(notify_webhook_url) if notify_webhook_url else None,
+                now,
+                now,
+            ),
         )
         conn.commit()
         return int(cur.lastrowid)
@@ -203,6 +232,37 @@ def set_task_group_enabled(group_id: int, enabled: bool) -> None:
             "UPDATE task_groups SET enabled = ?, updated_at = ? WHERE id = ?",
             (1 if enabled else 0, _utc_now_iso(), int(group_id)),
         )
+        conn.commit()
+
+
+def update_task_group(
+    group_id: int,
+    *,
+    default_interval_seconds: Optional[int] = None,
+    default_zip_code: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    notify_webhook_url: Optional[str] = None,
+) -> None:
+    updates: List[Tuple[str, Any]] = []
+    if default_interval_seconds is not None:
+        updates.append(("default_interval_seconds", int(default_interval_seconds)))
+    if default_zip_code is not None:
+        updates.append(("default_zip_code", str(default_zip_code)))
+    if enabled is not None:
+        updates.append(("enabled", 1 if enabled else 0))
+    if notify_webhook_url is not None:
+        updates.append(("notify_webhook_url", str(notify_webhook_url) if notify_webhook_url else None))
+
+    if not updates:
+        return
+
+    updates.append(("updated_at", _utc_now_iso()))
+    set_expr = ", ".join([f"{col} = ?" for col, _ in updates])
+    values = [val for _, val in updates] + [int(group_id)]
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE task_groups SET {set_expr} WHERE id = ?", values)
         conn.commit()
 
 
@@ -317,6 +377,7 @@ def list_enabled_tasks_with_groups() -> List[Dict[str, Any]]:
               g.enabled AS group_enabled,
               g.default_interval_seconds AS group_default_interval_seconds,
               g.default_zip_code AS group_default_zip_code,
+              g.notify_webhook_url AS group_notify_webhook_url,
               g.name AS group_name
             FROM tasks t
             JOIN task_groups g ON g.id = t.group_id
@@ -338,3 +399,27 @@ def list_enabled_tasks_with_groups() -> List[Dict[str, Any]]:
 # Ensure schema exists on import.
 init_db()
 
+
+def set_runner_heartbeat(ts_iso: Optional[str] = None) -> None:
+    ts = ts_iso or _utc_now_iso()
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO runner_state (id, last_heartbeat_at, updated_at)
+            VALUES (1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET last_heartbeat_at = excluded.last_heartbeat_at, updated_at = excluded.updated_at
+            """,
+            (ts, ts),
+        )
+        conn.commit()
+
+
+def get_runner_heartbeat() -> Optional[str]:
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT last_heartbeat_at FROM runner_state WHERE id = 1 LIMIT 1")
+        row = cur.fetchone()
+        if not row:
+            return None
+        return str(row[0]) if row[0] is not None else None

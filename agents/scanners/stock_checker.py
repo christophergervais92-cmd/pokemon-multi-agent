@@ -20,6 +20,7 @@ import sys
 import time
 import random
 import hashlib
+import html as _html
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -149,6 +150,8 @@ class Product:
     category: str = "TCG"
     last_checked: str = ""
     relevance_score: int = 0  # For sorting by relevance
+    confidence: float = 0.0
+    detection_method: str = ""
     
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -207,6 +210,141 @@ class Cache:
 # TARGET - REDSKY API (WORKING)
 # =============================================================================
 
+TARGET_REDSKY_KEY = "9f36aeafbe60771e321a7cc95a78140772ab3e96"
+TARGET_BASE_URL = "https://redsky.target.com/redsky_aggregations/v1/web"
+
+# Cache store lookups (zip -> store_id) to avoid extra calls.
+_target_store_cache: Dict[str, Tuple[str, float]] = {}
+TARGET_STORE_CACHE_TTL_SECONDS = 60 * 60  # 1 hour
+
+
+def _target_get_store_id(zip_code: str, session) -> Optional[str]:
+    """Get a nearby physical Target store_id for a ZIP code via RedSky."""
+    zip_code = str(zip_code or "").strip()
+    if not zip_code:
+        return None
+
+    cached = _target_store_cache.get(zip_code)
+    if cached and (time.time() - cached[1]) < TARGET_STORE_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    try:
+        url = f"{TARGET_BASE_URL}/nearby_stores_v1"
+        headers = get_stealth_headers()
+        headers["Accept"] = "application/json"
+        resp = session.get(
+            url,
+            params={"key": TARGET_REDSKY_KEY, "place": zip_code},
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return None
+
+        stores = (resp.json().get("data", {}) or {}).get("nearby_stores", {}).get("stores", []) or []
+        if not stores:
+            return None
+
+        store_id = str(stores[0].get("store_id") or "").strip()
+        if not store_id:
+            return None
+
+        _target_store_cache[zip_code] = (store_id, time.time())
+        return store_id
+    except Exception:
+        return None
+
+
+def _target_fetch_fulfillment(
+    tcins: List[str],
+    *,
+    store_id: str,
+    zip_code: str,
+    session,
+) -> Dict[str, Dict[str, Any]]:
+    """Fetch fulfillment (ship/pickup) status for up to ~24 tcins in one request."""
+    tcins = [str(t).strip() for t in (tcins or []) if str(t).strip()]
+    if not tcins:
+        return {}
+
+    try:
+        url = f"{TARGET_BASE_URL}/product_summary_with_fulfillment_v1"
+        headers = get_stealth_headers()
+        headers["Accept"] = "application/json"
+        params = {
+            "key": TARGET_REDSKY_KEY,
+            "tcins": ",".join(tcins),
+            "store_id": store_id,
+            "store_positions_store_id": store_id,
+            "has_store_positions_store_id": "true",
+            "zip": str(zip_code or "").strip(),
+            "pricing_store_id": store_id,
+            "has_pricing_store_id": "true",
+            "is_bot": "false",
+        }
+
+        resp = session.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
+        if resp.status_code not in (200, 206):
+            return {}
+
+        payload = resp.json()
+        summaries = (payload.get("data", {}) or {}).get("product_summaries", []) or []
+
+        out: Dict[str, Dict[str, Any]] = {}
+        for s in summaries:
+            tcin = str(s.get("tcin") or "").strip()
+            if not tcin:
+                continue
+            ful = s.get("fulfillment") or {}
+            if isinstance(ful, dict):
+                out[tcin] = ful
+        return out
+    except Exception:
+        return {}
+
+
+def _target_is_in_stock_status(status: str) -> bool:
+    s = (status or "").strip().upper()
+    return s in {"IN_STOCK", "LIMITED_STOCK"}
+
+
+def _target_stock_from_fulfillment(ful: Dict[str, Any]) -> Tuple[bool, str]:
+    """Return (in_stock, status_label) from Target fulfillment payload."""
+    ship_status = ((ful.get("shipping_options") or {}).get("availability_status") or "").strip()
+    ship_ok = _target_is_in_stock_status(ship_status)
+
+    store_options = ful.get("store_options") or []
+    pickup_ok = False
+    ship_to_store_ok = False
+    in_store_ok = False
+    if isinstance(store_options, list):
+        for opt in store_options:
+            if not isinstance(opt, dict):
+                continue
+            pickup_ok = pickup_ok or _target_is_in_stock_status((opt.get("order_pickup") or {}).get("availability_status") or "")
+            ship_to_store_ok = ship_to_store_ok or _target_is_in_stock_status((opt.get("ship_to_store") or {}).get("availability_status") or "")
+            in_store_ok = in_store_ok or _target_is_in_stock_status((opt.get("in_store_only") or {}).get("availability_status") or "")
+
+    in_stock = ship_ok or pickup_ok or ship_to_store_ok or in_store_ok
+    if in_stock:
+        channels = []
+        if ship_ok:
+            channels.append("Ship")
+        if pickup_ok:
+            channels.append("Pickup")
+        if ship_to_store_ok:
+            channels.append("Ship-to-Store")
+        if in_store_ok:
+            channels.append("In-Store")
+        suffix = f" ({', '.join(channels)})" if channels else ""
+        return True, f"In Stock{suffix}"
+
+    # Out of stock: use the most specific status we have.
+    if ship_status:
+        return False, ship_status.replace("_", " ").title()
+    return False, "Out of Stock"
+
+
 def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -> List[Product]:
     """
     Scan Target using Redsky API.
@@ -214,7 +352,8 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
     """
     products = []
     
-    cached = Cache.get("target", query)
+    cache_key_query = f"{query}|{zip_code}"
+    cached = Cache.get("target", cache_key_query)
     if cached:
         return [Product(**p) for p in cached]
     
@@ -224,7 +363,7 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
         api_url = "https://redsky.target.com/redsky_aggregations/v1/web/plp_search_v2"
         
         params = {
-            "key": "9f36aeafbe60771e321a7cc95a78140772ab3e96",
+            "key": TARGET_REDSKY_KEY,
             "channel": "WEB",
             "count": 24,
             "default_purchasability_filter": "true",
@@ -247,21 +386,15 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
             data = resp.json()
             items = data.get("data", {}).get("search", {}).get("products", [])
             
+            tcins: List[str] = []
             for item in items:
-                p = item.get("item", {})
-                title = p.get("product_description", {}).get("title", "")
+                p = item.get("item", {}) or {}
+                title = _html.unescape(p.get("product_description", {}).get("title", "") or "")
                 
                 if "pokemon" not in title.lower() and "pokémon" not in title.lower():
                     continue
                 
-                price_data = p.get("price", {})
-                fulfillment = p.get("fulfillment", {})
-                
-                # Check stock - multiple indicators
-                ship_ok = fulfillment.get("shipping_options", {}).get("availability_status", "") == "IN_STOCK"
-                pickup_ok = "IN_STOCK" in str(fulfillment.get("store_options", []))
-                is_purchasable = item.get("is_purchasable", False)
-                in_stock = ship_ok or pickup_ok or is_purchasable
+                price_data = item.get("price") or {}
                 
                 # Get URL
                 buy_url = p.get('enrichment', {}).get('buy_url', '')
@@ -270,29 +403,65 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
                 elif buy_url:
                     product_url = f"https://www.target.com{buy_url}"
                 else:
-                    tcin = p.get("tcin", "")
-                    product_url = f"https://www.target.com/p/-/A-{tcin}" if tcin else ""
+                    tcin_fallback = item.get("tcin") or item.get("original_tcin") or ""
+                    product_url = f"https://www.target.com/p/-/A-{tcin_fallback}" if tcin_fallback else ""
                 
                 # Parse price safely
                 price_val = price_data.get("current_retail", 0) or price_data.get("reg_retail", 0)
                 if not price_val:
-                    price_str = price_data.get("formatted_current_price_default_message", "")
+                    price_str = price_data.get("formatted_current_price", "")
                     price_val = float(''.join(c for c in price_str if c.isdigit() or c == '.') or '0')
-                
+
+                tcin = str(item.get("tcin") or item.get("original_tcin") or "").strip()
+                if tcin:
+                    tcins.append(tcin)
+
                 products.append(Product(
                     name=title,
                     retailer="Target",
                     price=float(price_val) if price_val else 0,
                     url=product_url,
-                    sku=p.get("tcin", ""),
-                    stock=in_stock,
-                    stock_status="In Stock" if in_stock else "Out of Stock",
+                    sku=tcin,
+                    stock=False,
+                    stock_status="Checking...",
                     image_url=p.get("enrichment", {}).get("images", {}).get("primary_image_url", ""),
                     last_checked=datetime.now().isoformat(),
+                    confidence=40.0,
+                    detection_method="target_redsky_plp",
                 ))
+
+            # Enrich with fulfillment for accurate stock status.
+            store_id = _target_get_store_id(zip_code, session)
+            if store_id and tcins:
+                ful_map = _target_fetch_fulfillment(tcins, store_id=store_id, zip_code=zip_code, session=session)
+                for prod in products:
+                    if not prod.sku:
+                        prod.stock = False
+                        prod.stock_status = "Unknown"
+                        prod.confidence = 20.0
+                        prod.detection_method = "target_redsky_no_tcin"
+                        continue
+                    ful = ful_map.get(prod.sku)
+                    if not ful:
+                        prod.stock = False
+                        prod.stock_status = "Unknown"
+                        prod.confidence = 25.0
+                        prod.detection_method = "target_redsky_no_fulfillment"
+                        continue
+                    in_stock, status = _target_stock_from_fulfillment(ful)
+                    prod.stock = in_stock
+                    prod.stock_status = status
+                    prod.confidence = 95.0
+                    prod.detection_method = "target_redsky_fulfillment"
+            else:
+                for prod in products:
+                    prod.stock = False
+                    prod.stock_status = "Unknown"
+                    prod.confidence = 15.0
+                    prod.detection_method = "target_redsky_store_lookup_failed"
         
         if products:
-            Cache.set("target", query, [p.to_dict() for p in products])
+            Cache.set("target", cache_key_query, [p.to_dict() for p in products])
             
     except Exception as e:
         print(f"Target error: {e}")

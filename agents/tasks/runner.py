@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from tasks.task_db import list_enabled_tasks_with_groups, update_task_run
+from tasks.task_db import list_enabled_tasks_with_groups, set_runner_heartbeat, update_task_run
 
 
 def _parse_iso(dt_str: Optional[str]) -> Optional[datetime]:
@@ -58,11 +58,75 @@ def _load_last_in_stock_keys(raw_json: Optional[str]) -> Set[str]:
     return set()
 
 
-def _notify_in_stock(products: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _is_allowed_discord_webhook_url(url: str) -> bool:
+    u = (url or "").strip().lower()
+    return u.startswith("https://discord.com/api/webhooks/") or u.startswith("https://discordapp.com/api/webhooks/")
+
+
+def _send_discord_webhook(webhook_url: str, products: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Send a restock alert to a Discord webhook.
+
+    We intentionally only support Discord webhooks here to avoid SSRF.
+    """
+    if not _is_allowed_discord_webhook_url(webhook_url):
+        return {"success": False, "skipped": False, "error": "invalid_webhook_url"}
+
+    try:
+        import requests  # lazy import
+    except Exception:
+        return {"success": False, "skipped": False, "error": "requests_not_available"}
+
+    # Discord limits: keep this small.
+    max_items = 6
+    items = products[:max_items]
+
+    embeds: List[Dict[str, Any]] = []
+    for p in items:
+        name = (p.get("name") or "Pokemon TCG Item").strip()
+        retailer = (p.get("retailer") or "").strip()
+        price = p.get("price")
+        url = (p.get("url") or "").strip()
+        img = (p.get("image_url") or "").strip()
+        status = (p.get("stock_status") or "").strip()
+
+        desc_parts = []
+        if retailer:
+            desc_parts.append(retailer)
+        if isinstance(price, (int, float)) and price:
+            desc_parts.append(f"${price:,.2f}")
+        if status:
+            desc_parts.append(status)
+
+        embed: Dict[str, Any] = {
+            "title": name[:256],
+            "url": url or None,
+            "description": " | ".join(desc_parts)[:4096] if desc_parts else None,
+            "color": 0x57F287,  # Discord green
+        }
+        if img:
+            embed["thumbnail"] = {"url": img}
+        embeds.append({k: v for k, v in embed.items() if v is not None})
+
+    payload = {
+        "content": f"Restock detected: {len(products)} item(s) in stock",
+        "embeds": embeds,
+    }
+
+    r = requests.post(webhook_url, json=payload, timeout=10)
+    if 200 <= r.status_code < 300:
+        return {"success": True, "skipped": False, "status_code": r.status_code}
+    return {"success": False, "skipped": False, "status_code": r.status_code, "error": r.text[:200]}
+
+
+def _notify_in_stock(products: List[Dict[str, Any]], *, webhook_url: Optional[str] = None) -> Dict[str, Any]:
     """
     Prefer the existing Discord notifier if installed/configured.
     Falls back to a no-op if Discord deps aren't present.
     """
+    if webhook_url:
+        return _send_discord_webhook(webhook_url, products)
+
     try:
         from discord_bot.notifier import notify_users_sync  # type: ignore
     except Exception:
@@ -162,7 +226,7 @@ class TaskRunner:
         if new_keys:
             # Only alert on new in-stock keys to avoid spam.
             new_products = [p for p in in_stock if _product_key(p) in new_keys]
-            notify = _notify_in_stock(new_products)
+            notify = _notify_in_stock(new_products, webhook_url=task_row.get("group_notify_webhook_url"))
 
         update_task_run(
             task_id,
@@ -184,8 +248,16 @@ class TaskRunner:
         }
 
     def _loop(self) -> None:
+        last_heartbeat = 0.0
         while self._running:
             now = _utc_now()
+            # Heartbeat for worker-style runners (used by UI to show "live").
+            if time.time() - last_heartbeat > 10:
+                try:
+                    set_runner_heartbeat(now.isoformat())
+                except Exception:
+                    pass
+                last_heartbeat = time.time()
 
             # Compute due tasks.
             task_rows = list_enabled_tasks_with_groups()
@@ -234,4 +306,3 @@ def get_task_runner() -> TaskRunner:
     if _runner is None:
         _runner = TaskRunner()
     return _runner
-

@@ -862,189 +862,189 @@ def get_pricecharting_prices(card_name: str, set_name: str = "", card_number: st
     Returns:
         Dict with prices for all grades, or None if not found
     """
+    if requests is None:
+        return None
+    if not BS4_AVAILABLE:
+        print("[PriceCharting] BeautifulSoup not available for parsing")
+        return None
+
     import urllib.parse
-    
-    # Build cache key
+
     cache_key = f"pc:{card_name}:{set_name}:{card_number}".lower()
-    
-    # Check cache
     if cache_key in _pricecharting_cache:
         cached_time, cached_data = _pricecharting_cache[cache_key]
         if time.time() - cached_time < _pricecharting_cache_ttl:
-            print(f"[PriceCharting] Cache hit for {card_name}")
             return cached_data
-    
+
+    def _normalize_number(num: str) -> str:
+        if not num:
+            return ""
+        num = num.split("/")[0] if "/" in num else num
+        num = "".join(ch for ch in str(num) if ch.isdigit())
+        return num
+
     try:
-        # Build search URL for PriceCharting
-        # Format: https://www.pricecharting.com/search-products?q=team+rockets+mewtwo+ex+231&type=pokemon
-        search_term = card_name
-        if set_name:
-            search_term = f"{card_name} {set_name}"
-        if card_number:
-            # Extract just the number (e.g., "231" from "231/182")
-            num = card_number.split("/")[0] if "/" in card_number else card_number
-            search_term = f"{search_term} {num}"
-        
+        parts = [p for p in [card_name, set_name, _normalize_number(card_number)] if p]
+        search_term = " ".join(parts).strip()
+        if not search_term:
+            return None
+
         encoded_search = urllib.parse.quote_plus(search_term)
         search_url = f"https://www.pricecharting.com/search-products?q={encoded_search}&type=pokemon"
-        
+
         headers = get_stealth_headers()
         headers["Accept"] = "text/html,application/xhtml+xml"
-        
-        print(f"[PriceCharting] Searching: {search_term}")
-        
+
         response = requests.get(search_url, headers=headers, timeout=15)
-        
         if response.status_code != 200:
             print(f"[PriceCharting] Search failed: {response.status_code}")
             return None
-        
-        # Parse search results to find the product page
-        if not BS4_AVAILABLE:
-            print("[PriceCharting] BeautifulSoup not available for parsing")
-            return None
-        
+
         soup = BeautifulSoup(response.text, "html.parser")
-        
-        # Find first product link
-        product_link = None
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if "/game/pokemon" in href and "/pokemon-" in href:
-                product_link = href
-                break
-        
-        if not product_link:
-            # Try alternate pattern
-            for link in soup.find_all("a", class_="product"):
-                if link.get("href"):
-                    product_link = link["href"]
-                    break
-        
-        if not product_link:
-            print(f"[PriceCharting] No product found for: {search_term}")
+        market = soup.find("div", id="sell-search-results") or soup
+
+        candidates = []
+        for tr in market.find_all("tr"):
+            a = tr.find("a", href=True)
+            if not a:
+                continue
+            href = str(a.get("href") or "")
+            if not href.startswith("/offers?product="):
+                continue
+
+            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+            label = " ".join([c for c in cells if c]).strip()
+            tl = label.lower()
+
+            score = 0
+            if card_name and card_name.lower() in tl:
+                score += 20
+            for w in _significant_words(card_name):
+                if w in tl:
+                    score += 5
+            if set_name and set_name.lower() in tl:
+                score += 15
+            for w in _significant_words(set_name):
+                if w in tl:
+                    score += 3
+            n = _normalize_number(card_number)
+            if n and n in tl:
+                score += 10
+
+            candidates.append((score, href))
+
+        if not candidates:
             _pricecharting_cache[cache_key] = (time.time(), None)
             return None
-        
-        # Fetch the product page
-        if not product_link.startswith("http"):
-            product_link = f"https://www.pricecharting.com{product_link}"
-        
-        print(f"[PriceCharting] Fetching: {product_link}")
-        time.sleep(0.5)  # Rate limit
-        
-        product_response = requests.get(product_link, headers=headers, timeout=15)
-        
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        offer_href = candidates[0][1]
+        offers_url = offer_href if offer_href.startswith("http") else f"https://www.pricecharting.com{offer_href}"
+
+        # Follow offers page -> /game/... (contains "Full Price Guide" table)
+        product_url = offers_url
+        try:
+            time.sleep(0.3)
+            offers_resp = requests.get(offers_url, headers=headers, timeout=15)
+            if offers_resp.status_code == 200:
+                offers_soup = BeautifulSoup(offers_resp.text, "html.parser")
+                for link in offers_soup.find_all("a", href=True):
+                    h = str(link.get("href") or "")
+                    if h.startswith("/game/"):
+                        product_url = f"https://www.pricecharting.com{h}"
+                        break
+        except Exception:
+            product_url = offers_url
+
+        time.sleep(0.5)
+        product_response = requests.get(product_url, headers=headers, timeout=15)
         if product_response.status_code != 200:
-            print(f"[PriceCharting] Product page failed: {product_response.status_code}")
+            _pricecharting_cache[cache_key] = (time.time(), None)
             return None
-        
+
         product_soup = BeautifulSoup(product_response.text, "html.parser")
-        
-        # Extract prices from the page
-        result = {
+
+        result: Dict[str, Any] = {
             "card_name": card_name,
             "set_name": set_name,
             "source": "PriceCharting",
-            "url": product_link,
+            "url": product_url,
             "raw": 0,
-            "graded": {}
+            "graded": {},
         }
-        
-        # Find the price table
-        # PriceCharting uses a table with grades and prices
-        price_table = product_soup.find("table", id="full-prices") or product_soup.find("table", class_="full-prices")
-        
-        if price_table:
-            rows = price_table.find_all("tr")
-            for row in rows:
-                cells = row.find_all(["td", "th"])
-                if len(cells) >= 2:
-                    grade_text = cells[0].get_text(strip=True).lower()
-                    price_text = cells[1].get_text(strip=True)
-                    
-                    # Parse price
-                    price = _parse_price(price_text)
-                    if price and price > 0:
-                        if "ungraded" in grade_text or "loose" in grade_text:
-                            result["raw"] = price
-                        elif "psa 10" in grade_text:
-                            result["graded"]["PSA 10"] = {"price": price, "source": "PriceCharting"}
-                        elif "psa 9" in grade_text and "9.5" not in grade_text:
-                            result["graded"]["PSA 9"] = {"price": price, "source": "PriceCharting"}
-                        elif "psa 8" in grade_text:
-                            result["graded"]["PSA 8"] = {"price": price, "source": "PriceCharting"}
-                        elif "psa 7" in grade_text:
-                            result["graded"]["PSA 7"] = {"price": price, "source": "PriceCharting"}
-                        elif "cgc 10 prist" in grade_text:
-                            result["graded"]["CGC 10 Pristine"] = {"price": price, "source": "PriceCharting"}
-                        elif "cgc 10" in grade_text:
-                            result["graded"]["CGC 10"] = {"price": price, "source": "PriceCharting"}
-                        elif "cgc 9.5" in grade_text or "grade 9.5" in grade_text:
-                            result["graded"]["CGC 9.5"] = {"price": price, "source": "PriceCharting"}
-                        elif "bgs 10 black" in grade_text:
-                            result["graded"]["BGS 10 Black Label"] = {"price": price, "source": "PriceCharting"}
-                        elif "bgs 10" in grade_text:
-                            result["graded"]["BGS 10"] = {"price": price, "source": "PriceCharting"}
-                        elif "bgs 9.5" in grade_text:
-                            result["graded"]["BGS 9.5"] = {"price": price, "source": "PriceCharting"}
-        
-        # Also try to find prices in the main content area
-        # PriceCharting shows prices in divs with specific classes
-        for div in product_soup.find_all("div", class_="price"):
-            price_text = div.get_text(strip=True)
-            price = _parse_price(price_text)
-            
-            # Check parent/sibling for grade info
-            parent = div.parent
-            if parent:
-                parent_text = parent.get_text(strip=True).lower()
-                if price and price > 0:
-                    if "ungraded" in parent_text and not result["raw"]:
-                        result["raw"] = price
-                    elif "psa 10" in parent_text and "PSA 10" not in result["graded"]:
-                        result["graded"]["PSA 10"] = {"price": price, "source": "PriceCharting"}
-        
-        # Try extracting from the "Full Price Guide" table at bottom
+
+        # Primary extraction: "Full Price Guide" table on /game pages.
         guide_heading = product_soup.find(string=re.compile("Full Price Guide", re.I))
         if guide_heading:
             table = guide_heading.find_parent().find_next("table") if guide_heading.find_parent() else None
             if table:
                 for row in table.find_all("tr"):
                     cells = row.find_all(["td", "th"])
-                    if len(cells) >= 2:
-                        grade = cells[0].get_text(strip=True).lower()
-                        price = _parse_price(cells[1].get_text(strip=True))
-                        if price and price > 0:
-                            if "ungraded" in grade:
-                                result["raw"] = price
-                            elif "psa 10" in grade:
-                                result["graded"]["PSA 10"] = {"price": price, "source": "PriceCharting"}
-                            elif "psa 9" in grade and "9.5" not in grade:
-                                result["graded"]["PSA 9"] = {"price": price, "source": "PriceCharting"}
-                            elif "psa 8" in grade:
-                                result["graded"]["PSA 8"] = {"price": price, "source": "PriceCharting"}
-                            elif "cgc 10" in grade and "prist" not in grade:
-                                result["graded"]["CGC 10"] = {"price": price, "source": "PriceCharting"}
-                            elif "cgc 10 prist" in grade:
-                                result["graded"]["CGC 10 Pristine"] = {"price": price, "source": "PriceCharting"}
-                            elif "bgs 10 black" in grade:
-                                result["graded"]["BGS 10 Black Label"] = {"price": price, "source": "PriceCharting"}
-                            elif "bgs 10" in grade:
-                                result["graded"]["BGS 10"] = {"price": price, "source": "PriceCharting"}
-        
-        # Cache the result
+                    if len(cells) < 2:
+                        continue
+                    grade_label = cells[0].get_text(strip=True)
+                    grade = grade_label.lower()
+                    price = _parse_price(cells[1].get_text(strip=True))
+                    if not price or price <= 0:
+                        continue
+
+                    if "ungraded" in grade or "loose" in grade:
+                        result["raw"] = price
+                        continue
+
+                    if grade.startswith("psa "):
+                        result["graded"][grade_label.upper().replace("PSA", "PSA")] = {"price": price, "source": "PriceCharting"}
+                        continue
+
+                    if grade.startswith("cgc "):
+                        # Normalize casing
+                        label = grade_label.upper().replace("CGC", "CGC")
+                        if "PRIST" in label:
+                            label = "CGC 10 PrISTINE".replace("PrISTINE", "Pristine")  # consistent title casing
+                        result["graded"][label] = {"price": price, "source": "PriceCharting"}
+                        continue
+
+                    if grade.startswith("bgs "):
+                        label = grade_label.upper().replace("BGS", "BGS")
+                        if "BLACK" in label and "LABEL" not in label:
+                            label = "BGS 10 Black Label"
+                        result["graded"][label] = {"price": price, "source": "PriceCharting"}
+                        continue
+
+        # Fallback: legacy formats (some pages still have older tables/divs).
+        if not result["raw"] or not result["graded"]:
+            price_table = product_soup.find("table", id="full-prices") or product_soup.find("table", class_="full-prices")
+            if price_table:
+                for row in price_table.find_all("tr"):
+                    cells = row.find_all(["td", "th"])
+                    if len(cells) < 2:
+                        continue
+                    grade_text = cells[0].get_text(strip=True).lower()
+                    price = _parse_price(cells[1].get_text(strip=True))
+                    if not price or price <= 0:
+                        continue
+                    if "ungraded" in grade_text or "loose" in grade_text:
+                        result["raw"] = result["raw"] or price
+                    elif "psa" in grade_text:
+                        result["graded"][cells[0].get_text(strip=True).upper()] = {"price": price, "source": "PriceCharting"}
+                    elif "cgc" in grade_text:
+                        result["graded"][cells[0].get_text(strip=True).upper().replace("CGC", "CGC")] = {"price": price, "source": "PriceCharting"}
+                    elif "bgs" in grade_text:
+                        label = cells[0].get_text(strip=True).upper().replace("BGS", "BGS")
+                        if "BLACK" in label and "LABEL" not in label:
+                            label = "BGS 10 Black Label"
+                        result["graded"][label] = {"price": price, "source": "PriceCharting"}
+
         if result["raw"] > 0 or result["graded"]:
-            print(f"[PriceCharting] Found: Raw=${result['raw']}, Graded grades: {len(result['graded'])}")
             _pricecharting_cache[cache_key] = (time.time(), result)
             return result
-        
-        print(f"[PriceCharting] No prices extracted for {card_name}")
+
         _pricecharting_cache[cache_key] = (time.time(), None)
         return None
-    
+
     except Exception as e:
         print(f"[PriceCharting] Error: {e}")
+        _pricecharting_cache[cache_key] = (time.time(), None)
         return None
 
 
@@ -1430,195 +1430,143 @@ class GradedPriceChecker:
         
         Returns raw price and all graded prices (PSA, CGC, BGS).
         """
-        # Check cache first
         cached = PriceCache.get(card_name, set_name)
         if cached and "report" in cached:
             return self._dict_to_report(cached["report"])
-        
-        raw_price = 0
-        raw_low = 0
-        raw_high = 0
-        raw_data = {}
-        graded_prices = {}
-        source = "Unknown"
+
+        raw_price = 0.0
+        raw_low = 0.0
+        raw_high = 0.0
+        raw_data: Dict[str, Any] = {}
+        graded_prices: Dict[str, GradedPrice] = {}
         image_url = ""
         tcgplayer_url = ""
-        
-        # =================================================================
-        # SOURCE 0: PriceCharting (MOST ACCURATE - aggregates eBay sold)
-        # =================================================================
+        sources_used: Dict[str, str] = {}
+
+        # -----------------------------------------------------------------
+        # Raw (TCGPlayer) via Pokemon TCG API
+        # -----------------------------------------------------------------
+        api_data = get_raw_price_from_api(card_name, set_name)
+        if api_data:
+            raw_data = api_data
+            raw_price = float(raw_data.get("raw_price") or 0)
+            raw_low = float(raw_data.get("raw_low") or (raw_price * 0.85 if raw_price else 0))
+            raw_high = float(raw_data.get("raw_high") or (raw_price * 1.15 if raw_price else 0))
+            image_url = raw_data.get("image_url", "") or ""
+            tcgplayer_url = raw_data.get("tcgplayer_url", "") or ""
+            sources_used["raw"] = "Pokemon TCG API"
+
+        # -----------------------------------------------------------------
+        # Graded via PriceCharting (preferred)
+        # -----------------------------------------------------------------
         if self.use_all_sources:
-            pc_data = get_pricecharting_prices(card_name, set_name)
-            if pc_data and (pc_data.get("raw", 0) > 0 or pc_data.get("graded")):
-                raw_price = pc_data.get("raw", 0)
-                raw_low = raw_price * 0.9
-                raw_high = raw_price * 1.1
-                source = "PriceCharting"
-                
-                # Extract graded prices
-                for grade_key, grade_data in pc_data.get("graded", {}).items():
+            pc_name = (raw_data.get("card_name") or card_name) if raw_data else card_name
+            pc_set = (raw_data.get("set_name") or set_name) if raw_data else set_name
+            pc_num = raw_data.get("card_number", "") if raw_data else ""
+            pc_data = get_pricecharting_prices(pc_name, pc_set, pc_num)
+            if pc_data:
+                if not raw_price and pc_data.get("raw"):
+                    raw_price = float(pc_data.get("raw") or 0)
+                    raw_low = raw_price * 0.9
+                    raw_high = raw_price * 1.1
+                    sources_used["raw"] = sources_used.get("raw") or "PriceCharting"
+
+                for grade_key, grade_data in (pc_data.get("graded", {}) or {}).items():
                     price = grade_data.get("price", 0) if isinstance(grade_data, dict) else grade_data
-                    if price and price > 0:
-                        company = grade_key.split()[0]  # PSA, CGC, or BGS
-                        graded_prices[grade_key] = GradedPrice(
-                            grade=grade_key,
-                            company=company,
-                            price=price,
-                            price_range=(price * 0.85, price * 1.15),
-                            source="PriceCharting",
-                            sales_count=0,
-                            trend="stable",
-                        )
-                
-                print(f"[GradedPriceChecker] PriceCharting: Raw=${raw_price}, {len(graded_prices)} grades")
-        
-        # =================================================================
-        # SOURCE 1: PokemonPriceTracker API (FREE - has graded prices!)
-        # =================================================================
+                    if not price or price <= 0:
+                        continue
+
+                    norm_grade = str(grade_key).strip()
+                    if norm_grade.upper() == "CGC 10 PRISTINE":
+                        norm_grade = "CGC 10 Pristine"
+                    if norm_grade.upper() == "BGS 10 BLACK":
+                        norm_grade = "BGS 10 Black Label"
+                    if norm_grade.lower() == "bgs 10 black":
+                        norm_grade = "BGS 10 Black Label"
+
+                    company = norm_grade.split()[0] if norm_grade else "Unknown"
+                    graded_prices[norm_grade] = GradedPrice(
+                        grade=norm_grade,
+                        company=company,
+                        price=float(price),
+                        price_range=(float(price) * 0.85, float(price) * 1.15),
+                        source="PriceCharting",
+                        sales_count=0,
+                        trend="stable",
+                    )
+
+                if graded_prices:
+                    sources_used["graded"] = "PriceCharting"
+
+        # -----------------------------------------------------------------
+        # Fallback graded sources (optional keys)
+        # -----------------------------------------------------------------
         if self.use_all_sources and not graded_prices:
             tracker_data = get_price_tracker_prices(card_name, set_name)
             if tracker_data:
                 if not raw_price:
-                    raw_price = tracker_data.get("raw_price", 0)
-                raw_low = tracker_data.get("raw_low", raw_price * 0.85)
-                raw_high = tracker_data.get("raw_high", raw_price * 1.15)
-                image_url = tracker_data.get("image_url", "")
-                source = "PokemonPriceTracker"
-                
-                # Extract graded prices from PriceTracker (eBay data)
-                for grade_key, grade_data in tracker_data.get("graded", {}).items():
-                    if grade_data.get("price", 0) > 0:
+                    raw_price = float(tracker_data.get("raw_price") or 0)
+                    raw_low = float(tracker_data.get("raw_low") or (raw_price * 0.85 if raw_price else 0))
+                    raw_high = float(tracker_data.get("raw_high") or (raw_price * 1.15 if raw_price else 0))
+                    sources_used["raw"] = sources_used.get("raw") or "PokemonPriceTracker"
+
+                image_url = image_url or (tracker_data.get("image_url", "") or "")
+                for grade_key, grade_data in (tracker_data.get("graded", {}) or {}).items():
+                    if (grade_data.get("price") or 0) > 0:
                         graded_prices[grade_key] = GradedPrice(
                             grade=grade_key,
                             company=grade_data.get("company", grade_key.split()[0]),
-                            price=grade_data["price"],
-                            price_range=(grade_data.get("price_low", 0), grade_data.get("price_high", 0)),
+                            price=float(grade_data["price"]),
+                            price_range=(float(grade_data.get("price_low", 0)), float(grade_data.get("price_high", 0))),
                             source=grade_data.get("source", "PriceTracker"),
-                            sales_count=grade_data.get("sales_count", 0),
+                            sales_count=int(grade_data.get("sales_count", 0) or 0),
                             trend="stable",
                         )
-        
-        # =================================================================
-        # SOURCE 2: Collectr API (if subscribed)
-        # =================================================================
+                if graded_prices:
+                    sources_used["graded"] = "PokemonPriceTracker"
+
         if self.use_all_sources and not graded_prices:
             collectr_data = get_collectr_prices(card_name, set_name)
             if collectr_data:
                 if not raw_price:
-                    raw_price = collectr_data.get("raw_price", 0)
-                    raw_low = collectr_data.get("raw_low", raw_price * 0.85)
-                    raw_high = collectr_data.get("raw_high", raw_price * 1.15)
-                    source = "Collectr"
-                
-                for grade_key, grade_data in collectr_data.get("graded", {}).items():
-                    if grade_key not in graded_prices and grade_data.get("price", 0) > 0:
+                    raw_price = float(collectr_data.get("raw_price") or 0)
+                    raw_low = float(collectr_data.get("raw_low") or (raw_price * 0.85 if raw_price else 0))
+                    raw_high = float(collectr_data.get("raw_high") or (raw_price * 1.15 if raw_price else 0))
+                    sources_used["raw"] = sources_used.get("raw") or "Collectr"
+
+                for grade_key, grade_data in (collectr_data.get("graded", {}) or {}).items():
+                    if grade_key not in graded_prices and (grade_data.get("price") or 0) > 0:
                         graded_prices[grade_key] = GradedPrice(
                             grade=grade_key,
                             company=grade_data.get("company", grade_key.split()[0]),
-                            price=grade_data["price"],
-                            price_range=(grade_data.get("price_low", 0), grade_data.get("price_high", 0)),
+                            price=float(grade_data["price"]),
+                            price_range=(float(grade_data.get("price_low", 0)), float(grade_data.get("price_high", 0))),
                             source="Collectr",
                             sales_count=0,
                             trend="stable",
                         )
-        
-        # =================================================================
-        # SOURCE 3: Pokemon TCG API (raw prices from TCGPlayer)
-        # =================================================================
-        if not raw_price:
-            api_data = get_raw_price_from_api(card_name, set_name)
-            if api_data:
-                raw_data = api_data  # Only update if we got data
-                raw_price = raw_data.get("raw_price", 0)
-                raw_low = raw_data.get("raw_low", raw_price * 0.85)
-                raw_high = raw_data.get("raw_high", raw_price * 1.15)
-                image_url = image_url or raw_data.get("image_url", "")
-                tcgplayer_url = raw_data.get("tcgplayer_url", "")
-                if source == "Unknown":
-                    source = "Pokemon TCG API"
-        
-        # =================================================================
-        # SOURCE 4: Known prices database (curated accurate prices)
-        # =================================================================
-        fallback_data = self._get_fallback_raw_price(card_name)
-        known_graded = fallback_data.get("known_graded", {})
-        is_known = fallback_data.get("is_known", False)
-        
-        if not raw_price:
-            raw_price = fallback_data.get("raw_price", 0)
-            raw_low = fallback_data.get("raw_low", raw_price * 0.85)
-            raw_high = fallback_data.get("raw_high", raw_price * 1.15)
-            if source == "Unknown":
-                source = "Known Prices Database"
-        
-        # Use known graded prices if we don't have API data
-        if is_known and known_graded and not graded_prices:
-            # Extract ALL known graded prices (PSA, CGC, BGS)
-            grade_mappings = [
-                # PSA grades
-                ("PSA 10", "psa10", "PSA"),
-                ("PSA 9", "psa9", "PSA"),
-                ("PSA 8", "psa8", "PSA"),
-                ("PSA 7", "psa7", "PSA"),
-                # CGC grades
-                ("CGC 10", "cgc10", "CGC"),
-                ("CGC 9.5", "cgc95", "CGC"),
-                ("CGC 10 Pristine", "cgc10pristine", "CGC"),
-                # BGS grades
-                ("BGS 10", "bgs10", "BGS"),
-                ("BGS 9.5", "bgs95", "BGS"),
-                ("BGS 10 Black Label", "bgs10black", "BGS"),
-            ]
-            
-            for grade_key, known_key, company in grade_mappings:
-                if known_key in known_graded:
-                    price = known_graded[known_key]
-                    graded_prices[grade_key] = GradedPrice(
-                        grade=grade_key,
-                        company=company,
-                        price=price,
-                        price_range=(price * 0.85, price * 1.15),
-                        source="Known Sales Data (PriceCharting)",
-                        sales_count=10,
-                        trend="stable",
-                    )
-            
-            # NO MORE ESTIMATES - only use real data from known_graded
-        
-        # =================================================================
-        # NO MORE ESTIMATES - Only show REAL prices from actual sales data
-        # =================================================================
-        # We no longer fill in missing grades with estimates
-        # If PriceCharting/PriceTracker/Collectr don't have the data, we don't show it
-        # This ensures users only see accurate market prices
-        
-        # Determine source
-        source = "Pokemon TCG API"
-        if is_known:
-            source = "Recent Sales Data"
-        elif self.use_ebay:
-            source += " + eBay"
-        else:
-            source += " + Estimates"
-        
-        # Build report
+                if graded_prices:
+                    sources_used["graded"] = "Collectr"
+
+        raw_src = sources_used.get("raw", "Unavailable")
+        graded_src = sources_used.get("graded", "Unavailable")
+        source = f"Raw: {raw_src}; Graded: {graded_src}"
+
         report = CardPriceReport(
             card_name=raw_data.get("card_name", card_name),
             set_name=raw_data.get("set_name", set_name),
             card_number=raw_data.get("card_number", ""),
-            raw_price=raw_price,
-            raw_low=raw_data.get("raw_low", raw_price * 0.85),
-            raw_high=raw_data.get("raw_high", raw_price * 1.15),
+            raw_price=float(raw_price or 0),
+            raw_low=float(raw_low or 0),
+            raw_high=float(raw_high or 0),
             graded_prices=graded_prices,
-            image_url=raw_data.get("image_url", ""),
-            tcgplayer_url=raw_data.get("tcgplayer_url", ""),
+            image_url=image_url,
+            tcgplayer_url=tcgplayer_url,
             last_updated=datetime.now().isoformat(),
             source=source,
         )
-        
-        # Cache the result
+
         PriceCache.set(card_name, set_name, {"report": report.to_dict()})
-        
         return report
     
     def _get_fallback_raw_price(self, card_name: str) -> Dict:

@@ -12,7 +12,7 @@ import subprocess
 import threading
 import time
 import queue
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 from flask import Flask, request, jsonify, Response, stream_with_context
@@ -2216,12 +2216,19 @@ def create_task_group_endpoint():
         interval_seconds = int(payload.get("default_interval_seconds", 60))
         zip_code = str(payload.get("default_zip_code", "90210"))
         enabled = bool(payload.get("enabled", True))
+        notify_webhook_url = (payload.get("notify_webhook_url") or "").strip() or None
+        if notify_webhook_url and not (
+            notify_webhook_url.startswith("https://discord.com/api/webhooks/")
+            or notify_webhook_url.startswith("https://discordapp.com/api/webhooks/")
+        ):
+            return jsonify({"error": "notify_webhook_url must be a Discord webhook URL"}), 400
 
         group_id = create_task_group(
             name=name,
             default_interval_seconds=interval_seconds,
             default_zip_code=zip_code,
             enabled=enabled,
+            notify_webhook_url=notify_webhook_url,
         )
         return jsonify({"success": True, "group_id": group_id})
     except Exception as e:
@@ -2247,6 +2254,39 @@ def disable_task_group_endpoint(group_id: int):
         from tasks.task_db import set_task_group_enabled
 
         set_task_group_enabled(group_id, False)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.put("/tasks/groups/<int:group_id>")
+def update_task_group_endpoint(group_id: int):
+    """Update a task group (interval/zip/webhook/enabled)."""
+    try:
+        from tasks.task_db import update_task_group
+
+        payload = request.get_json(force=True) or {}
+
+        interval_seconds = payload.get("default_interval_seconds")
+        zip_code = payload.get("default_zip_code")
+        enabled = payload.get("enabled")
+        notify_webhook_url = payload.get("notify_webhook_url")
+
+        if notify_webhook_url is not None:
+            notify_webhook_url = (str(notify_webhook_url) or "").strip() or None
+            if notify_webhook_url and not (
+                notify_webhook_url.startswith("https://discord.com/api/webhooks/")
+                or notify_webhook_url.startswith("https://discordapp.com/api/webhooks/")
+            ):
+                return jsonify({"error": "notify_webhook_url must be a Discord webhook URL"}), 400
+
+        update_task_group(
+            group_id,
+            default_interval_seconds=(int(interval_seconds) if interval_seconds is not None else None),
+            default_zip_code=(str(zip_code) if zip_code is not None else None),
+            enabled=(bool(enabled) if enabled is not None else None),
+            notify_webhook_url=(notify_webhook_url if notify_webhook_url is not None else None),
+        )
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -2345,6 +2385,30 @@ def task_runner_status_endpoint():
                 "loop_sleep_seconds": runner.config.loop_sleep_seconds,
             }
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/tasks/runner/heartbeat")
+def task_runner_heartbeat_endpoint():
+    """Check if an external/worker task runner is alive (heartbeat)."""
+    try:
+        from tasks.task_db import get_runner_heartbeat
+        hb = get_runner_heartbeat()
+        alive = False
+        age_seconds = None
+        if hb:
+            try:
+                dt = datetime.fromisoformat(hb)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc).replace(microsecond=0)
+                age_seconds = int((now - dt).total_seconds())
+                alive = age_seconds >= 0 and age_seconds <= 45
+            except Exception:
+                alive = False
+
+        return jsonify({"success": True, "alive": alive, "last_heartbeat_at": hb, "age_seconds": age_seconds})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -2755,6 +2819,10 @@ def _get_known_price(card_name: str, card_number: str = "") -> float:
     
     Matching is strict - the Pokemon name must match, not just common words like "ex".
     """
+    # Disabled by default because curated price tables are easy to drift or be wrong.
+    # Enable explicitly if you maintain KNOWN_CARD_PRICES yourself.
+    if os.environ.get("ENABLE_KNOWN_CARD_PRICES", "").lower() not in ("1", "true", "yes"):
+        return 0
     try:
         from market.graded_prices import KNOWN_CARD_PRICES
         
@@ -2822,6 +2890,10 @@ def _get_known_price(card_name: str, card_number: str = "") -> float:
 
 def _estimate_price_by_rarity(rarity: str, name: str = "") -> float:
     """Estimate card price based on rarity and name."""
+    # Disabled by default: showing estimates as real prices destroys trust.
+    # Enable explicitly if you want rough heuristics for sets without real market data.
+    if os.environ.get("ENABLE_ESTIMATED_PRICES", "").lower() not in ("1", "true", "yes"):
+        return 0.0
     rarity = (rarity or "").lower()
     name = (name or "").lower()
     
