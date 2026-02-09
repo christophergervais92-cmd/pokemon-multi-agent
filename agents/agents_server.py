@@ -1228,21 +1228,25 @@ def get_graded_prices(card_name: str = None):
             payload = request.get_json(force=True) or {}
             card_name = payload.get("card_name") or payload.get("q", "")
             set_name = payload.get("set_name") or payload.get("set", "")
+            card_number = payload.get("card_number") or payload.get("number", "")
+            card_id = payload.get("card_id") or payload.get("id", "")
             include_ebay = payload.get("include_ebay", False)
         else:
             set_name = request.args.get("set", "")
+            card_number = request.args.get("card_number") or request.args.get("number", "")
+            card_id = request.args.get("card_id") or request.args.get("id", "")
             include_ebay = request.args.get("ebay", "false").lower() == "true"
         
         if not card_name:
             return jsonify({"error": "card_name required"})
         
         # Cache price lookups since TCG API is slow (5 minutes)
-        cache_key = f"price:{card_name}:{set_name}:{include_ebay}"
+        cache_key = f"price:{card_name}:{set_name}:{card_number}:{card_id}:{include_ebay}"
         cached = _get_cached_market(cache_key, ttl=300)
         if cached is not None:
             return jsonify(cached)
         
-        prices = get_card_prices(card_name, set_name, include_ebay=include_ebay)
+        prices = get_card_prices(card_name, set_name, include_ebay=include_ebay, card_number=card_number, card_id=card_id)
         
         result = {
             "success": True,
