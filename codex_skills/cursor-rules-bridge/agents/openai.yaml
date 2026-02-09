@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cursor Rules Bridge"
+  short_description: "Merged Cursor workflow and safety rules."
+  default_prompt: "Apply merged Cursor rules: architecture routing, security gate checks, and compound workflows."

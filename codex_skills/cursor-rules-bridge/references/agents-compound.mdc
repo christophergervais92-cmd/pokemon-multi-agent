@@ -1,0 +1,28 @@
+---
+description: Agents.md / compound review — living knowledge base
+alwaysApply: true
+---
+
+# Agents.md — Living knowledge base
+
+Each project should have an **agents.md** (or this concept) that describes how the compound review works. The **compound review** (nightly or on-demand) does the following:
+
+1. **Find all your threads from the last 24 hours**  
+   In Cursor: use **logs/daily-context.md** — paste a short summary of the day’s work, or leave empty to only refine existing rules.
+
+2. **Check if each thread ended with a "compound" step** (extracting learnings)  
+   When using AGENT_CMD (e.g. Amp/Claude), the agent can do this. When using the Python fallback, we merge **logs/daily-context.md** with current rules.
+
+3. **For threads that didn’t, retroactively extract the learnings**  
+   The review step extracts patterns, gotchas, and context from daily context + current rules.
+
+4. **Update the relevant instruction files with patterns, gotchas, and context**  
+   In Cursor we update **RULE.md** or **.cursor/rules/** (compound-learnings.mdc). Cursor reads these; they are the living knowledge base.
+
+5. **Commit and push to main**  
+   The compound review script commits changes to RULE.md / .cursor/rules and pushes to main.
+
+**Your RULE.md and .cursor/rules become a living knowledge base that grows every night.**
+
+- If the project has **scripts/daily-compound-review.sh**, the nightly job runs at 10:30 PM.
+- If the project has **agents.md**, treat it as the human-readable doc of this process; the script updates RULE.md / .cursor/rules, not agents.md unless extended.

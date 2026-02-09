@@ -1705,6 +1705,7 @@
         <nav class="desktop-nav">
             <button class="nav-btn active" data-section="search">Drops</button>
             <button class="nav-btn" data-section="stock">Stock</button>
+            <button class="nav-btn" data-section="monitors">Monitors</button>
             <button class="nav-btn" data-section="database">Database</button>
             <button class="nav-btn" data-section="card">Cards</button>
             <button class="nav-btn" data-section="flip">Flip Calculator</button>
@@ -1720,6 +1721,7 @@
             <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
                 <option value="search">Upcoming Drops</option>
                 <option value="stock">Stock Map</option>
+                <option value="monitors">Monitors</option>
                 <option value="database">Set Database</option>
                 <option value="card">Card Lookup</option>
                 <option value="flip">Flip Calculator</option>
@@ -1849,6 +1851,92 @@
                 <div class="empty">
                     <div class="empty-icon"></div>
                     <div>Enter your ZIP code to find nearby stock</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitors Section -->
+        <section id="monitors">
+            <h1>Monitors</h1>
+
+            <div class="card" style="margin-bottom: 1rem; background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg) 100%);">
+                <h2 style="display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.25rem 0;">
+                    <span>⏱️</span> Refract-Style Stock Monitors
+                </h2>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
+                    Create monitors that scan retailers on an interval and alert you via Discord only when items transition to in-stock. Checkout is not automated.
+                </p>
+            </div>
+
+            <div id="monitorsAuthGate" class="card" style="margin-bottom: 1rem; display: none;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="font-size: 1.5rem;">🔒</div>
+                    <div>
+                        <div style="font-weight: 600;">Login Required</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Login with Discord to create and manage monitors.</div>
+                    </div>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-sm" onclick="startDiscordLogin()">Login with Discord</button>
+                </div>
+            </div>
+
+            <div id="monitorsApp" style="display: none;">
+                <div class="card" style="margin-bottom: 1rem;">
+                    <h2>Alert Destination</h2>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        Paste a Discord webhook URL to receive alerts. Only Discord webhooks are supported.
+                    </p>
+                    <div class="search-bar" style="margin-top: 0.75rem;">
+                        <input type="text" id="monitorsWebhookUrl" placeholder="https://discord.com/api/webhooks/..." style="flex: 1; font-family: 'Space Mono', monospace; font-size: 0.8rem;">
+                        <button class="btn" onclick="saveMonitorGroupSettings()">Save</button>
+                    </div>
+                    <div id="monitorsWebhookStatus" style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);"></div>
+                </div>
+
+                <div class="card" style="margin-bottom: 1rem;">
+                    <h2>Create Monitor</h2>
+                    <div class="search-bar" style="margin-top: 0.75rem;">
+                        <input type="text" id="monitorQuery" placeholder="Search query (e.g., 'destined rivals etb')" style="flex: 1;">
+                        <select id="monitorRetailer" style="flex: 0 0 200px; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text);">
+                            <option value="target">Target</option>
+                            <option value="pokemoncenter">Pokemon Center</option>
+                            <option value="gamestop">GameStop</option>
+                            <option value="walmart">Walmart (Often Blocked)</option>
+                            <option value="tcgplayer">TCGPlayer (Singles)</option>
+                        </select>
+                        <button class="btn" onclick="createMonitorTask()">Add</button>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem;">
+                        <div style="flex: 0 0 160px;">
+                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">ZIP</label>
+                            <input type="text" id="monitorZip" placeholder="90210">
+                        </div>
+                        <div style="flex: 0 0 220px;">
+                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Interval (seconds)</label>
+                            <input type="number" id="monitorInterval" placeholder="60" min="30" step="10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <h2 style="margin: 0;">Your Monitors</h2>
+                        <button class="btn btn-outline btn-sm" onclick="loadMonitors()">Refresh</button>
+                    </div>
+                    <div id="monitorsList" style="margin-top: 0.75rem;"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <h2 style="margin: 0;">Runner Status</h2>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn btn-sm btn-outline" onclick="startInProcessRunner()">Start (Dev)</button>
+                            <button class="btn btn-sm btn-outline" onclick="stopInProcessRunner()">Stop (Dev)</button>
+                        </div>
+                    </div>
+                    <div id="runnerStatus" style="margin-top: 0.75rem; font-size: 0.875rem; color: var(--text-muted);">
+                        Checking...
+                    </div>
                 </div>
             </div>
         </section>
@@ -3717,6 +3805,15 @@
 
             // Request notification permission
             if ('Notification' in window) Notification.requestPermission();
+
+            // Deep link support: open a specific tab on load, e.g. `dashboard.html?section=stock`.
+            // This also makes automated screenshots and sharing easier.
+            try {
+                const initialSection = new URLSearchParams(window.location.search).get('section');
+                if (initialSection && document.getElementById(initialSection)) {
+                    switchSection(initialSection);
+                }
+            } catch {}
         });
         
         // Prefetch disabled to reduce API load - data loads on demand
@@ -3735,11 +3832,11 @@
             });
         }
 
-        function switchSection(name) {
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-            document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
-            document.getElementById(name)?.classList.add('active');
+	        function switchSection(name) {
+	            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+	            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+	            document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
+	            document.getElementById(name)?.classList.add('active');
             
             // Sync mobile dropdown
             const mobileSelect = document.getElementById('mobileNavSelect');
@@ -3757,12 +3854,12 @@
             }
             
             // Initialize vending map when switching to vending section (lazy load Leaflet)
-            if (name === 'vending') {
-                setTimeout(async () => {
-                    const vendingZip = document.getElementById('vendingZip');
-                    if (vendingZip && !vendingZip.value) {
-                        vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
-                    }
+	            if (name === 'vending') {
+	                setTimeout(async () => {
+	                    const vendingZip = document.getElementById('vendingZip');
+	                    if (vendingZip && !vendingZip.value) {
+	                        vendingZip.value = settings.zip || document.getElementById('stockZip')?.value || '90210';
+	                    }
                     // Lazy load Leaflet if not already loaded
                     if (typeof window.loadLeaflet === 'function') {
                         try {
@@ -3771,34 +3868,44 @@
                             console.warn('Failed to load Leaflet:', e);
                         }
                     }
-                    initVendingMap();
-                    if (vendingMap) vendingMap.invalidateSize();
-                }, 100);
-            }
-        }
-        
-        function switchSectionMobile(name) {
-            // Switch section and sync desktop nav
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+	                    initVendingMap();
+	                    if (vendingMap) vendingMap.invalidateSize();
+	                }, 100);
+	            }
+	            
+	            // Initialize monitors when switching to monitors section
+	            if (name === 'monitors') {
+	                setTimeout(() => { initMonitors(); }, 50);
+	            }
+	        }
+	        
+	        function switchSectionMobile(name) {
+	            // Switch section and sync desktop nav
+	            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
             document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
             document.getElementById(name)?.classList.add('active');
             
             // Initialize drops when switching to drops section
-            if (name === 'search') {
-                setTimeout(() => {
-                    const container = document.getElementById('upcomingDrops');
-                    if (container && (!container.innerHTML.trim() || container.innerHTML.includes('empty'))) {
-                        console.log('Switching to drops section, initializing...');
-                        initDrops();
-                    }
-                }, 100);
-            }
-            
-            // Initialize database section when switching to it
-            if (name === 'database') {
-                setTimeout(() => {
-                    const setSelector = document.getElementById('setSelector');
+	            if (name === 'search') {
+	                setTimeout(() => {
+	                    const container = document.getElementById('upcomingDrops');
+	                    if (container && (!container.innerHTML.trim() || container.innerHTML.includes('empty'))) {
+	                        console.log('Switching to drops section, initializing...');
+	                        initDrops();
+	                    }
+	                }, 100);
+	            }
+	            
+	            // Initialize monitors when switching to monitors section
+	            if (name === 'monitors') {
+	                setTimeout(() => { initMonitors(); }, 50);
+	            }
+	            
+	            // Initialize database section when switching to it
+	            if (name === 'database') {
+	                setTimeout(() => {
+	                    const setSelector = document.getElementById('setSelector');
                     const chaseGrid = document.getElementById('chaseCardsGrid');
                     
                     // If no set is selected and grid is empty, initialize
@@ -3884,20 +3991,27 @@
             }
             
             // Create request promise with timeout
-            const requestPromise = (async () => {
-                try {
-                    const controller = new AbortController();
-                    const timeout = options.timeout || 30000;
-                    const timeoutId = setTimeout(() => controller.abort(), timeout);
-                    
-                    const res = await fetch(`${API}${endpoint}`, {
-                        ...options,
-                        signal: controller.signal,
-                        headers: { 
-                            'Content-Type': 'application/json', 
-                            ...options.headers 
-                        }
-                    });
+	            const requestPromise = (async () => {
+	                try {
+	                    const controller = new AbortController();
+	                    const timeout = options.timeout || 30000;
+	                    const timeoutId = setTimeout(() => controller.abort(), timeout);
+	                    
+	                    // Automatically attach Discord session token when available.
+	                    const authHeaders = {};
+	                    if (sessionToken && !(options.headers && options.headers['Authorization'])) {
+	                        authHeaders['Authorization'] = `Bearer ${sessionToken}`;
+	                    }
+	                    
+	                    const res = await fetch(`${API}${endpoint}`, {
+	                        ...options,
+	                        signal: controller.signal,
+	                        headers: { 
+	                            'Content-Type': 'application/json', 
+	                            ...authHeaders,
+	                            ...options.headers 
+	                        }
+	                    });
                     
                     clearTimeout(timeoutId);
                     
@@ -3929,22 +4043,6 @@
             
             pendingRequests.set(key, requestPromise);
             return requestPromise;
-        }
-
-        // Build a prices endpoint that disambiguates printings (same name across sets/variants).
-        function buildCardPricesEndpoint(card) {
-            const name = card?.name || '';
-            const params = new URLSearchParams();
-            const setName = card?.set?.name || card?.set_name || '';
-            const number = card?.number || card?.card_number || '';
-            const id = card?.id || card?.card_id || '';
-
-            if (setName) params.set('set', setName);
-            if (number) params.set('number', number);
-            if (id) params.set('id', id);
-
-            const qs = params.toString();
-            return `/prices/card/${encodeURIComponent(name)}` + (qs ? `?${qs}` : '');
         }
         
         // Intersection Observer for lazy loading images
@@ -6209,6 +6307,12 @@
                     results.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>Error: ${data.error}</div></div>`;
                     return;
                 }
+
+                // Surface non-fatal scanner notes (blocked retailers, etc.).
+                if (data.errors && Array.isArray(data.errors) && data.errors.length) {
+                    const note = data.errors.slice(0, 2).join(' • ');
+                    showNotification(`Scanner notes: ${note}`, 'info');
+                }
                 
                 const products = data.products || [];
                 
@@ -6243,21 +6347,346 @@
                 const storesWithStock = stores.filter(s => s.has_stock).length;
                 const totalProducts = stores.reduce((sum, s) => sum + (s.products?.length || 0), 0);
                 
-                document.getElementById('statStores').textContent = stores.length;
-                document.getElementById('statInStock').textContent = storesWithStock;
-                document.getElementById('statProducts').textContent = totalProducts;
-                document.getElementById('statUnits').textContent = totalUnits;
-                
-            } catch (error) {
-                console.error('Stock check error:', error);
-                results.innerHTML = `
-                    <div class="empty">
+	                document.getElementById('statStores').textContent = stores.length;
+	                document.getElementById('statInStock').textContent = storesWithStock;
+	                document.getElementById('statProducts').textContent = totalProducts;
+	                document.getElementById('statUnits').textContent = totalUnits;
+	                
+	                if (storesWithStock === 0) {
+	                    showNotification('No in-stock matches found right now. Showing results; use "Verify Stock" to double-check.', 'info');
+	                }
+	                
+	            } catch (error) {
+	                console.error('Stock check error:', error);
+	                results.innerHTML = `
+	                    <div class="empty">
                         <div class="empty-icon">⚠️</div>
                         <div>Error loading stock: ${error.message || 'Unknown error'}</div>
                         <button class="btn btn-sm" onclick="findStock()" style="margin-top: 1rem;">Try Again</button>
                     </div>
                 `;
             }
+        }
+
+        // =============================================================================
+        // MONITORS (Refract-Style Task Groups)
+        // =============================================================================
+
+        let monitorGroupId = null;
+        let monitorGroupName = null;
+        let monitorTasks = [];
+        let monitorsPollTimer = null;
+
+        function tasksHeaders(extra = {}) {
+            return {
+                'Content-Type': 'application/json',
+                ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}),
+                ...extra
+            };
+        }
+
+        async function tasksFetch(path, options = {}) {
+            const res = await fetch(`${API}${path}`, {
+                cache: 'no-cache',
+                ...options,
+                headers: tasksHeaders(options.headers || {})
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+            return data;
+        }
+
+        function _sanitizeTaskName(retailer, query) {
+            const base = `${retailer}-${query}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            return (base || `task-${Date.now()}`).slice(0, 64);
+        }
+
+        async function ensureMonitorGroup() {
+            if (!currentUser || !sessionToken) return null;
+            monitorGroupName = `u-${currentUser.discord_id}-monitors`;
+
+            const groupsRes = await tasksFetch('/tasks/groups');
+            const groups = groupsRes.groups || [];
+            let group = groups.find(g => g.name === monitorGroupName) || null;
+
+            if (!group) {
+                const zip = document.getElementById('monitorZip')?.value?.trim() || settings.zip || '90210';
+                const interval = parseInt(document.getElementById('monitorInterval')?.value || '60', 10) || 60;
+                const webhook = document.getElementById('monitorsWebhookUrl')?.value?.trim() || settings.alertWebhookUrl || '';
+
+                try {
+                    const created = await tasksFetch('/tasks/groups', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: monitorGroupName,
+                            default_interval_seconds: interval,
+                            default_zip_code: zip,
+                            enabled: true,
+                            notify_webhook_url: webhook
+                        })
+                    });
+                    const groupsRes2 = await tasksFetch('/tasks/groups');
+                    group = (groupsRes2.groups || []).find(g => g.id === created.group_id) || (groupsRes2.groups || []).find(g => g.name === monitorGroupName) || null;
+                } catch (e) {
+                    // If group already exists (race/duplicate), we'll just re-list.
+                    const groupsRes2 = await tasksFetch('/tasks/groups');
+                    group = (groupsRes2.groups || []).find(g => g.name === monitorGroupName) || null;
+                }
+            }
+
+            monitorGroupId = group?.id || null;
+
+            const webhookInput = document.getElementById('monitorsWebhookUrl');
+            if (webhookInput && group) {
+                webhookInput.value = group.notify_webhook_url || settings.alertWebhookUrl || '';
+            }
+
+            const statusEl = document.getElementById('monitorsWebhookStatus');
+            if (statusEl) {
+                statusEl.textContent = monitorGroupId ? `Group: ${monitorGroupName}` : 'Failed to load monitor group.';
+            }
+
+            return group;
+        }
+
+        async function saveMonitorGroupSettings() {
+            if (!monitorGroupId) {
+                await ensureMonitorGroup();
+            }
+            if (!monitorGroupId) {
+                showNotification('Monitor group not ready. Try again.', 'error');
+                return;
+            }
+
+            const webhook = document.getElementById('monitorsWebhookUrl')?.value?.trim() || '';
+            const zip = document.getElementById('monitorZip')?.value?.trim() || settings.zip || '90210';
+            const interval = parseInt(document.getElementById('monitorInterval')?.value || '60', 10) || 60;
+
+            await tasksFetch(`/tasks/groups/${monitorGroupId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    default_zip_code: zip,
+                    default_interval_seconds: interval,
+                    notify_webhook_url: webhook
+                })
+            });
+
+            // Persist locally as a convenience (also syncs with Discord login).
+            settings.alertWebhookUrl = webhook;
+            optimizedLocalStorageSet('settings', settings);
+            if (sessionToken) {
+                syncToServer('settings', settings);
+            }
+
+            showNotification('Monitor settings saved', 'success');
+            await loadMonitors();
+        }
+
+        async function createMonitorTask() {
+            if (!currentUser || !sessionToken) {
+                showNotification('Login with Discord first', 'error');
+                return;
+            }
+
+            if (!monitorGroupId) {
+                await ensureMonitorGroup();
+            }
+            if (!monitorGroupId) {
+                showNotification('Monitor group not ready. Try again.', 'error');
+                return;
+            }
+
+            const query = document.getElementById('monitorQuery')?.value?.trim() || '';
+            const retailer = document.getElementById('monitorRetailer')?.value || 'target';
+            const zip = document.getElementById('monitorZip')?.value?.trim() || settings.zip || '90210';
+            const interval = parseInt(document.getElementById('monitorInterval')?.value || '60', 10) || 60;
+
+            if (!query) {
+                showNotification('Enter a search query', 'error');
+                return;
+            }
+
+            const name = _sanitizeTaskName(retailer, query);
+            await tasksFetch('/tasks', {
+                method: 'POST',
+                body: JSON.stringify({
+                    group_id: monitorGroupId,
+                    name,
+                    retailer,
+                    query,
+                    zip_code: zip,
+                    interval_seconds: interval,
+                    enabled: true
+                })
+            });
+
+            const qEl = document.getElementById('monitorQuery');
+            if (qEl) qEl.value = '';
+            showNotification('Monitor added', 'success');
+            await loadMonitors();
+        }
+
+        function formatIsoShort(isoStr) {
+            if (!isoStr) return '—';
+            try {
+                const d = new Date(isoStr);
+                if (Number.isNaN(d.getTime())) return '—';
+                return d.toLocaleString();
+            } catch {
+                return '—';
+            }
+        }
+
+        async function loadMonitors() {
+            const listEl = document.getElementById('monitorsList');
+            if (!listEl) return;
+
+            if (!currentUser || !sessionToken) {
+                listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; padding: 0.75rem;">Login to view monitors.</div>';
+                return;
+            }
+
+            if (!monitorGroupId) {
+                await ensureMonitorGroup();
+            }
+            if (!monitorGroupId) {
+                listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; padding: 0.75rem;">Failed to load monitor group.</div>';
+                return;
+            }
+
+            const res = await tasksFetch(`/tasks?group_id=${encodeURIComponent(monitorGroupId)}`);
+            monitorTasks = res.tasks || [];
+
+            if (!monitorTasks.length) {
+                listEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; padding: 0.75rem;">No monitors yet. Add one above.</div>';
+                return;
+            }
+
+            listEl.innerHTML = monitorTasks.map(t => {
+                const enabled = !!t.enabled;
+                const status = t.last_status || '—';
+                const statusColor = status === 'ok' ? 'var(--green)' : status === 'error' ? 'var(--red)' : 'var(--text-muted)';
+
+                return `
+                    <div class="card" style="margin-bottom: 0.75rem; background: var(--bg); border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+                            <div style="min-width: 240px; flex: 1;">
+                                <div style="font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                    <span>${t.name || `${t.retailer}:${t.query}`}</span>
+                                    <span class="rule-status" style="background: ${enabled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(248, 113, 113, 0.12)'}; color: ${enabled ? 'var(--green)' : 'var(--red)'};">
+                                        ${enabled ? 'Enabled' : 'Paused'}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                    Retailer: <strong style="color: var(--text-secondary);">${t.retailer}</strong> • Query: <span style="font-family: 'Space Mono', monospace;">${t.query}</span>
+                                </div>
+                                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+                                    <span>ZIP: <strong style="color: var(--text-secondary);">${t.zip_code || '—'}</strong></span>
+                                    <span>Interval: <strong style="color: var(--text-secondary);">${t.interval_seconds || '—'}s</strong></span>
+                                    <span>Last run: <strong style="color: var(--text-secondary);">${formatIsoShort(t.last_run_at)}</strong></span>
+                                    <span>Status: <strong style="color: ${statusColor};">${status}</strong></span>
+                                </div>
+                                ${t.last_error ? `<div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--red);">Error: ${t.last_error}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-sm btn-outline" onclick="toggleMonitorTask(${t.id}, ${enabled ? 'false' : 'true'})">
+                                    ${enabled ? 'Pause' : 'Enable'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            await refreshRunnerStatus();
+        }
+
+        async function toggleMonitorTask(taskId, enable) {
+            try {
+                await tasksFetch(`/tasks/${taskId}/${enable ? 'enable' : 'disable'}`, { method: 'POST' });
+                await loadMonitors();
+            } catch (e) {
+                showNotification(e.message || 'Failed to update task', 'error');
+            }
+        }
+
+        async function refreshRunnerStatus() {
+            const el = document.getElementById('runnerStatus');
+            if (!el) return;
+
+            let hb = null;
+            let inProc = null;
+            try { hb = await tasksFetch('/tasks/runner/heartbeat'); } catch {}
+            try { inProc = await tasksFetch('/tasks/runner/status'); } catch {}
+
+            const workerAlive = hb?.alive;
+            const age = hb?.age_seconds;
+            const hbText = hb?.last_heartbeat_at ? new Date(hb.last_heartbeat_at).toLocaleTimeString() : '—';
+
+            const workerLine = workerAlive
+                ? `<span style="color: var(--green); font-weight: 700;">Worker Online</span> • last heartbeat ${hbText} (${age}s ago)`
+                : `<span style="color: var(--text-muted); font-weight: 700;">Worker Offline</span> • deploy a runner with <span style="font-family: 'Space Mono', monospace;">python3 agents/run_task_runner.py</span>`;
+
+            const inProcLine = (inProc && typeof inProc.running === 'boolean')
+                ? `In-process runner: <strong style="color: ${inProc.running ? 'var(--green)' : 'var(--text-muted)'};">${inProc.running ? 'Running' : 'Stopped'}</strong>`
+                : `In-process runner: <strong style="color: var(--text-muted);">Unknown</strong>`;
+
+            el.innerHTML = `<div>${workerLine}</div><div style="margin-top: 0.25rem;">${inProcLine}</div>`;
+        }
+
+        function startMonitorsPolling() {
+            if (monitorsPollTimer) clearInterval(monitorsPollTimer);
+            monitorsPollTimer = setInterval(() => {
+                if (document.getElementById('monitors')?.classList.contains('active')) {
+                    refreshRunnerStatus();
+                }
+            }, 10000);
+        }
+
+        async function startInProcessRunner() {
+            try {
+                await tasksFetch('/tasks/runner/start', { method: 'POST' });
+                showNotification('Runner started (dev mode)', 'success');
+                await refreshRunnerStatus();
+            } catch (e) {
+                showNotification(e.message || 'Failed to start runner', 'error');
+            }
+        }
+
+        async function stopInProcessRunner() {
+            try {
+                await tasksFetch('/tasks/runner/stop', { method: 'POST' });
+                showNotification('Runner stopped', 'success');
+                await refreshRunnerStatus();
+            } catch (e) {
+                showNotification(e.message || 'Failed to stop runner', 'error');
+            }
+        }
+
+        async function initMonitors() {
+            const gate = document.getElementById('monitorsAuthGate');
+            const app = document.getElementById('monitorsApp');
+            if (!gate || !app) return;
+
+            if (!currentUser || !sessionToken) {
+                gate.style.display = 'block';
+                app.style.display = 'none';
+                return;
+            }
+
+            gate.style.display = 'none';
+            app.style.display = 'block';
+
+            const zipEl = document.getElementById('monitorZip');
+            if (zipEl && !zipEl.value) zipEl.value = settings.zip || '90210';
+            const intervalEl = document.getElementById('monitorInterval');
+            if (intervalEl && !intervalEl.value) intervalEl.value = '60';
+
+            await ensureMonitorGroup();
+            await loadMonitors();
+            startMonitorsPolling();
         }
         
         // Render sealed products with direct retailer links
@@ -6330,29 +6759,37 @@
         }
         
         // Convert real scraped products to store format for display
-        function convertRealProductsToStores(products, zip, query) {
-            const stores = [];
-            const location = getLocationFromZip(zip);
-            
-            // Group products by retailer
-            const byRetailer = {};
-            for (const p of products) {
-                const retailer = p.retailer || 'Unknown';
-                if (!byRetailer[retailer]) {
-                    byRetailer[retailer] = [];
-                }
-                byRetailer[retailer].push({
-                    name: p.name || 'Product',
-                    sku: p.sku || 'N/A',
-                    quantity: p.stock ? 1 : 0,
-                    aisle: 'Check store',
-                    price: p.price || 0,
-                    // Always use getProductImage for stock checker results (all are sealed products)
-                    // Ignore p.image_url which may contain card art from retailer APIs
-                    image_url: getProductImage(p.name),
-                    url: p.url || ''
-                });
-            }
+	        function convertRealProductsToStores(products, zip, query) {
+	            const stores = [];
+	            const location = getLocationFromZip(zip);
+	            
+	            // Group products by retailer
+	            const byRetailer = {};
+	            for (const p of products) {
+	                const retailer = p.retailer || 'Unknown';
+	                if (!byRetailer[retailer]) {
+	                    byRetailer[retailer] = [];
+	                }
+	                const priceNum = (() => {
+	                    const n = typeof p.price === 'number' ? p.price : parseFloat(p.price);
+	                    return Number.isFinite(n) ? n : 0;
+	                })();
+	                byRetailer[retailer].push({
+	                    name: p.name || 'Product',
+	                    sku: p.sku || 'N/A',
+	                    quantity: p.stock ? 1 : 0,
+	                    stock_status: p.stock_status || (p.stock ? 'In Stock' : 'Out of Stock'),
+	                    aisle: 'Check store',
+	                    price: priceNum,
+	                    last_checked: p.last_checked || '',
+	                    confidence: typeof p.confidence === 'number' ? p.confidence : parseFloat(p.confidence) || 0,
+	                    detection_method: p.detection_method || '',
+	                    // Always use getProductImage for stock checker results (all are sealed products)
+	                    // Ignore p.image_url which may contain card art from retailer APIs
+	                    image_url: getProductImage(p.name),
+	                    url: p.url || ''
+	                });
+	            }
             
             // Create store entries for each retailer with real data
             const retailerColors = {
@@ -6367,26 +6804,28 @@
                 'Barnes & Noble': '#2d5a27'
             };
             
-            for (const [retailer, prods] of Object.entries(byRetailer)) {
-                const inStockProducts = prods.filter(p => p.quantity > 0);
-                const hasStock = inStockProducts.length > 0;
-                const isOnline = ['Pokemon Center', 'TCGPlayer', 'Amazon'].includes(retailer);
-                
-                stores.push({
-                    chain: retailer,
-                    store_id: isOnline ? 'Online' : String(1000 + Math.floor(Math.random() * 9000)),
-                    full_address: isOnline ? `${retailer} - Ships to ${zip}` : `${100 + Math.floor(Math.random() * 9900)} Main St, ${location.city}, ${location.state} ${zip}`,
-                    distance_miles: isOnline ? '0.0' : (Math.random() * 15 + 1).toFixed(1),
-                    phone: isOnline ? 'N/A' : `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-                    hours: isOnline ? '24/7 Online' : '8:00 AM - 10:00 PM',
-                    has_stock: hasStock,
-                    stock_count: inStockProducts.length,
-                    total_quantity: inStockProducts.reduce((sum, p) => sum + p.quantity, 0),
-                    products: prods,
-                    online: isOnline,
-                    isRealData: true  // Mark as real scraped data
-                });
-            }
+	            for (const [retailer, prods] of Object.entries(byRetailer)) {
+	                const inStockProducts = prods.filter(p => p.quantity > 0);
+	                const hasStock = inStockProducts.length > 0;
+	                const isOnline = ['Pokemon Center', 'TCGPlayer', 'Amazon'].includes(retailer);
+	                
+	                stores.push({
+	                    chain: retailer,
+	                    store_id: isOnline ? 'Online' : '',
+	                    full_address: isOnline
+	                        ? `${retailer} Online (ships to ${zip})`
+	                        : `${retailer} near ${location.city}, ${location.state} ${zip}`,
+	                    distance_miles: isOnline ? '0.0' : '—',
+	                    phone: 'N/A',
+	                    hours: isOnline ? '24/7 Online' : 'Hours vary',
+	                    has_stock: hasStock,
+	                    stock_count: inStockProducts.length,
+	                    total_quantity: inStockProducts.reduce((sum, p) => sum + p.quantity, 0),
+	                    products: prods,
+	                    online: isOnline,
+	                    isRealData: true  // Mark as real scraped data
+	                });
+	            }
             
             // Sort by stock availability (stores with stock first)
             stores.sort((a, b) => {
@@ -6790,104 +7229,114 @@
             // No banner - clean display
             const demoNotice = '';
             
-            results.innerHTML = demoNotice + stores.map(s => `
-                <div class="store" style="margin-bottom: 1rem;">
-                    <div class="store-header">
-                        <div class="store-name">
-                            ${icons[s.chain] || ''} ${s.chain} ${s.store_id !== 'Online' ? '#' + s.store_id : ''}
-                            ${s.online ? '<span style="background: var(--accent); color: white; font-size: 0.5rem; padding: 0.125rem 0.375rem; border-radius: 4px; margin-left: 0.5rem;">ONLINE</span>' : ''}
-                        </div>
-                        <span class="store-badge ${s.has_stock ? 'in-stock' : 'out'}">
-                            ${s.has_stock ? `${s.stock_count} items (${s.total_quantity || 0} units)` : 'Out of Stock'}
-                        </span>
-                    </div>
+	            results.innerHTML = demoNotice + stores.map(s => `
+	                <div class="store" style="margin-bottom: 1rem;">
+	                    <div class="store-header">
+	                        <div class="store-name">
+	                            ${icons[s.chain] || ''} ${s.chain} ${(!s.online && s.store_id) ? '#' + s.store_id : ''}
+	                            ${s.online ? '<span style="background: var(--accent); color: white; font-size: 0.5rem; padding: 0.125rem 0.375rem; border-radius: 4px; margin-left: 0.5rem;">ONLINE</span>' : ''}
+	                        </div>
+	                        <span class="store-badge ${s.has_stock ? 'in-stock' : 'out'}">
+	                            ${s.has_stock ? `${s.stock_count} items (${s.total_quantity || 0} units)` : 'Out of Stock'}
+	                        </span>
+	                    </div>
                     
-                    <div class="address-card">
-                        <div class="address-line">
-                            <span class="address-icon">${s.online ? '' : ''}</span>
-                            <a href="https://maps.apple.com/?q=${encodeURIComponent(s.full_address || s.address)}" 
-                               target="_blank" rel="noopener"
-                               style="color: var(--text); text-decoration: none; font-weight: 600;"
-                               title="Open in Apple Maps">
-                                ${s.full_address || s.address}
-                            </a>
-                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.full_address || s.address)}" 
-                               target="_blank" rel="noopener"
-                               style="margin-left: 0.5rem; font-size: 0.7rem; color: var(--accent); text-decoration: none;"
-                               title="Open in Google Maps">
-                                [Google]
-                            </a>
-                        </div>
-                        ${!s.online ? `<div class="address-line">
-                            <span class="address-icon">📏</span>
-                            <span>${s.distance_miles} miles away</span>
-                        </div>` : ''}
-                        <div class="address-line">
-                            <span class="address-icon">📞</span>
-                            ${s.phone && s.phone !== 'N/A' ? `<a href="tel:${s.phone.replace(/[^0-9+]/g, '')}" style="color: var(--text); text-decoration: none;">${s.phone}</a>` : '<span>N/A</span>'}
-                        </div>
-                        <div class="address-line">
-                            <span class="address-icon">🕐</span>
-                            <span>${s.hours || 'Hours not available'}</span>
-                        </div>
+	                    <div class="address-card">
+	                        <div class="address-line">
+	                            <span class="address-icon">${s.online ? '' : ''}</span>
+	                            ${s.online ? `
+	                                <span style="color: var(--text); text-decoration: none; font-weight: 600;">
+	                                    ${s.full_address || s.address}
+	                                </span>
+	                            ` : `
+	                                <a href="https://maps.apple.com/?q=${encodeURIComponent(s.full_address || s.address)}" 
+	                                   target="_blank" rel="noopener"
+	                                   style="color: var(--text); text-decoration: none; font-weight: 600;"
+	                                   title="Open in Apple Maps">
+	                                    ${s.full_address || s.address}
+	                                </a>
+	                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.full_address || s.address)}" 
+	                                   target="_blank" rel="noopener"
+	                                   style="margin-left: 0.5rem; font-size: 0.7rem; color: var(--accent); text-decoration: none;"
+	                                   title="Open in Google Maps">
+	                                    [Google]
+	                                </a>
+	                            `}
+	                        </div>
+	                        ${(!s.online && s.distance_miles && s.distance_miles !== '—') ? `<div class="address-line">
+	                            <span class="address-icon">📏</span>
+	                            <span>${s.distance_miles} miles away</span>
+	                        </div>` : ''}
+	                        <div class="address-line">
+	                            <span class="address-icon">📞</span>
+	                            ${s.phone && s.phone !== 'N/A' ? `<a href="tel:${s.phone.replace(/[^0-9+]/g, '')}" style="color: var(--text); text-decoration: none;">${s.phone}</a>` : '<span>N/A</span>'}
+	                        </div>
+	                        <div class="address-line">
+	                            <span class="address-icon">🕐</span>
+	                            <span>${s.hours || 'Hours not available'}</span>
+	                        </div>
                         ${s.aisle_location ? `
                             <div class="address-line">
                                 <span class="address-icon"></span>
                                 <span>Location: <strong>${s.aisle_location}</strong></span>
                             </div>
                         ` : ''}
-                        ${s.has_stock ? `
-                            <div style="margin-top: 0.75rem;">
-                                <a href="https://www.google.com/maps/search/${encodeURIComponent(s.full_address || s.address)}" 
-                                   target="_blank" 
-                                   class="btn btn-outline btn-sm">
-                                    Get Directions
-                                </a>
-                                <a href="${getStockCheckUrl(s.chain, document.getElementById('stockQuery')?.value || 'pokemon tcg', s.store_id, document.getElementById('stockZip')?.value)}" 
-                                   target="_blank" 
-                                   class="btn btn-sm" style="background: var(--accent); color: #000;">
-                                    Check Real Stock
-                                </a>
-                            </div>
-                        ` : ''}
-                    </div>
+	                        <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+	                            ${!s.online ? `
+	                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.full_address || s.address)}" 
+	                                   target="_blank" 
+	                                   class="btn btn-outline btn-sm">
+	                                    Maps
+	                                </a>
+	                            ` : ''}
+	                            <a href="${getStockCheckUrl(s.chain, document.getElementById('stockQuery')?.value || 'pokemon tcg', s.store_id, document.getElementById('stockZip')?.value)}" 
+	                               target="_blank" 
+	                               class="btn btn-sm" style="background: var(--accent); color: #000;">
+	                                Verify Stock
+	                            </a>
+	                        </div>
+	                    </div>
                     
-                    ${s.products?.length ? `
-                        <div class="store-products">
-                            <div style="padding: 0.5rem 0.75rem; font-size: 0.625rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
-                                Products Available
-                            </div>
-                            ${s.products.map(p => {
-                                const buyUrl = getBuyUrl(s.chain, p.name, p.sku);
-                                const setInfo = getSetInfo(p.name);
-                                // Stock checker ONLY returns sealed products (booster boxes, ETBs, etc.)
-                                // ALWAYS use getProductImage (set logos) - NEVER use p.image_url which contains card art from retailer APIs
-                                const productImg = getProductImage(p.name);
-                                return `
-                                <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center;">
+	                    ${(s.products || []).filter(p => (p.quantity ?? 0) > 0).length ? `
+	                        <div class="store-products">
+	                            <div style="padding: 0.5rem 0.75rem; font-size: 0.625rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+	                                In-Stock Matches
+	                            </div>
+	                            ${(s.products || []).filter(p => (p.quantity ?? 0) > 0).map(p => {
+	                                const buyUrl = p.url || getBuyUrl(s.chain, p.name, p.sku);
+	                                const priceNum = typeof p.price === 'number' ? p.price : parseFloat(p.price);
+	                                const priceStr = (Number.isFinite(priceNum) && priceNum > 0) ? priceNum.toFixed(2) : '??';
+	                                const status = p.stock_status || 'In Stock';
+	                                const setInfo = getSetInfo(p.name);
+	                                // Stock checker ONLY returns sealed products (booster boxes, ETBs, etc.)
+	                                // ALWAYS use getProductImage (set logos) - NEVER use p.image_url which contains card art from retailer APIs
+	                                const productImg = getProductImage(p.name);
+	                                return `
+	                                <div class="store-product" style="display: flex; gap: 0.75rem; align-items: center;">
                                     <div style="position: relative; width: 55px; height: 75px; flex-shrink: 0;">
                                         <img src="${productImg}" 
                                              loading="lazy"
                                              onerror="this.src='https://images.pokemontcg.io/sv8/logo.png'; this.style.objectFit='contain';"
                                              style="width: 100%; height: 100%; object-fit: contain; border-radius: 6px; background: linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 100%); padding: 4px;">
                                     </div>
-                                    <div style="flex: 1; min-width: 0;">
-                                        <div class="store-product-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name || 'Unknown'}</div>
-                                        <div class="store-product-meta">
-                                            SKU: ${p.sku || 'N/A'} 
-                                            ${p.aisle ? `• <strong>${p.aisle}</strong>` : ''}
-                                        </div>
-                                        ${setInfo ? `<div style="font-size: 0.5rem; color: var(--accent); margin-top: 0.125rem;">${setInfo.name}</div>` : ''}
-                                    </div>
-                                    <div class="store-product-right">
-                                        <span class="store-product-qty">×${p.quantity || 1}</span>
-                                        <span class="store-product-price">$${p.price || '??'}</span>
-                                        <a href="${buyUrl}" target="_blank" class="btn btn-buy btn-sm">Buy</a>
-                                    </div>
-                                </div>
-                            `}).join('')}
-                        </div>
-                    ` : ''}
+	                                    <div style="flex: 1; min-width: 0;">
+	                                        <div class="store-product-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name || 'Unknown'}</div>
+	                                        <div class="store-product-meta">
+	                                            SKU: ${p.sku || 'N/A'} 
+	                                            ${p.aisle ? `• <strong>${p.aisle}</strong>` : ''}
+	                                            • <strong style="color: var(--green);">${status}</strong>
+	                                        </div>
+	                                        ${setInfo ? `<div style="font-size: 0.5rem; color: var(--accent); margin-top: 0.125rem;">${setInfo.name}</div>` : ''}
+	                                    </div>
+	                                    <div class="store-product-right">
+	                                        <span class="store-product-qty">×${p.quantity ?? 1}</span>
+	                                        <span class="store-product-price">$${priceStr}</span>
+	                                        <a href="${buyUrl}" target="_blank" rel="noopener" class="btn btn-buy btn-sm">View</a>
+	                                    </div>
+	                                </div>
+	                            `}).join('')}
+	                        </div>
+	                    ` : ''}
                 </div>
             `).join('');
         }
@@ -7100,16 +7549,17 @@
                 }
             }
             
-            // Fetch price data from backend (with timeout and error handling)
-            let priceData = {};
-            try {
-                priceData = await Promise.race([
-                    api(buildCardPricesEndpoint(card)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-                ]).catch((e) => {
-                    console.log('Price API call failed or timed out:', e.message);
-                    return {};
-                });
+	            // Fetch price data from backend (with timeout and error handling)
+	            let priceData = {};
+	            try {
+	                const setParam = card.set?.name ? `?set=${encodeURIComponent(card.set.name)}` : '';
+	                priceData = await Promise.race([
+	                    api(`/prices/card/${encodeURIComponent(card.name)}${setParam}`),
+	                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+	                ]).catch((e) => {
+	                    console.log('Price API call failed or timed out:', e.message);
+	                    return {};
+	                });
             } catch (e) {
                 console.log('Error fetching price data:', e);
             }
@@ -8805,7 +9255,7 @@
                 return;
             }
             
-            let card = currentSetCards[index];
+            const card = currentSetCards[index];
             console.log('Opening card detail for:', card.name);
             
             // Switch to the Cards tab
@@ -8860,17 +9310,18 @@
                 console.log('Variation fetch failed:', e);
             }
             
-            // Fetch graded price data from backend
-            let priceData = {};
-            try {
-                console.log('Fetching graded prices...');
-                priceData = await Promise.race([
-                    api(buildCardPricesEndpoint(card)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-                ]).catch((e) => {
-                    console.log('Price API call failed:', e.message);
-                    return {};
-                });
+	            // Fetch graded price data from backend
+	            let priceData = {};
+	            try {
+	                console.log('Fetching graded prices...');
+	                const setParam = card.set?.name ? `?set=${encodeURIComponent(card.set.name)}` : '';
+	                priceData = await Promise.race([
+	                    api(`/prices/card/${encodeURIComponent(card.name)}${setParam}`),
+	                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+	                ]).catch((e) => {
+	                    console.log('Price API call failed:', e.message);
+	                    return {};
+	                });
             } catch (e) {
                 console.log('Error fetching price data:', e);
             }
@@ -9303,16 +9754,17 @@
             }
             
             // Fetch price data from backend
-            let priceData = {};
-            try {
-                console.log('Fetching price data from backend...');
-                priceData = await Promise.race([
-                    api(buildCardPricesEndpoint(selectedCard)),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-                ]).catch((e) => {
-                    console.log('Price API call failed or timed out:', e.message);
-                    return {};
-                });
+	            let priceData = {};
+	            try {
+	                console.log('Fetching price data from backend...');
+	                const setParam = selectedCard.set?.name ? `?set=${encodeURIComponent(selectedCard.set.name)}` : '';
+	                priceData = await Promise.race([
+	                    api(`/prices/card/${encodeURIComponent(selectedCard.name)}${setParam}`),
+	                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+	                ]).catch((e) => {
+	                    console.log('Price API call failed or timed out:', e.message);
+	                    return {};
+	                });
                 console.log('Price data received:', priceData);
             } catch (e) {
                 console.log('Error fetching price data:', e);
@@ -10140,16 +10592,37 @@
             ).join('');
         }
         
-        function selectVariation() {
-            const variationSelect = document.getElementById('variationSelect');
-            if (!variationSelect) return;
-            
-            const index = parseInt(variationSelect.value);
-            if (allVariations && allVariations[index]) {
-                selectedCard = allVariations[index];
-                displayCardDetail(selectedCard, allVariations);
-            }
-        }
+	        async function selectVariation() {
+	            const variationSelect = document.getElementById('variationSelect');
+	            if (!variationSelect) return;
+	            
+	            const index = parseInt(variationSelect.value);
+	            if (allVariations && allVariations[index]) {
+	                selectedCard = allVariations[index];
+	                
+	                // Fetch graded/raw prices for the specific variation (name + set).
+	                try {
+	                    const detailPrices = document.getElementById('detailPrices');
+	                    if (detailPrices) {
+	                        detailPrices.innerHTML = '<div class="loading"><div class="spinner"></div>Loading prices...</div>';
+	                    }
+	                    
+	                    const setParam = selectedCard.set?.name ? `?set=${encodeURIComponent(selectedCard.set.name)}` : '';
+	                    const priceData = await Promise.race([
+	                        api(`/prices/card/${encodeURIComponent(selectedCard.name)}${setParam}`),
+	                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 6000))
+	                    ]).catch(() => ({}));
+	                    
+	                    if (priceData && !priceData.error) {
+	                        selectedCard.priceData = priceData;
+	                    }
+	                } catch (e) {
+	                    // Non-fatal: fall back to TCGPlayer prices embedded on the card object.
+	                }
+	                
+	                displayCardDetail(selectedCard, allVariations);
+	            }
+	        }
         
         // Price Chart Functions
         function generatePriceHistory(card) {

@@ -20,7 +20,7 @@ import sys
 import time
 import random
 import hashlib
-import re
+import html as _html
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -150,6 +150,8 @@ class Product:
     category: str = "TCG"
     last_checked: str = ""
     relevance_score: int = 0  # For sorting by relevance
+    confidence: float = 0.0
+    detection_method: str = ""
     
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -209,81 +211,138 @@ class Cache:
 # =============================================================================
 
 TARGET_REDSKY_KEY = "9f36aeafbe60771e321a7cc95a78140772ab3e96"
+TARGET_BASE_URL = "https://redsky.target.com/redsky_aggregations/v1/web"
 
-_target_store_cache: Dict[str, Tuple[str, float]] = {}  # zip -> (store_id, ts)
-_TARGET_STORE_CACHE_TTL_SECONDS = 24 * 60 * 60  # 24h
+# Cache store lookups (zip -> store_id) to avoid extra calls.
+_target_store_cache: Dict[str, Tuple[str, float]] = {}
+TARGET_STORE_CACHE_TTL_SECONDS = 60 * 60  # 1 hour
 
-def _get_target_store_id(zip_code: str, session: requests.Session) -> str:
-    """
-    Resolve a physical Target store_id near the given ZIP.
-    Needed for fulfillment lookups (digital store_ids are rejected).
-    """
-    zip_code = (zip_code or "").strip() or "90210"
-    now = time.time()
+
+def _target_get_store_id(zip_code: str, session) -> Optional[str]:
+    """Get a nearby physical Target store_id for a ZIP code via RedSky."""
+    zip_code = str(zip_code or "").strip()
+    if not zip_code:
+        return None
+
     cached = _target_store_cache.get(zip_code)
-    if cached and (now - cached[1]) < _TARGET_STORE_CACHE_TTL_SECONDS:
+    if cached and (time.time() - cached[1]) < TARGET_STORE_CACHE_TTL_SECONDS:
         return cached[0]
 
     try:
-        url = "https://redsky.target.com/redsky_aggregations/v1/web/nearby_stores_v1"
-        params = {
-            "key": TARGET_REDSKY_KEY,
-            "place": zip_code,
-            "limit": 1,
-            "within": 50,
-        }
+        url = f"{TARGET_BASE_URL}/nearby_stores_v1"
         headers = get_stealth_headers()
         headers["Accept"] = "application/json"
-        resp = session.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
-        if resp.status_code == 200:
-            data = resp.json()
-            stores = (data.get("data", {}) or {}).get("nearby_stores", {}).get("stores", []) or []
-            store_id = str(stores[0].get("store_id")) if stores else ""
-            if store_id:
-                _target_store_cache[zip_code] = (store_id, now)
-                return store_id
-    except Exception as e:
-        print(f"Target store lookup error: {e}")
+        resp = session.get(
+            url,
+            params={"key": TARGET_REDSKY_KEY, "place": zip_code},
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return None
 
-    # Fallback: commonly-used store id (kept for backward compatibility)
-    _target_store_cache[zip_code] = ("911", now)
-    return "911"
+        stores = (resp.json().get("data", {}) or {}).get("nearby_stores", {}).get("stores", []) or []
+        if not stores:
+            return None
+
+        store_id = str(stores[0].get("store_id") or "").strip()
+        if not store_id:
+            return None
+
+        _target_store_cache[zip_code] = (store_id, time.time())
+        return store_id
+    except Exception:
+        return None
 
 
-def _get_target_fulfillment(tcins: List[str], store_id: str, zip_code: str, session: requests.Session) -> Dict[str, Dict]:
-    """
-    Fetch fulfillment (ship/pickup/in-store) status for multiple tcins.
-    """
+def _target_fetch_fulfillment(
+    tcins: List[str],
+    *,
+    store_id: str,
+    zip_code: str,
+    session,
+) -> Dict[str, Dict[str, Any]]:
+    """Fetch fulfillment (ship/pickup) status for up to ~24 tcins in one request."""
     tcins = [str(t).strip() for t in (tcins or []) if str(t).strip()]
     if not tcins:
         return {}
 
     try:
-        url = "https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1"
-        params = {
-            "key": TARGET_REDSKY_KEY,
-            "tcins": ",".join(tcins[:24]),
-            "store_id": str(store_id or "911"),
-            "zip": str(zip_code or "90210"),
-        }
+        url = f"{TARGET_BASE_URL}/product_summary_with_fulfillment_v1"
         headers = get_stealth_headers()
         headers["Accept"] = "application/json"
+        params = {
+            "key": TARGET_REDSKY_KEY,
+            "tcins": ",".join(tcins),
+            "store_id": store_id,
+            "store_positions_store_id": store_id,
+            "has_store_positions_store_id": "true",
+            "zip": str(zip_code or "").strip(),
+            "pricing_store_id": store_id,
+            "has_pricing_store_id": "true",
+            "is_bot": "false",
+        }
+
         resp = session.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
-        if resp.status_code != 200:
+        if resp.status_code not in (200, 206):
             return {}
 
-        data = resp.json()
-        summaries = (data.get("data", {}) or {}).get("product_summaries", []) or []
-        out: Dict[str, Dict] = {}
+        payload = resp.json()
+        summaries = (payload.get("data", {}) or {}).get("product_summaries", []) or []
+
+        out: Dict[str, Dict[str, Any]] = {}
         for s in summaries:
             tcin = str(s.get("tcin") or "").strip()
             if not tcin:
                 continue
-            out[tcin] = s.get("fulfillment") or {}
+            ful = s.get("fulfillment") or {}
+            if isinstance(ful, dict):
+                out[tcin] = ful
         return out
-    except Exception as e:
-        print(f"Target fulfillment lookup error: {e}")
+    except Exception:
         return {}
+
+
+def _target_is_in_stock_status(status: str) -> bool:
+    s = (status or "").strip().upper()
+    return s in {"IN_STOCK", "LIMITED_STOCK"}
+
+
+def _target_stock_from_fulfillment(ful: Dict[str, Any]) -> Tuple[bool, str]:
+    """Return (in_stock, status_label) from Target fulfillment payload."""
+    ship_status = ((ful.get("shipping_options") or {}).get("availability_status") or "").strip()
+    ship_ok = _target_is_in_stock_status(ship_status)
+
+    store_options = ful.get("store_options") or []
+    pickup_ok = False
+    ship_to_store_ok = False
+    in_store_ok = False
+    if isinstance(store_options, list):
+        for opt in store_options:
+            if not isinstance(opt, dict):
+                continue
+            pickup_ok = pickup_ok or _target_is_in_stock_status((opt.get("order_pickup") or {}).get("availability_status") or "")
+            ship_to_store_ok = ship_to_store_ok or _target_is_in_stock_status((opt.get("ship_to_store") or {}).get("availability_status") or "")
+            in_store_ok = in_store_ok or _target_is_in_stock_status((opt.get("in_store_only") or {}).get("availability_status") or "")
+
+    in_stock = ship_ok or pickup_ok or ship_to_store_ok or in_store_ok
+    if in_stock:
+        channels = []
+        if ship_ok:
+            channels.append("Ship")
+        if pickup_ok:
+            channels.append("Pickup")
+        if ship_to_store_ok:
+            channels.append("Ship-to-Store")
+        if in_store_ok:
+            channels.append("In-Store")
+        suffix = f" ({', '.join(channels)})" if channels else ""
+        return True, f"In Stock{suffix}"
+
+    # Out of stock: use the most specific status we have.
+    if ship_status:
+        return False, ship_status.replace("_", " ").title()
+    return False, "Out of Stock"
 
 
 def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -> List[Product]:
@@ -293,7 +352,8 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
     """
     products = []
     
-    cached = Cache.get("target", query)
+    cache_key_query = f"{query}|{zip_code}"
+    cached = Cache.get("target", cache_key_query)
     if cached:
         return [Product(**p) for p in cached]
     
@@ -325,20 +385,16 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
         if resp.status_code == 200:
             data = resp.json()
             items = data.get("data", {}).get("search", {}).get("products", [])
-
+            
             tcins: List[str] = []
-            raw_rows: List[Dict[str, Any]] = []
-
             for item in items:
-                p = item.get("item", {})
-                title = p.get("product_description", {}).get("title", "")
+                p = item.get("item", {}) or {}
+                title = _html.unescape(p.get("product_description", {}).get("title", "") or "")
                 
                 if "pokemon" not in title.lower() and "pokémon" not in title.lower():
                     continue
                 
-                tcin = str(item.get("tcin") or "").strip()
-                if tcin:
-                    tcins.append(tcin)
+                price_data = item.get("price") or {}
                 
                 # Get URL
                 buy_url = p.get('enrichment', {}).get('buy_url', '')
@@ -347,71 +403,65 @@ def scan_target(query: str = "pokemon trading cards", zip_code: str = "90210") -
                 elif buy_url:
                     product_url = f"https://www.target.com{buy_url}"
                 else:
-                    tcin = p.get("tcin", "")
-                    product_url = f"https://www.target.com/p/-/A-{tcin}" if tcin else ""
+                    tcin_fallback = item.get("tcin") or item.get("original_tcin") or ""
+                    product_url = f"https://www.target.com/p/-/A-{tcin_fallback}" if tcin_fallback else ""
                 
-                # Price lives on the top-level product record (not inside item)
-                price_data = item.get("price", {}) or {}
+                # Parse price safely
                 price_val = price_data.get("current_retail", 0) or price_data.get("reg_retail", 0)
                 if not price_val:
-                    price_str = price_data.get("formatted_current_price_default_message", "")
+                    price_str = price_data.get("formatted_current_price", "")
                     price_val = float(''.join(c for c in price_str if c.isdigit() or c == '.') or '0')
 
-                raw_rows.append({
-                    "tcin": tcin,
-                    "title": title,
-                    "price": float(price_val) if price_val else 0,
-                    "url": product_url,
-                    "image_url": p.get("enrichment", {}).get("images", {}).get("primary_image_url", ""),
-                })
-
-            # Enrich with fulfillment (ship/pickup) data.
-            store_id = _get_target_store_id(zip_code, session)
-            fulfillment_map = _get_target_fulfillment(tcins, store_id=store_id, zip_code=zip_code, session=session)
-
-            for row in raw_rows:
-                tcin = row.get("tcin", "")
-                fulfillment = fulfillment_map.get(tcin, {}) or {}
-                ship_status = (fulfillment.get("shipping_options") or {}).get("availability_status", "")
-                sold_out = bool(fulfillment.get("sold_out", False))
-                store_options = fulfillment.get("store_options") or []
-
-                pickup_statuses = []
-                in_store_statuses = []
-                for opt in store_options:
-                    pickup_statuses.append(((opt.get("order_pickup") or {}).get("availability_status") or ""))
-                    in_store_statuses.append(((opt.get("in_store_only") or {}).get("availability_status") or ""))
-
-                in_stock_ship = ship_status == "IN_STOCK"
-                in_stock_pickup = any(s == "IN_STOCK" for s in pickup_statuses)
-                in_stock_in_store = any(s == "IN_STOCK" for s in in_store_statuses)
-                in_stock = (not sold_out) and (in_stock_ship or in_stock_pickup or in_stock_in_store)
-
-                if sold_out:
-                    stock_status = "Sold Out"
-                elif in_stock_ship:
-                    stock_status = "In Stock (Ship)"
-                elif in_stock_pickup:
-                    stock_status = "In Stock (Pickup)"
-                elif in_stock_in_store:
-                    stock_status = "In Stock (In Store)"
-                else:
-                    stock_status = "Out of Stock"
+                tcin = str(item.get("tcin") or item.get("original_tcin") or "").strip()
+                if tcin:
+                    tcins.append(tcin)
 
                 products.append(Product(
-                    name=row.get("title") or "",
+                    name=title,
                     retailer="Target",
-                    price=row.get("price") or 0,
-                    url=row.get("url") or "",
+                    price=float(price_val) if price_val else 0,
+                    url=product_url,
                     sku=tcin,
-                    stock=in_stock,
-                    stock_status=stock_status,
-                    image_url=row.get("image_url") or "",
+                    stock=False,
+                    stock_status="Checking...",
+                    image_url=p.get("enrichment", {}).get("images", {}).get("primary_image_url", ""),
                     last_checked=datetime.now().isoformat(),
+                    confidence=40.0,
+                    detection_method="target_redsky_plp",
                 ))
+
+            # Enrich with fulfillment for accurate stock status.
+            store_id = _target_get_store_id(zip_code, session)
+            if store_id and tcins:
+                ful_map = _target_fetch_fulfillment(tcins, store_id=store_id, zip_code=zip_code, session=session)
+                for prod in products:
+                    if not prod.sku:
+                        prod.stock = False
+                        prod.stock_status = "Unknown"
+                        prod.confidence = 20.0
+                        prod.detection_method = "target_redsky_no_tcin"
+                        continue
+                    ful = ful_map.get(prod.sku)
+                    if not ful:
+                        prod.stock = False
+                        prod.stock_status = "Unknown"
+                        prod.confidence = 25.0
+                        prod.detection_method = "target_redsky_no_fulfillment"
+                        continue
+                    in_stock, status = _target_stock_from_fulfillment(ful)
+                    prod.stock = in_stock
+                    prod.stock_status = status
+                    prod.confidence = 95.0
+                    prod.detection_method = "target_redsky_fulfillment"
+            else:
+                for prod in products:
+                    prod.stock = False
+                    prod.stock_status = "Unknown"
+                    prod.confidence = 15.0
+                    prod.detection_method = "target_redsky_store_lookup_failed"
         
         if products:
-            Cache.set("target", query, [p.to_dict() for p in products])
+            Cache.set("target", cache_key_query, [p.to_dict() for p in products])
             
     except Exception as e:
         print(f"Target error: {e}")
@@ -948,46 +998,21 @@ def scan_cards(card_name: str = "", set_name: str = "") -> List[Product]:
 # SEARCH RELEVANCE HELPER
 # =============================================================================
 
-_MATCH_SYNONYMS = {
-    "etb": "elite trainer box",
-    "upc": "ultra premium collection",
-    "bb": "booster box",
-    "b&b": "build and battle",
-}
-
-def _normalize_for_match(text: str) -> str:
-    """Lowercase + expand common abbreviations so short queries still match product names."""
-    t = (text or "").lower()
-    # Replace punctuation with spaces, keep alphanumerics.
-    t = re.sub(r"[^a-z0-9]+", " ", t).strip()
-    if not t:
-        return ""
-
-    words = t.split()
-    expanded: List[str] = []
-    for w in words:
-        if w in _MATCH_SYNONYMS:
-            expanded.extend(_MATCH_SYNONYMS[w].split())
-        else:
-            expanded.append(w)
-    return " ".join(expanded)
-
-
 def matches_query(product_name: str, query: str) -> tuple[bool, int]:
     """
     Check if a product name matches the search query.
     Returns (matches, score) where higher score = better match.
     """
-    name_lower = _normalize_for_match(product_name)
-    query_lower = _normalize_for_match(query)
+    name_lower = product_name.lower()
+    query_lower = query.lower()
     
     # Extract key search terms (ignore common words)
     ignore_words = {'pokemon', 'trading', 'cards', 'card', 'tcg', 'the', 'and', 'of', 'a'}
     query_terms = [w for w in query_lower.split() if w not in ignore_words and len(w) > 2]
     
-    # If no specific terms, do not over-filter (scanners already filter to Pokemon items).
+    # If no specific terms, match any Pokemon product
     if not query_terms:
-        return (True, 1)
+        return ('pokemon' in name_lower or 'pokémon' in name_lower, 1)
     
     # Score based on how many query terms match
     score = 0
