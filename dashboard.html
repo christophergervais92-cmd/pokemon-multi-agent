@@ -3805,6 +3805,15 @@
 
             // Request notification permission
             if ('Notification' in window) Notification.requestPermission();
+
+            // Deep link support: open a specific tab on load, e.g. `dashboard.html?section=stock`.
+            // This also makes automated screenshots and sharing easier.
+            try {
+                const initialSection = new URLSearchParams(window.location.search).get('section');
+                if (initialSection && document.getElementById(initialSection)) {
+                    switchSection(initialSection);
+                }
+            } catch {}
         });
         
         // Prefetch disabled to reduce API load - data loads on demand
