@@ -3930,6 +3930,22 @@
             pendingRequests.set(key, requestPromise);
             return requestPromise;
         }
+
+        // Build a prices endpoint that disambiguates printings (same name across sets/variants).
+        function buildCardPricesEndpoint(card) {
+            const name = card?.name || '';
+            const params = new URLSearchParams();
+            const setName = card?.set?.name || card?.set_name || '';
+            const number = card?.number || card?.card_number || '';
+            const id = card?.id || card?.card_id || '';
+
+            if (setName) params.set('set', setName);
+            if (number) params.set('number', number);
+            if (id) params.set('id', id);
+
+            const qs = params.toString();
+            return `/prices/card/${encodeURIComponent(name)}` + (qs ? `?${qs}` : '');
+        }
         
         // Intersection Observer for lazy loading images
         if ('IntersectionObserver' in window) {
@@ -7088,7 +7104,7 @@
             let priceData = {};
             try {
                 priceData = await Promise.race([
-                    api(`/prices/card/${encodeURIComponent(card.name)}`),
+                    api(buildCardPricesEndpoint(card)),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
                 ]).catch((e) => {
                     console.log('Price API call failed or timed out:', e.message);
@@ -8789,7 +8805,7 @@
                 return;
             }
             
-            const card = currentSetCards[index];
+            let card = currentSetCards[index];
             console.log('Opening card detail for:', card.name);
             
             // Switch to the Cards tab
@@ -8849,7 +8865,7 @@
             try {
                 console.log('Fetching graded prices...');
                 priceData = await Promise.race([
-                    api(`/prices/card/${encodeURIComponent(card.name)}`),
+                    api(buildCardPricesEndpoint(card)),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
                 ]).catch((e) => {
                     console.log('Price API call failed:', e.message);
@@ -9291,7 +9307,7 @@
             try {
                 console.log('Fetching price data from backend...');
                 priceData = await Promise.race([
-                    api(`/prices/card/${encodeURIComponent(selectedCard.name)}`),
+                    api(buildCardPricesEndpoint(selectedCard)),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
                 ]).catch((e) => {
                     console.log('Price API call failed or timed out:', e.message);
