@@ -68,6 +68,7 @@
             --bg: #070910;
             --bg-card: #0e121b;
             --bg-card-elevated: #131a26;
+            --bg-tertiary: rgba(255, 255, 255, 0.04);
             --bg-hover: #182235;
             --surface: rgba(255, 255, 255, 0.06);
             --text: #f6f7fb;
@@ -86,6 +87,8 @@
             --blue-muted: rgba(34, 211, 238, 0.16);
             --gold: #fbbf24;
             --gold-muted: rgba(251, 191, 36, 0.16);
+            --yellow: #fbbf24;
+            --purple: #a78bfa;
             --radius: 16px;
             --radius-sm: 10px;
             --shadow-sm: 0 4px 18px rgba(0,0,0,0.35);
@@ -98,6 +101,7 @@
             --bg: #faf7f2;
             --bg-card: #ffffff;
             --bg-card-elevated: #f5efe6;
+            --bg-tertiary: rgba(15, 23, 42, 0.04);
             --bg-hover: #efe6d8;
             --surface: rgba(15, 23, 42, 0.06);
             --text: #0b1020;
@@ -175,30 +179,7 @@
             color: var(--text);
         }
 
-        @media (prefers-color-scheme: light) {
-            body:not([data-theme]) {
-                --bg: #faf7f2;
-                --bg-card: #ffffff;
-                --bg-card-elevated: #f5efe6;
-                --bg-hover: #efe6d8;
-                --surface: rgba(15, 23, 42, 0.06);
-                --text: #0b1020;
-                --text-secondary: #22304f;
-                --text-muted: #64748b;
-                --border: rgba(15, 23, 42, 0.16);
-                --border-subtle: rgba(15, 23, 42, 0.22);
-                --accent: #ff4d2e;
-                --accent-hover: #ff3d1d;
-                --accent-muted: rgba(255, 77, 46, 0.18);
-                --green: #0f766e;
-                --red: #dc2626;
-                --gold: #b45309;
-                --purple: #0ea5e9;
-                --shadow-sm: 0 2px 12px rgba(2, 6, 23, 0.06);
-                --shadow: 0 18px 60px rgba(2, 6, 23, 0.12);
-                --shadow-glow: 0 0 48px rgba(255, 77, 46, 0.12);
-            }
-        }
+        /* Default to dark theme, regardless of system preferences (user can toggle). */
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -330,6 +311,19 @@
             box-shadow: 0 0 8px var(--red);
             animation: none;
         }
+
+        /* Theme icon: show the target theme icon (sun when dark, moon when light) */
+        #themeToggle .icon-moon,
+        #themeToggle .icon-sun {
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+
+        body[data-theme="light"] #themeToggle .icon-moon { display: inline-block; }
+        body[data-theme="light"] #themeToggle .icon-sun { display: none; }
+        body:not([data-theme]) #themeToggle .icon-moon,
+        body[data-theme="dark"] #themeToggle .icon-moon { display: none; }
+        body:not([data-theme]) #themeToggle .icon-sun,
+        body[data-theme="dark"] #themeToggle .icon-sun { display: inline-block; }
 
         /* Navigation */
         .desktop-nav {
@@ -563,6 +557,48 @@
         .btn-sm {
             padding: 0.5rem 1rem;
             font-size: 0.9375rem;
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            display: inline-grid;
+            place-items: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            color: var(--text);
+            transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-subtle);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .icon {
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex: 0 0 auto;
+        }
+
+        .icon-lg {
+            width: 24px;
+            height: 24px;
         }
 
         kbd {
@@ -1420,10 +1456,55 @@
             color: var(--text-muted);
         }
 
-        .empty-icon { 
-            font-size: 3rem; 
-            margin-bottom: 1rem;
-            opacity: 0.5;
+        .empty-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            box-shadow: var(--shadow-sm);
+            display: grid;
+            place-items: center;
+            position: relative;
+            overflow: hidden;
+            --empty-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z'/%3E%3C/svg%3E");
+        }
+
+        .empty-icon::before {
+            content: "";
+            width: 26px;
+            height: 26px;
+            background: var(--text-muted);
+            opacity: 0.9;
+            -webkit-mask-image: var(--empty-icon-mask);
+            mask-image: var(--empty-icon-mask);
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-position: center;
+            -webkit-mask-size: contain;
+            mask-size: contain;
+        }
+
+        .empty-icon.error {
+            --empty-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M12 2a1 1 0 0 1 .86.5l10 17A1 1 0 0 1 22 21H2a1 1 0 0 1-.86-1.5l10-17A1 1 0 0 1 12 2zm0 5a1 1 0 0 0-1 1v6a1 1 0 1 0 2 0V8a1 1 0 0 0-1-1zm0 10a1.25 1.25 0 1 0 0 2.5A1.25 1.25 0 0 0 12 17z'/%3E%3C/svg%3E");
+        }
+
+        .empty-icon.timeout {
+            --empty-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9 2h6v2H9V2zm3 4a9 9 0 1 0 9 9 9.01 9.01 0 0 0-9-9zm0 2a7 7 0 1 1-7 7 7.01 7.01 0 0 1 7-7zm1 1h-2v4.586l2.707 2.707 1.414-1.414L13 14.586V11z'/%3E%3C/svg%3E");
+        }
+
+        .empty-icon.inbox {
+            --empty-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M19 3H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4.2l1.2 2h3.2l1.2-2H19a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 2v8h-3a1 1 0 0 0-1 1 3 3 0 0 1-6 0 1 1 0 0 0-1-1H5V5h14z'/%3E%3C/svg%3E");
+        }
+
+        .empty-icon.book {
+            --empty-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M6 2h11a2 2 0 0 1 2 2v16a1 1 0 0 1-1 1H8a4 4 0 0 0-4 4V4a2 2 0 0 1 2-2zm0 2v15.536A5.98 5.98 0 0 1 8 19h9V4H6z'/%3E%3C/svg%3E");
+        }
+
+        .empty-icon.camera {
+            --empty-icon-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M9 4l1.5 2H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.5L9 4zm3 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z'/%3E%3C/svg%3E");
         }
 
         /* Quick actions */
@@ -1681,8 +1762,21 @@
         <header>
             <div class="logo">PokeAgent</div>
             <div style="display: flex; align-items: center; gap: 1rem;">
-                <button id="themeToggle" class="btn btn-sm" onclick="toggleTheme()" title="Toggle dark/light mode" style="padding: 0.5rem; min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
-                    <span id="themeIcon" style="display: inline-block; line-height: 1;">☀️</span>
+                <button id="themeToggle" class="icon-btn" type="button" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+                    <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+                    </svg>
+                    <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2"></path>
+                        <path d="M12 20v2"></path>
+                        <path d="m4.93 4.93 1.41 1.41"></path>
+                        <path d="m17.66 17.66 1.41 1.41"></path>
+                        <path d="M2 12h2"></path>
+                        <path d="M20 12h2"></path>
+                        <path d="m6.34 17.66-1.41 1.41"></path>
+                        <path d="m19.07 4.93-1.41 1.41"></path>
+                    </svg>
                 </button>
                 <div class="status">
                     <span class="status-dot" id="statusDot"></span>
@@ -1773,8 +1867,14 @@
             <div id="confirmedDropsSection">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                     <h2 style="font-size: 1rem; margin: 0; color: var(--text);">Confirmed Drops</h2>
-                    <button class="btn btn-sm" onclick="checkDropStock(); showNotification('Checking stock for upcoming drops...', 'info');" style="font-size: 0.75rem;">
-                        🔄 Refresh Stock
+                    <button class="btn btn-sm btn-icon" onclick="checkDropStock(); showNotification('Checking stock for upcoming drops...', 'info');" style="font-size: 0.75rem;">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21 12a9 9 0 0 0-9-9 9 9 0 0 0-6.219 2.475L3 8"></path>
+                            <path d="M3 3v5h5"></path>
+                            <path d="M3 12a9 9 0 0 0 9 9 9 9 0 0 0 6.219-2.475L21 16"></path>
+                            <path d="M16 16h5v5"></path>
+                        </svg>
+                        Refresh Stock
                     </button>
                 </div>
                 <div id="upcomingDrops"></div>
@@ -1861,7 +1961,7 @@
 
             <div class="card" style="margin-bottom: 1rem; background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg) 100%);">
                 <h2 style="display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.25rem 0;">
-                    <span>⏱️</span> Refract-Style Stock Monitors
+                    Stock Monitors
                 </h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
                     Create monitors that scan retailers on an interval and alert you via Discord only when items transition to in-stock. Checkout is not automated.
@@ -1870,7 +1970,10 @@
 
             <div id="monitorsAuthGate" class="card" style="margin-bottom: 1rem; display: none;">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="font-size: 1.5rem;">🔒</div>
+                    <svg class="icon icon-lg" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text-secondary);">
+                        <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
                     <div>
                         <div style="font-weight: 600;">Login Required</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Login with Discord to create and manage monitors.</div>
@@ -2287,10 +2390,9 @@
             <!-- AI Status -->
             <div class="card" style="border: 2px solid var(--green); margin-bottom: 1rem; background: linear-gradient(135deg, var(--bg-card) 0%, rgba(34, 197, 94, 0.1) 100%);">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <span style="font-size: 1.5rem;">🤖</span>
                     <div style="flex: 1;">
-                        <h2 style="margin: 0; font-size: 1rem;">AI Assistant Ready</h2>
-                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">Powered by GPT-4 • No API key needed</p>
+                        <h2 style="margin: 0; font-size: 1rem;">AI Assistant</h2>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">Uses a lightweight built-in guide and optional backend AI when available</p>
                     </div>
                     <span id="aiKeyStatus" style="font-size: 0.75rem; padding: 0.25rem 0.75rem; border-radius: 4px; background: var(--green); color: white;">Active</span>
                 </div>
@@ -2299,7 +2401,7 @@
             <!-- AI Chat Interface -->
             <div class="card" style="margin-bottom: 1rem;">
                 <h2 style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span>🤖</span> Pokemon TCG Assistant
+                    Pokemon TCG Assistant
                 </h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
                     Ask about card values, market trends, set recommendations, grading advice, and more!
@@ -2309,7 +2411,7 @@
                 <div id="aiChatMessages" style="height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: var(--bg);">
                     <div class="ai-message" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-card); border-radius: 8px;">
                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">AI Assistant</div>
-                        <div>👋 Hi! I'm your Pokemon TCG assistant. Ask me anything about cards, prices, grading, or collecting strategies!</div>
+                        <div>Ask me anything about cards, prices, grading, or collecting strategies.</div>
                     </div>
                 </div>
                 
@@ -2329,21 +2431,21 @@
             </div>
             
             <!-- AI Features Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
                 <!-- Auto-Buy Settings -->
                 <div class="card">
                     <h2 style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span>🛒</span> Auto-Buy Rules
+                        Alert Rules
                     </h2>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                        AI monitors stock and can auto-purchase when criteria are met
+                        Monitor stock and alert when criteria are met. Checkout is not automated.
                     </p>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                         <div class="toggle-row" style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-subtle);">
                             <div>
-                                <div class="toggle-label">Auto-Purchase Enabled</div>
-                                <div class="toggle-desc">Automatically buy matching products</div>
+                                <div class="toggle-label">Alerts Enabled</div>
+                                <div class="toggle-desc">Send alerts for matching products</div>
                             </div>
                             <div class="toggle" id="toggleAutoBuy" onclick="toggleSetting('autoBuy')"></div>
                         </div>
@@ -2373,14 +2475,14 @@
                             </div>
                         </div>
                         
-                        <button class="btn" onclick="saveAutoBuySettings()" style="margin-top: 0.5rem;">Save Auto-Buy Settings</button>
+                        <button class="btn" onclick="saveAutoBuySettings()" style="margin-top: 0.5rem;">Save Alert Settings</button>
                     </div>
                 </div>
                 
                 <!-- AI Grading Queue -->
                 <div class="card">
                     <h2 style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span>📊</span> Grading Queue
+                        Grading Queue
                     </h2>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
                         Cards queued for AI grading analysis
@@ -2388,7 +2490,7 @@
                     
                     <div id="gradingQueue" style="min-height: 100px;">
                         <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
-                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+                            <div class="empty-icon inbox" style="margin-bottom: 0.75rem;"></div>
                             <div style="font-size: 0.875rem;">No cards in queue</div>
                             <div style="font-size: 0.75rem; margin-top: 0.25rem;">Go to Grading tab to analyze cards</div>
                         </div>
@@ -2403,7 +2505,7 @@
             <!-- AI Insights -->
             <div class="card" style="margin-top: 1rem;">
                 <h2 style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span>💡</span> AI Market Insights
+                    Market Insights
                 </h2>
                 <div id="aiInsights" style="display: grid; gap: 0.75rem;">
                     <div style="background: var(--bg); padding: 0.75rem; border-radius: 8px; border-left: 3px solid var(--green);">
@@ -2547,7 +2649,7 @@
                 </div>
                 
                 <div style="border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; margin-bottom: 1rem; cursor: pointer;" id="dropZone" onclick="document.getElementById('gradeImageFile').click()">
-                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📸</div>
+                    <div class="empty-icon camera" style="margin-bottom: 0.75rem;"></div>
                     <div style="color: var(--text-secondary);">Drag & drop card image here or click to browse</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">or paste from clipboard (Ctrl+V)</div>
                 </div>
@@ -2621,7 +2723,7 @@
             <div class="card">
                 <h2>Purchase Tracking</h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    Log your purchases to track auto-buy rule effectiveness and spending.
+                    Log your purchases to track monitor effectiveness and spending.
                 </p>
                 <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 0.5rem; align-items: end;">
                     <div>
@@ -2680,8 +2782,8 @@
                                 <option value="out_of_stock">Out of Stock</option>
                             </select>
                         </div>
-                        <button class="btn btn-sm" style="background: var(--green);" onclick="verifyStock(true)">✓ Correct</button>
-                        <button class="btn btn-sm" style="background: var(--red);" onclick="verifyStock(false)">✗ Wrong</button>
+                        <button class="btn btn-sm" style="background: var(--green);" onclick="verifyStock(true)">Correct</button>
+                        <button class="btn btn-sm" style="background: var(--red);" onclick="verifyStock(false)">Wrong</button>
                     </div>
                 </div>
             </div>
@@ -2697,7 +2799,7 @@
                             </div>
                         </div>
                         <div style="padding: 1rem; background: var(--bg); border-radius: 8px;">
-                            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.5rem;">AUTO-BUY RULE PERFORMANCE</div>
+                            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.5rem;">ALERT RULE PERFORMANCE</div>
                             <div id="rulePerformance">
                                 <!-- Will be populated -->
                             </div>
@@ -2731,7 +2833,7 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h2 style="margin: 0;">Run Backtest</h2>
-                    <button class="btn" onclick="runBacktest()">🔬 Run Backtest</button>
+                    <button class="btn" onclick="runBacktest()">Run Backtest</button>
                 </div>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
                     Simulates stock checks across all retailers and compares against your verified data.
@@ -2746,7 +2848,7 @@
             
             <div class="card" style="border: 2px solid var(--accent); background: linear-gradient(135deg, var(--bg-card) 0%, rgba(52, 102, 175, 0.1) 100%);">
                 <h2 style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span>🔌</span> API Configuration
+                    API Configuration
                 </h2>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
                     Change the backend API URL. Use <code style="background: var(--bg); padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.7rem;">http://127.0.0.1:5001</code> for local server or <code style="background: var(--bg); padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.7rem;">https://pokemon-multi-agent.onrender.com</code> for deployed version.
@@ -2763,7 +2865,7 @@
                         <span><strong>Safe Mode</strong> - Disable proxy, use direct API calls</span>
                     </label>
                     <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem; margin-left: 1.75rem;">
-                        ⚠️ Direct API calls may fail on deployed domains due to CORS. Use only if proxy is banned.
+                        Note: Direct API calls may fail on deployed domains due to CORS. Use only if the proxy is banned.
                     </p>
                 </div>
             </div>
@@ -2852,10 +2954,10 @@
                 <!-- Add Payment Method Buttons -->
                 <div style="display: grid; gap: 0.75rem;">
                     <button id="addStripeBtn" class="btn" onclick="connectStripe()" style="background: #635bff; color: white; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600;">
-                        <span style="font-size: 1.125rem;">💳</span> Add Card with Stripe
+                        Add Card with Stripe
                     </button>
                     <button id="addPaypalBtn" class="btn" onclick="connectPaypal()" style="background: #ffc439; color: #003087; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 600;">
-                        <span style="font-size: 1.125rem;">🅿️</span> Connect PayPal
+                        Connect PayPal
                     </button>
                 </div>
                 
@@ -2998,7 +3100,7 @@
         // Safe Mode: Disable proxy usage (check localStorage)
         const SAFE_MODE = localStorage.getItem('tcg_safe_mode') === 'true';
         if (SAFE_MODE) {
-            console.log('[Config] ⚠️ SAFE MODE ENABLED - Proxy disabled, using direct API calls');
+            console.log('[Config] SAFE MODE ENABLED - Proxy disabled, using direct API calls');
         }
         
         // Helper function to determine if we should use proxy
@@ -3173,7 +3275,7 @@
             // Print results
             console.log('=== DIAGNOSTIC RESULTS ===');
             results.forEach(r => {
-                const status = r.pass ? '✅' : '❌';
+                const status = r.pass ? 'PASS' : 'FAIL';
                 console.log(`${status} ${r.test}: ${r.value || r.error || (r.pass ? 'OK' : 'FAIL')}`);
             });
             
@@ -3183,7 +3285,7 @@
             return results;
         };
         
-        console.log('💡 TIP: Run runDiagnostics() in console to test the site');
+        console.log('TIP: Run runDiagnostics() in console to test the site');
         
         // Load API setting if it exists
         if (settings.api) {
@@ -3200,21 +3302,17 @@
         
         // Theme management
         function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            const savedTheme = localStorage.getItem('theme') || 'dark';
             applyTheme(savedTheme);
         }
         
         function applyTheme(theme) {
             document.body.setAttribute('data-theme', theme);
-            const themeIcon = document.getElementById('themeIcon');
-            if (themeIcon) {
-                themeIcon.textContent = theme === 'light' ? '🌙' : '☀️';
-            }
             localStorage.setItem('theme', theme);
         }
         
         function toggleTheme() {
-            const currentTheme = document.body.getAttribute('data-theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            const currentTheme = document.body.getAttribute('data-theme') || 'dark';
             const newTheme = currentTheme === 'light' ? 'dark' : 'light';
             applyTheme(newTheme);
         }
@@ -3915,7 +4013,7 @@
                         if (chaseGrid && (!chaseGrid.innerHTML.trim() || chaseGrid.innerHTML.includes('empty'))) {
                             chaseGrid.innerHTML = `
                                 <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
-                                    <div style="font-size: 2rem; margin-bottom: 1rem;">📚</div>
+                                    <div class="empty-icon book" style="margin-bottom: 0.75rem;"></div>
                                     <div style="font-weight: 600; margin-bottom: 0.5rem;">Select a set to view cards</div>
                                     <div style="font-size: 0.875rem;">Choose a set from the dropdown above</div>
                                 </div>
@@ -4287,7 +4385,7 @@
             
             // Min 2 chars to search
             if (query.length < 2) {
-                results.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>Type at least 2 characters to search</div>';
+                results.innerHTML = '<div class="empty"><div class="empty-icon"></div>Type at least 2 characters to search</div>';
                 return;
             }
             
@@ -4397,7 +4495,7 @@
                                 ${p.setInfo ? `<div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.25rem;">${p.setInfo.name}</div>` : ''}
                                 <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;">
                                     <span class="product-price">$${priceDisplay}</span>
-                                    <span class="product-stock" style="color: ${p.stock ? 'var(--green)' : 'var(--text-muted)'};">${p.stock ? '✓ In Stock' : 'Out'}</span>
+                                    <span class="product-stock" style="color: ${p.stock ? 'var(--green)' : 'var(--text-muted)'};">${p.stock ? 'In Stock' : 'Out of Stock'}</span>
                                 </div>
                                 <a href="${buyUrl}" target="_blank" class="btn btn-buy btn-sm" style="margin-top: 0.5rem; display: inline-block;">Buy at ${p.retailer || 'Store'}</a>
                             </div>
@@ -4858,7 +4956,7 @@
                                     ${rumor.title}
                                 </a>
                                 <div style="margin-top: 0.5rem; font-size: 0.625rem; color: var(--text-muted); font-style: italic;">
-                                    ⚠️ Unconfirmed - This is a rumor, not official information
+                                    Unconfirmed - This is a rumor, not official information
                                 </div>
                             </div>
                             ${rumor.score ? `<div style="font-size: 0.75rem; color: var(--text-muted);">↑${rumor.score}</div>` : ''}
@@ -5199,7 +5297,7 @@
                         ? 'Tomorrow'
                         : `${dayDiff} days`;
                 // All drops are confirmed - show green badge
-                const statusBadge = '<span style="background: var(--green); color: white; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.625rem;">✓ CONFIRMED</span>';
+                const statusBadge = '<span style="background: var(--green); color: white; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.625rem;">CONFIRMED</span>';
                 
                 
                 // Create ETB box with set logo
@@ -5258,7 +5356,7 @@
                                         return `<a href="${retailerUrl}" target="_blank" style="text-decoration: none; font-size: 0.875rem; padding: 0.25rem 0.5rem; background: ${hasStock ? 'var(--green)' : 'var(--bg)'}; color: ${hasStock ? 'white' : 'var(--text)'}; border-radius: 6px; font-weight: 500; border: ${hasStock ? '1px solid var(--green)' : '1px solid var(--border)'}; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;"
                                             onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';"
                                             onmouseout="this.style.transform='';this.style.boxShadow='';">
-                                            ${r}${hasStock ? ` <span style="font-size: 0.7rem; opacity: 0.9;">✓ ${stockCount}</span>` : ''} ↗
+                                            ${r}${hasStock ? ` <span style="font-size: 0.7rem; opacity: 0.9;">${stockCount}</span>` : ''}
                                         </a>`;
                                     }).join('')}
                                 </div>
@@ -5266,8 +5364,8 @@
                                     <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; padding: 0.5rem; background: ${dropStockStatus[drop.name].totalInStock > 0 ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg)'}; border-radius: 6px; border-left: 3px solid ${dropStockStatus[drop.name].totalInStock > 0 ? 'var(--green)' : 'var(--border)'};">
                                         <span style="font-size: 0.75rem; font-weight: 600; color: ${dropStockStatus[drop.name].totalInStock > 0 ? 'var(--green)' : 'var(--text-muted)'};">
                                             ${dropStockStatus[drop.name].totalInStock > 0 
-                                                ? `✅ ${dropStockStatus[drop.name].totalInStock}/${dropStockStatus[drop.name].totalRetailers} retailers have stock` 
-                                                : '⏳ Checking stock...'}
+                                                ? `${dropStockStatus[drop.name].totalInStock}/${dropStockStatus[drop.name].totalRetailers} retailers have stock` 
+                                                : 'Checking stock...'}
                                         </span>
                                         <span style="font-size: 0.625rem; color: var(--text-muted); margin-left: auto;">
                                             Updated: ${new Date(dropStockStatus[drop.name].checked).toLocaleTimeString()}
@@ -5275,7 +5373,7 @@
                                     </div>
                                 ` : `
                                     <div style="font-size: 0.75rem; color: var(--text-muted); margin: 0.5rem 0; padding: 0.5rem; background: var(--bg); border-radius: 6px;">
-                                        <span style="opacity: 0.7;">⏳ Stock check pending...</span>
+                                        <span style="opacity: 0.7;">Stock check pending...</span>
                                     </div>
                                 `}
                                 <div style="font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 0.25rem;">
@@ -6305,7 +6403,7 @@
                 const data = await api(`/scanner/unified?q=${encodeURIComponent(query)}&zip=${zip}&_=${cacheBuster}`, { timeout: 30000 });
                 
                 if (data.error) {
-                    results.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>Error: ${data.error}</div></div>`;
+                    results.innerHTML = `<div class="empty"><div class="empty-icon error"></div><div>Error: ${data.error}</div></div>`;
                     return;
                 }
 
@@ -6320,7 +6418,7 @@
                 if (products.length === 0) {
                     results.innerHTML = `
                         <div class="card" style="text-align: center; padding: 2rem;">
-                            <div style="font-size: 2rem; margin-bottom: 1rem;">📦</div>
+                            <div class="empty-icon inbox" style="margin-bottom: 0.75rem;"></div>
                             <div style="font-weight: 600; margin-bottom: 0.5rem;">No Stock Found</div>
                             <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
                                 No products found for "<strong>${query}</strong>".<br>
@@ -6361,7 +6459,7 @@
 	                console.error('Stock check error:', error);
 	                results.innerHTML = `
 	                    <div class="empty">
-                        <div class="empty-icon">⚠️</div>
+                        <div class="empty-icon error"></div>
                         <div>Error loading stock: ${error.message || 'Unknown error'}</div>
                         <button class="btn btn-sm" onclick="findStock()" style="margin-top: 1rem;">Try Again</button>
                     </div>
@@ -6727,7 +6825,7 @@
                            onmouseout="this.style.transform='scale(1)'"
                            title="${isDirect ? 'Direct product link' : 'Search results'}">
                             ${retailer}
-                            ${isDirect ? '<span style="font-size: 0.625rem;">✓</span>' : ''}
+                            ${isDirect ? '<span style="font-size: 0.625rem; color: var(--text-muted);">Direct</span>' : ''}
                         </a>
                     `;
                 }).join('');
@@ -7265,15 +7363,15 @@
 	                            `}
 	                        </div>
 	                        ${(!s.online && s.distance_miles && s.distance_miles !== '—') ? `<div class="address-line">
-	                            <span class="address-icon">📏</span>
+	                            <span class="address-icon" style="min-width: 3.5rem;">Dist.</span>
 	                            <span>${s.distance_miles} miles away</span>
 	                        </div>` : ''}
 	                        <div class="address-line">
-	                            <span class="address-icon">📞</span>
+	                            <span class="address-icon" style="min-width: 3.5rem;">Phone</span>
 	                            ${s.phone && s.phone !== 'N/A' ? `<a href="tel:${s.phone.replace(/[^0-9+]/g, '')}" style="color: var(--text); text-decoration: none;">${s.phone}</a>` : '<span>N/A</span>'}
 	                        </div>
 	                        <div class="address-line">
-	                            <span class="address-icon">🕐</span>
+	                            <span class="address-icon" style="min-width: 3.5rem;">Hours</span>
 	                            <span>${s.hours || 'Hours not available'}</span>
 	                        </div>
                         ${s.aisle_location ? `
@@ -7363,7 +7461,7 @@
             allCardResults = cards;
             
             if (cards.length === 0) {
-                results.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div>No cards found for "${name}"</div></div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon"></div><div>No cards found for "${name}"</div></div>`;
                 return;
             }
             
@@ -8580,7 +8678,7 @@
                                 // Show warning message at top of grid
                                 const warningDiv = document.createElement('div');
                                 warningDiv.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 1rem;';
-                                warningDiv.innerHTML = '<div style="font-size: 0.875rem; color: var(--text-muted);">⚠️ Showing cached data (API timeout). Data may be outdated.</div>';
+                                warningDiv.innerHTML = '<div style="font-size: 0.875rem; color: var(--text-muted);">Showing cached data (API timeout). Data may be outdated.</div>';
                                 chaseGrid.insertBefore(warningDiv, chaseGrid.firstChild);
                                 return; // Successfully used stale cache
                             }
@@ -8634,12 +8732,12 @@
                     // No cards returned - set might be empty or not in API
                     const isNewSet = ['sv8pt5', 'sv9', 'sv10'].includes(setId);
                     chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
-                        <div style="font-size: 2rem; margin-bottom: 1rem;">📭</div>
+                        <div class="empty-icon inbox" style="margin-bottom: 0.75rem;"></div>
                         <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary);">No cards found for this set</div>
                         <div style="font-size: 0.875rem; margin-bottom: 1rem;">This set may be too new and not yet in the Pokemon TCG API database, or the set ID might be incorrect.</div>
                         ${isNewSet 
-                            ? '<div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);">💡 Try an older set like "151" (sv3pt5) or "Obsidian Flames" (sv3) which are confirmed to work.</div>'
-                            : '<div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);">💡 Try selecting a different set from the dropdown.</div>'}
+                            ? '<div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);">Tip: Try an older set like \"151\" (sv3pt5) or \"Obsidian Flames\" (sv3).</div>'
+                            : '<div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);">Tip: Try selecting a different set from the dropdown.</div>'}
                         <div style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
                             <button class="btn" onclick="document.getElementById('setSelector').value='sv3pt5'; debouncedLoadSet('sv3pt5');">Try: 151</button>
                             <button class="btn" onclick="document.getElementById('setSelector').value='sv3'; debouncedLoadSet('sv3');">Try: Obsidian Flames</button>
@@ -8679,7 +8777,7 @@
                             // Show warning message at top of grid
                             const warningDiv = document.createElement('div');
                             warningDiv.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 1rem;';
-                            warningDiv.innerHTML = '<div style="font-size: 0.875rem; color: var(--text-muted);">⚠️ Showing cached data (API timeout). Data may be outdated.</div>';
+                            warningDiv.innerHTML = '<div style="font-size: 0.875rem; color: var(--text-muted);">Showing cached data (API timeout). Data may be outdated.</div>';
                             chaseGrid.insertBefore(warningDiv, chaseGrid.firstChild);
                             return; // Successfully used stale cache
                         }
@@ -8690,10 +8788,10 @@
                 
                 // No cache available - show error
                 chaseGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
-                    <div style="font-size: 2rem; margin-bottom: 1rem;">${isTimeout ? '⏱️' : '❌'}</div>
+                    <div class="empty-icon ${isTimeout ? 'timeout' : 'error'}" style="margin-bottom: 0.75rem;"></div>
                     <div style="color: var(--red); font-weight: 600; margin-bottom: 0.5rem;">${isTimeout ? 'API Unavailable' : 'Error Loading Cards'}</div>
                     <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">${isTimeout ? 'The Pokemon TCG API is currently slow. Please try again.' : error.message}</div>
-                    <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 0.5rem;">🔄 Try Again</button>
+                    <button class="btn" onclick="loadSetChaseCards('${setId}')" style="margin-top: 0.5rem;">Try Again</button>
                 </div>`;
             }
             }); // End of coalesceRequest
@@ -8821,7 +8919,7 @@
             
             if (!cards || cards.length === 0) {
                 console.warn('[Display] No cards provided to displayChaseCards');
-                chaseGrid.innerHTML = '<div class="empty" style="grid-column: 1 / -1;"><div class="empty-icon">📭</div><div>No cards found for this set</div></div>';
+                chaseGrid.innerHTML = '<div class="empty" style="grid-column: 1 / -1;"><div class="empty-icon inbox"></div><div>No cards found for this set</div></div>';
                 return;
             }
             
@@ -9093,7 +9191,7 @@
                              alt="${cardName}"
                              loading="lazy"
                              decoding="async"
-                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22167%22><rect fill=%22%23171717%22 width=%22120%22 height=%22167%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22>🎴</text></svg>'">
+                            onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22167%22><rect fill=%22%23171717%22 width=%22120%22 height=%22167%22/><text x=%2260%22 y=%2285%22 fill=%22%23525252%22 text-anchor=%22middle%22 font-size=%2232%22>CARD</text></svg>'">
                         <div class="card-title">${cardName}</div>
                         <div class="card-set">${setName}</div>
                         <div class="card-price">${price > 0 ? '$' + price.toFixed(2) : 'See Price'}</div>
@@ -9446,7 +9544,7 @@
                     if (!data.data?.length) {
                         resultsDiv.innerHTML = `
                             <div class="empty">
-                                <div class="empty-icon">🔍</div>
+                                <div class="empty-icon"></div>
                                 <div>No cards found for "${query}"</div>
                                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Try a different spelling or search term</div>
                             </div>`;
@@ -9477,17 +9575,17 @@
                         if (e.name === 'AbortError') {
                             resultsDiv.innerHTML = `
                                 <div class="empty">
-                                    <div class="empty-icon">⏱️</div>
+                                    <div class="empty-icon timeout"></div>
                                     <div style="font-weight: 600;">Pokemon TCG API Timeout</div>
                                     <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;">The API is slow or experiencing issues. This is not your connection.</div>
-                                    <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">🔄 Try Again</button>
+                                    <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">Try Again</button>
                                 </div>`;
                         } else {
                             resultsDiv.innerHTML = `
                                 <div class="empty">
-                                    <div class="empty-icon">❌</div>
+                                    <div class="empty-icon error"></div>
                                     <div>Error: ${e.message}</div>
-                                    <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">🔄 Try Again</button>
+                                    <button class="btn" onclick="searchCards('${query}')" style="margin-top: 1rem;">Try Again</button>
                                 </div>`;
                         }
                     }
@@ -10065,7 +10163,7 @@
                             ${txs.map(t => `
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; margin-bottom: 0.25rem;">
                                     <div style="flex: 1; min-width: 0;">
-                                        <div style="font-weight: 500; font-size: 0.875rem;">eBay Sold ✓</div>
+                                        <div style="font-weight: 500; font-size: 0.875rem;">eBay Sold</div>
                                         <div style="font-size: 0.625rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${(t.title || '').replace(/"/g, '&quot;')}">${(t.title || '—').substring(0, 40)}${(t.title || '').length > 40 ? '…' : ''}</div>
                                     </div>
                                     <div style="text-align: right; flex-shrink: 0;">
@@ -10127,15 +10225,15 @@
             // Generate recent sales - show graded sales for graded cards
             const isGraded = grade !== 'raw';
             const salesSources = isGraded ? [
-                { platform: 'eBay Sold', icon: '🏆', price: basePrice * 1.02, condition: condition, verified: true },
-                { platform: 'PWCC', icon: '🎯', price: basePrice * 0.98, condition: condition, verified: true },
-                { platform: 'eBay Sold', icon: '🏆', price: basePrice * 0.95, condition: condition, verified: true },
-                { platform: 'Goldin', icon: '⭐', price: basePrice * 1.08, condition: condition, verified: true },
+                { platform: 'eBay Sold', price: basePrice * 1.02, condition: condition, verified: true },
+                { platform: 'PWCC', price: basePrice * 0.98, condition: condition, verified: true },
+                { platform: 'eBay Sold', price: basePrice * 0.95, condition: condition, verified: true },
+                { platform: 'Goldin', price: basePrice * 1.08, condition: condition, verified: true },
             ] : [
-                { platform: 'TCGPlayer', icon: '🛒', price: tcgMarket || basePrice, condition: 'Near Mint', verified: true },
-                { platform: 'eBay Sold', icon: '🏆', price: ebayAvg * 0.98, condition: 'Near Mint', verified: true },
-                { platform: 'TCGPlayer', icon: '🛒', price: tcgLow || basePrice * 0.9, condition: 'Lightly Played', verified: true },
-                { platform: 'eBay Sold', icon: '🏆', price: ebayAvg * 1.05, condition: 'Near Mint', verified: true },
+                { platform: 'TCGPlayer', price: tcgMarket || basePrice, condition: 'Near Mint', verified: true },
+                { platform: 'eBay Sold', price: ebayAvg * 0.98, condition: 'Near Mint', verified: true },
+                { platform: 'TCGPlayer', price: tcgLow || basePrice * 0.9, condition: 'Lightly Played', verified: true },
+                { platform: 'eBay Sold', price: ebayAvg * 1.05, condition: 'Near Mint', verified: true },
             ];
             
             const sales = salesSources.map((source, i) => {
@@ -10183,9 +10281,8 @@
                 return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg); border-radius: 6px; margin-bottom: 0.25rem;">
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <span style="font-size: 1.25rem;">${sale.icon}</span>
                             <div>
-                                <div style="font-weight: 500; font-size: 0.875rem;">${sale.platform} ${sale.verified ? '✓' : ''}</div>
+                                <div style="font-weight: 500; font-size: 0.875rem;">${sale.platform}</div>
                                 <div style="font-size: 0.625rem; color: var(--text-muted);">${timeAgo} • <span style="color: ${conditionColor};">${sale.condition}</span></div>
                             </div>
                         </div>
@@ -11489,7 +11586,7 @@
                 flipCardResults = matchingCards;
                 
                 if (matchingCards.length === 0) {
-                    results.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>No cards found for "${card}"<br><small style="color: var(--text-muted);">Try a different search term</small></div>`;
+                    results.innerHTML = `<div class="empty"><div class="empty-icon"></div>No cards found for "${card}"<br><small style="color: var(--text-muted);">Try a different search term</small></div>`;
                     return;
                 }
                 
@@ -11506,13 +11603,13 @@
                 console.error('Flip calculator error:', e);
                 if (e.name === 'AbortError') {
                     results.innerHTML = `<div class="empty">
-                        <div class="empty-icon">⏱️</div>
+                        <div class="empty-icon timeout"></div>
                         <div>Pokemon TCG API is slow - request timed out</div>
-                        <button class="btn" onclick="calculateFlip()" style="margin-top: 1rem;">🔄 Try Again</button>
+                        <button class="btn" onclick="calculateFlip()" style="margin-top: 1rem;">Try Again</button>
                     </div>`;
                 } else {
-                    results.innerHTML = `<div class="empty"><div class="empty-icon">❌</div>Error: ${e.message}<br>
-                        <button class="btn" onclick="calculateFlip()" style="margin-top: 1rem;">🔄 Try Again</button>
+                    results.innerHTML = `<div class="empty"><div class="empty-icon error"></div>Error: ${e.message}<br>
+                        <button class="btn" onclick="calculateFlip()" style="margin-top: 1rem;">Try Again</button>
                     </div>`;
                 }
             }
@@ -11678,9 +11775,9 @@
                     expected_roi: Math.round(expectedRoi * 10) / 10,
                     turnaround: turnaround,
                     scenarios: scenarios,
-                    recommendation: expectedRoi > 30 ? '✅ RECOMMENDED - Good flip potential' : 
-                                   expectedRoi > 0 ? '⚠️ MARGINAL - Small profit potential' : 
-                                   '❌ NOT RECOMMENDED - Likely to lose money'
+                    recommendation: expectedRoi > 30 ? 'RECOMMENDED - Good flip potential' : 
+                                   expectedRoi > 0 ? 'MARGINAL - Small profit potential' : 
+                                   'NOT RECOMMENDED - Likely to lose money'
                 };
                 
                 flipCache.set(cacheKey, flipData);
@@ -11688,7 +11785,7 @@
                 
             } catch (e) {
                 console.error('[Flip] calculateFlipForCard error:', e);
-                results.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Error calculating flip: ${e.message}</div>`;
+                results.innerHTML = `<div class="empty"><div class="empty-icon error"></div>Error calculating flip: ${e.message}</div>`;
             }
         }
         
@@ -11873,7 +11970,7 @@
                 phone: document.getElementById('settingsPhone').value,
             };
             optimizedLocalStorageSet('settings', settings);
-            alert('✓ Address saved');
+            alert('Address saved');
         }
 
         function savePayment() {
@@ -11988,222 +12085,11 @@
         }
 
         // =============================================================================
-        // AI ASSISTANT
+        // ALERT RULES (NO AUTOMATED CHECKOUT)
         // =============================================================================
         
-        let chatHistory = [];
         let autoBuyRules = JSON.parse(localStorage.getItem('autoBuyRules') || '[]');
         let portfolio = JSON.parse(localStorage.getItem('portfolio') || '[]');
-        
-        async function sendChat() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-            if (!message) return;
-            
-            input.value = '';
-            addChatMessage(message, 'user');
-            chatHistory.push({ role: 'user', content: message });
-            
-            // Process the message
-            const response = await processAssistantMessage(message);
-            addChatMessage(response.text, 'assistant', response.actions);
-            chatHistory.push({ role: 'assistant', content: response.text });
-        }
-        
-        function addChatMessage(text, role, actions = []) {
-            const container = document.getElementById('chatMessages');
-            const msg = document.createElement('div');
-            msg.className = `chat-message ${role}`;
-            msg.innerHTML = `
-                <div class="chat-avatar">${role === 'user' ? '' : ''}</div>
-                <div class="chat-content">
-                    <div class="chat-text">${text}</div>
-                    ${actions.length ? `
-                        <div class="chat-actions">
-                            ${actions.map(a => `<button class="chat-action-btn" onclick="${a.action}">${a.label}</button>`).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-            container.appendChild(msg);
-            container.scrollTop = container.scrollHeight;
-        }
-        
-        async function processAssistantMessage(message) {
-            const lower = message.toLowerCase();
-            
-            // Price lookup
-            if (lower.includes('price') || lower.includes('how much') || lower.includes('cost')) {
-                const product = extractProductName(message);
-                if (product) {
-                    const data = await api(`/prices/card/${encodeURIComponent(product)}`);
-                    if (data.raw?.price) {
-                        return {
-                            text: `<strong>${product}</strong><br><br>
-                                Raw: <strong>$${data.raw.price}</strong><br>
-                                PSA 10: $${data.graded?.['PSA 10']?.price || '??'}<br>
-                                PSA 9: $${data.graded?.['PSA 9']?.price || '??'}<br><br>
-                                Want me to find this at a specific retailer?`,
-                            actions: [
-                                { label: 'Target', action: `window.open('${getBuyUrl('Target', product, '')}', '_blank')` },
-                                { label: 'Walmart', action: `window.open('${getBuyUrl('Walmart', product, '')}', '_blank')` },
-                                { label: 'TCGPlayer', action: `window.open('${getBuyUrl('TCGPlayer', product, '')}', '_blank')` },
-                            ]
-                        };
-                    }
-                }
-            }
-            
-            // Find/search at retailer
-            if (lower.includes('find') || lower.includes('search') || lower.includes('look')) {
-                const product = extractProductName(message);
-                let retailer = 'all';
-                if (lower.includes('target')) retailer = 'Target';
-                else if (lower.includes('walmart')) retailer = 'Walmart';
-                else if (lower.includes('best buy')) retailer = 'Best Buy';
-                else if (lower.includes('gamestop')) retailer = 'GameStop';
-                else if (lower.includes('pokemon center')) retailer = 'Pokemon Center';
-                
-                if (product) {
-                    const url = getBuyUrl(retailer === 'all' ? 'TCGPlayer' : retailer, product, '');
-                    return {
-                        text: `🔍 Searching for <strong>${product}</strong>${retailer !== 'all' ? ` at ${retailer}` : ''}...<br><br>
-                            Click below to view results:`,
-                        actions: [
-                            { label: `Open ${retailer === 'all' ? 'Search' : retailer}`, action: `window.open('${url}', '_blank')` },
-                        ]
-                    };
-                }
-            }
-            
-            // Buy / purchase
-            if (lower.includes('buy') || lower.includes('purchase') || lower.includes('order')) {
-                const qtyMatch = message.match(/(\d+)/);
-                const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-                const product = extractProductName(message);
-                
-                if (lower.includes('month') || lower.includes('recurring') || lower.includes('auto')) {
-                    return {
-                        text: `I'll help you set up a recurring purchase rule.<br><br>
-                            <strong>Rule:</strong> Buy ${qty} ${product || 'sealed products'} per month<br><br>
-                            I'll notify you when matching products are found under your max price. Want me to add this rule?`,
-                        actions: [
-                            { label: ' Add Rule', action: `addAutoBuyRuleFromChat('${product || 'sealed'}', ${qty})` },
-                            { label: 'Customize', action: `switchSection('assistant'); document.querySelector('[id="ruleProduct"]').focus()` },
-                        ]
-                    };
-                }
-                
-                if (product) {
-                    return {
-                        text: ` Ready to buy <strong>${qty}x ${product}</strong><br><br>
-                            ${settings.address?.name ? `Shipping to: ${settings.address.name}, ${settings.address.address1}, ${settings.address.city}` : 'No shipping address saved'}<br>
-                            ${settings.payment?.last4 ? `Payment: •••• ${settings.payment.last4}` : 'No payment method saved'}<br><br>
-                            Click a retailer to complete your purchase:`,
-                        actions: [
-                            { label: 'Buy at Target', action: `window.open('${getBuyUrl('Target', product, '')}', '_blank')` },
-                            { label: 'Buy at Walmart', action: `window.open('${getBuyUrl('Walmart', product, '')}', '_blank')` },
-                            { label: 'Buy at GameStop', action: `window.open('${getBuyUrl('GameStop', product, '')}', '_blank')` },
-                        ]
-                    };
-                }
-            }
-            
-            // Portfolio
-            if (lower.includes('portfolio') || lower.includes('collection') || lower.includes('worth')) {
-                const total = portfolio.reduce((sum, item) => sum + (item.currentValue || item.cost) * item.qty, 0);
-                const cost = portfolio.reduce((sum, item) => sum + item.cost * item.qty, 0);
-                const gain = total - cost;
-                return {
-                    text: `<strong>Your Portfolio</strong><br><br>
-                        Total Value: <strong>$${total.toFixed(2)}</strong><br>
-                        Total Cost: $${cost.toFixed(2)}<br>
-                        Gain/Loss: <span class="${gain >= 0 ? 'green' : 'red'}">${gain >= 0 ? '+' : ''}$${gain.toFixed(2)}</span><br>
-                        Items: ${portfolio.length}<br><br>
-                        ${portfolio.length === 0 ? 'Your portfolio is empty. Add some items!' : ''}`,
-                    actions: [
-                        { label: ' View Portfolio', action: `switchSection('portfolio')` },
-                        { label: '➕ Add Item', action: `switchSection('portfolio'); document.getElementById('portfolioName').focus()` },
-                    ]
-                };
-            }
-            
-            // Stock near me
-            if (lower.includes('stock') || lower.includes('near') || lower.includes('local')) {
-                const zip = settings.zip || settings.address?.zip || '90210';
-                return {
-                    text: `Checking stock near <strong>${zip}</strong>...<br><br>
-                        I'll search all major retailers for Pokemon TCG products.`,
-                    actions: [
-                        { label: 'View Stock Map', action: `switchSection('stock'); document.getElementById('stockZip').value='${zip}'; findStock()` },
-                    ]
-                };
-            }
-            
-            // Grade
-            if (lower.includes('grade') || lower.includes('condition')) {
-                return {
-                    text: `📸 I can help grade your cards using AI!<br><br>
-                        Upload a clear photo of your card and I'll estimate the PSA/CGC/BGS grade.`,
-                    actions: [
-                        { label: '📷 Grade a Card', action: `switchSection('grade')` },
-                    ]
-                };
-            }
-            
-            // Help
-            if (lower.includes('help') || lower.includes('what can you')) {
-                return {
-                    text: `I can help you with:<br><br>
-                        <strong>🔍 Search:</strong> "Find Charizard at Target"<br>
-                        <strong>Prices:</strong> "How much is Umbreon VMAX?"<br>
-                        <strong> Buy:</strong> "Buy 3 ETBs this month"<br>
-                        <strong>Stock:</strong> "What's in stock near me?"<br>
-                        <strong>Portfolio:</strong> "What's my collection worth?"<br>
-                        <strong>📸 Grade:</strong> "Grade my card"<br>
-                        <strong>Flip:</strong> "Should I grade this card?"`,
-                    actions: []
-                };
-            }
-            
-            // Default response
-            return {
-                text: `I'm not sure I understood that. Try asking me to:<br><br>
-                    • Find products at a specific retailer<br>
-                    • Look up card prices<br>
-                    • Check stock near your location<br>
-                    • Set up auto-buy rules<br>
-                    • Track your portfolio`,
-                actions: [
-                    { label: '❓ Help', action: `addChatMessage('What can you help me with?', 'user'); processAssistantMessage('help').then(r => addChatMessage(r.text, 'assistant', r.actions))` },
-                ]
-            };
-        }
-        
-        function extractProductName(message) {
-            // Remove common words and extract product name
-            const cleaned = message
-                .replace(/\b(find|search|look|for|at|the|a|an|on|in|buy|purchase|get|me|my|price|of|how|much|is|does|cost|what's)\b/gi, '')
-                .replace(/\b(target|walmart|best buy|gamestop|pokemon center|costco|tcgplayer)\b/gi, '')
-                .trim();
-            return cleaned || null;
-        }
-        
-        function addAutoBuyRuleFromChat(product, qty) {
-            const rule = {
-                id: Date.now(),
-                product: product,
-                maxPrice: 60,
-                quantity: qty,
-                purchased: 0,
-                active: true,
-                created: new Date().toISOString(),
-            };
-            autoBuyRules.push(rule);
-            localStorage.setItem('autoBuyRules', JSON.stringify(autoBuyRules));
-            renderAutoBuyRules();
-            addChatMessage(` Rule added! I'll notify you when ${qty}x ${product} products under $60 are available.`, 'assistant');
-        }
         
         function addAutoBuyRule() {
             const product = document.getElementById('ruleProduct').value;
@@ -12237,8 +12123,9 @@
         
         function renderAutoBuyRules() {
             const container = document.getElementById('autoBuyRules');
+            if (!container) return;
             if (!autoBuyRules.length) {
-                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No auto-buy rules set up yet.</p>';
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No alert rules set up yet.</p>';
                 return;
             }
             
@@ -12246,10 +12133,10 @@
                 <div class="rule-item">
                     <div class="rule-info">
                         <div class="rule-name">${r.productName || r.product}</div>
-                        <div class="rule-details">Max $${r.maxPrice} • ${r.purchased}/${r.quantity} purchased this month</div>
+                        <div class="rule-details">Max $${r.maxPrice} • ${r.purchased}/${r.quantity} alerts this month</div>
                     </div>
                     <span class="rule-status">${r.active ? 'Active' : 'Paused'}</span>
-                    <button class="btn btn-outline btn-sm" onclick="deleteRule(${r.id})" style="margin-left: 0.5rem;">✕</button>
+                    <button class="btn btn-outline btn-sm" onclick="deleteRule(${r.id})" style="margin-left: 0.5rem;">Remove</button>
                 </div>
             `).join('');
         }
@@ -12470,7 +12357,7 @@
         async function refreshPortfolioPrices() {
             const btn = document.querySelector('[onclick="refreshPortfolioPrices()"]');
             btn.disabled = true;
-            btn.textContent = '⏳ Refreshing...';
+            btn.textContent = 'Refreshing...';
             
             for (const item of portfolio) {
                 try {
@@ -12703,7 +12590,7 @@
                         </span>
                     </div>
                 `;
-            }).join('') || '<p style="color: var(--text-muted); font-size: 0.875rem;">No auto-buy rules set up.</p>';
+            }).join('') || '<p style="color: var(--text-muted); font-size: 0.875rem;">No alert rules set up.</p>';
             
             document.getElementById('rulePerformance').innerHTML = ruleHtml;
         }
@@ -12908,7 +12795,7 @@
                 statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
                 statusDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
                 statusDiv.style.color = 'var(--red)';
-                statusDiv.innerHTML = '✗ Please enter an API URL';
+                statusDiv.innerHTML = 'Please enter an API URL.';
                 return;
             }
             
@@ -12917,7 +12804,7 @@
             statusDiv.style.background = 'rgba(59, 130, 246, 0.1)';
             statusDiv.style.border = '1px solid rgba(59, 130, 246, 0.3)';
             statusDiv.style.color = 'var(--blue)';
-            statusDiv.innerHTML = '🔄 Testing connection...';
+            statusDiv.innerHTML = 'Testing connection...';
             
             try {
                 // Test with health endpoint
@@ -12950,10 +12837,10 @@
                     statusDiv.style.background = 'rgba(34, 197, 94, 0.1)';
                     statusDiv.style.border = '1px solid rgba(34, 197, 94, 0.3)';
                     statusDiv.style.color = 'var(--green)';
-                    statusDiv.innerHTML = `✓ Connected successfully to ${serviceName}<br><small style="opacity: 0.8;">API URL: ${url}<br>All requests will now use this server.</small>`;
+                    statusDiv.innerHTML = `Connected successfully to ${serviceName}<br><small style="opacity: 0.8;">API URL: ${url}<br>All requests will now use this server.</small>`;
                     
                     // Show notification
-                    showNotification(`✓ Connected to ${serviceName}`, 'success');
+                    showNotification(`Connected to ${serviceName}`, 'success');
                 } else {
                     throw new Error(`Server returned status ${res.status}`);
                 }
@@ -12963,7 +12850,7 @@
                 statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
                 statusDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
                 statusDiv.style.color = 'var(--red)';
-                statusDiv.innerHTML = `✗ Connection failed: ${e.message}<br><small style="opacity: 0.8;">Make sure the server is running at ${url}</small>`;
+                statusDiv.innerHTML = `Connection failed: ${e.message}<br><small style="opacity: 0.8;">Make sure the server is running at ${url}</small>`;
                 
                 showNotification(`API connection failed: ${e.message}`, 'error');
             }
@@ -13239,157 +13126,103 @@
         
         // Pokemon TCG Knowledge Base for client-side AI
         const TCG_KNOWLEDGE = {
-            'best sets to invest': `**Best Sets to Invest In (2025-2026):**
+            'best sets to invest': `**Sealed Investing Basics**
 
-🔥 **High Demand Sets:**
-• **Prismatic Evolutions** - Eeveelution chase cards, limited supply
-• **151** - Nostalgia factor, Charizard & Mew chase cards
-• **Surging Sparks** - Strong competitive cards, good pull rates
+**What tends to hold value:**
+• Sets with iconic Pokemon and strong artwork
+• Products bought near MSRP (not after hype spikes)
+• Widely opened sets can be more volatile than expected
 
-💎 **Long-term Holds:**
-• **Crown Zenith** - Galarian Gallery arts are appreciating
-• **Evolving Skies** - Eeveelution alt arts hold value well
-• **Hidden Fates** - Shiny Charizard GX remains highly sought
+**Risk checks:**
+• Reprints can reset prices
+• \"Limited print\" claims are often unverified early on
+• Shipping/taxes matter for real ROI
 
-📈 **New Releases to Watch:**
-• **Journey Together** (March 2026) - Pikachu & trainer chase cards
-• **Destined Rivals** (April 2026) - Pre-order now for best prices
+**Practical approach:**
+• Track restocks/drops and cost-average
+• Diversify across a few sets and SKUs (ETB, booster box, UPC)
+• Use the Stock + Drops tabs to avoid paying secondary premiums`,
 
-💡 **Tip:** Buy sealed product at MSRP and hold 2-3 years for best returns.`,
+            'grade or sell raw': `**Grade or Sell Raw**
 
-            'grade or sell raw': `**Should You Grade Your Cards?**
+**Grade if:**
+• The raw value is high enough to cover fees + shipping
+• Centering/corners/surface look strong (clean photos help)
+• You can wait out turnaround time
+• The expected 10/9 premium clears your all-in cost
 
-✅ **Grade if:**
-• Card is worth $50+ raw AND in Near Mint+ condition
-• You have a vintage holo (WOTC era) in good shape
-• It's a chase card (Illustration Rare, Special Art Rare, Alt Art)
-• PSA 10 value is 3x+ the raw value
+**Sell raw if:**
+• The card is low value or has obvious wear
+• You need liquidity soon
 
-❌ **Sell Raw if:**
-• Card is worth under $30 raw
-• Visible whitening, scratches, or centering issues
-• Modern common/uncommon cards
-• You need quick cash (grading takes 2-6 months)
+**Tip:** Use the Flip Calculator tab to run the numbers for your exact card.`,
 
-💰 **Break-Even Analysis:**
-• PSA Economy: $25 + $15 shipping = $40 total cost
-• Card needs to gain $50+ value from grading to profit
+            'chase cards': `**Chase Cards**
 
-🎯 **Pro Tip:** Use the Flip Calculator on this site to analyze specific cards!`,
+**What usually matters:**
+• Top rarity tiers (SIR/SAR/alt-art style cards, secret rares)
+• Popular Pokemon, trainers, and iconic artwork
+• Condition: small defects can destroy graded upside
 
-            'chase cards': `**Top Chase Cards to Look For:**
+**How to use this site:**
+• Use the Database tab for set-specific chase lists
+• Use the Cards tab to compare raw vs graded pricing`,
 
-🌟 **Prismatic Evolutions:**
-• Umbreon ex SAR (#200+)
-• Pikachu ex Illustration Rare
-• Full Eeveelution lineup SIRs
+            'spot fake': `**Spotting Fakes (Quick Checklist)**
 
-🔥 **151:**
-• Charizard ex SAR (#199)
-• Mew ex SAR (#205)
-• Venusaur ex SAR (#198)
+**Material and print:**
+• Compare to a known real card from the same era
+• Look for blurry text, wrong fonts, and off colors
 
-💎 **Surging Sparks:**
-• Pikachu ex SIR
-• Charizard ex Tera
-• Trainer Gallery cards
+**Light test (not perfect):**
+• Many real cards have an inner layer that blocks light
+• Some counterfeits transmit too much light
 
-📈 **Vintage (Always Valuable):**
-• 1st Edition Base Set Charizard
-• Gold Star cards (any)
-• Crystal Type Pokemon
-• Shining Pokemon (Neo series)
+**Surface and texture:**
+• Modern textured cards should have consistent texture
+• Holo patterns should match the set/era
 
-💡 **Tip:** Check the Database section to see chase cards for any set!`,
+**Red flags:**
+• Prices that are far below market
+• Seller refuses back photos
+• Wrong set symbol/number/rarity for the card`,
 
-            'spot fake': `**How to Spot Fake Pokemon Cards:**
+            'grading': `**Grading Overview**
 
-🔍 **The Light Test:**
-• Hold card to bright light - real cards have a dark layer in middle
-• Fakes often let too much light through
+**Common graders:**
+• PSA (most liquid resale in many markets)
+• CGC (often cheaper, different label options)
+• BGS (premiums at very high grades)
 
-📐 **Check the Card Stock:**
-• Real cards have specific thickness and bend feel
-• Fakes often feel flimsy or too rigid
+**Costs and turnaround:**
+• Fees and timelines change frequently; check the grader's site
+• Shipping/insurance can be a big part of the all-in cost
 
-🎨 **Color & Print Quality:**
-• Compare to a known real card
-• Fakes often have washed out or oversaturated colors
-• Text should be crisp, not blurry
+**Tip:** Use the Flip Calculator tab to see if grading is worth it for your card.`,
 
-✨ **Holofoil Pattern:**
-• Each era has specific holo patterns
-• Modern cards have texture you can feel
-• Fakes often have wrong or missing texture
+            'price': `**How Card Pricing Works**
 
-📏 **Font & Spacing:**
-• Energy symbols should be perfect circles
-• Check HP placement and font weight
-• "Pokémon" should have the accent mark
+**Main drivers:**
+• Rarity and demand
+• Condition (NM vs LP can be a large drop)
+• Supply (set print, how much the set is opened)
 
-⚠️ **Red Flags:**
-• Deal "too good to be true" pricing
-• Seller won't show card back
-• Unusual card smell (chemical/plastic)
-• Wrong set symbol or card number`,
+**Where to check:**
+• TCGPlayer market/low/high for singles
+• eBay sold listings for real transactions
+• PriceCharting for trends (varies by item)
 
-            'grading': `**Card Grading Guide:**
+**Tip:** Use the Cards tab to see raw + graded prices and recent sales.`,
 
-🏆 **Major Grading Companies:**
-• **PSA** - Most popular, highest resale premium
-• **CGC** - Good budget option, subgrades available  
-• **BGS** - Premium for 9.5+ grades, best labels
+            'default': `I can help with:
 
-💰 **Current Costs (2025):**
-| Tier | PSA | CGC | BGS |
-|------|-----|-----|-----|
-| Economy | $25 | $18 | $22 |
-| Regular | $75 | $40 | $50 |
-| Express | $150 | $80 | $100 |
+• Investing and sealed strategy
+• Grading (PSA/CGC/BGS) and ROI
+• Set chase cards and what to look for
+• Spotting fakes
+• Price lookups and recent sales
 
-⏱️ **Turnaround Times:**
-• Economy: 3-5 months
-• Regular: 1-2 months  
-• Express: 2-3 weeks
-
-📊 **Grade Meanings:**
-• 10 (Gem Mint) - Perfect, huge premium
-• 9 (Mint) - Minor imperfection, still valuable
-• 8 (NM-MT) - Light wear acceptable
-• 7 and below - Significant wear, less valuable
-
-💡 **Use the Flip Calculator to see if grading is worth it!`,
-
-            'price': `**Understanding Pokemon Card Prices:**
-
-📊 **Price Factors:**
-• **Rarity** - Illustration Rare > SAR > Full Art > Holo > Regular
-• **Condition** - NM commands premium, LP/MP drops 30-50%
-• **Demand** - Popular Pokemon (Charizard, Pikachu, Eeveelutions)
-• **Age** - Vintage often appreciates, modern can be volatile
-
-🔍 **Where to Check Prices:**
-• **TCGPlayer** - Best for market prices
-• **eBay Sold** - Real transaction data
-• **PSA Cert Verification** - For graded cards
-• **PriceCharting** - Historical trends
-
-📈 **Market Trends 2025-2026:**
-• Vintage trending up 15-20% YoY
-• Modern chase cards volatile
-• Sealed product appreciating steadily
-
-💡 **Use the Card Search on this site to look up any card's price!`,
-
-            'default': `I can help you with Pokemon TCG questions! Try asking about:
-
-📦 **Investing** - "What sets should I invest in?"
-💰 **Grading** - "Should I grade my cards?"
-🌟 **Chase Cards** - "What are the chase cards for 151?"
-🔍 **Authenticity** - "How do I spot fake cards?"
-📊 **Prices** - "How do I check card prices?"
-
-Or use the quick question buttons above for common topics!`
+Use the quick question buttons above to jump in.`
         };
         
         // Get AI response from knowledge base
@@ -13475,7 +13308,7 @@ Or use the quick question buttons above for common topics!`
                 buyCollections: document.getElementById('buyCollections').checked
             };
             localStorage.setItem('autoBuySettings', JSON.stringify(settings));
-            showNotification('Auto-buy settings saved!', 'success');
+            showNotification('Alert settings saved.', 'success');
         }
         
         // Escape HTML for safe display
