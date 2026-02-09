@@ -1,0 +1,47 @@
+---
+description: Agents running on Cursor — on-demand compound review and auto-compound
+alwaysApply: true
+---
+
+# Agents running on Cursor
+
+These agents run **inside Cursor** when you ask. They use Cursor's AI (Cursor's bandwidth), not the nightly scripts or an external API.
+
+---
+
+## Agent 1: Compound review (on-demand)
+
+**Trigger:** User says e.g. "run compound review", "compound the learnings", "extract learnings from today", or "update RULE.md from daily context".
+
+**What to do:**
+1. Read **logs/daily-context.md** in the current project (if present). If missing or empty, use existing **RULE.md** and **.cursor/rules/** as the only input.
+2. Extract patterns, gotchas, and context that should persist. Merge them into the project's instruction set.
+3. Update **RULE.md** (if it exists) or **.cursor/rules/compound-learnings.mdc** with the merged learnings. Keep it concise and actionable.
+4. Optionally suggest: "Commit and push? Say yes to run git add/commit/push."
+
+No external API or script required — you do this in Cursor.
+
+---
+
+## Agent 2: Auto-compound (on-demand)
+
+**Trigger:** User says e.g. "run auto-compound", "pick next priority", "implement top priority", or "what's #1 on the backlog and implement it".
+
+**What to do:**
+1. Read **reports/priorities.md** (or **reports/*.md**) in the current project. The top item is #1 priority.
+2. Create a short PRD for that item and break it into tasks (you can write **tasks/prd-&lt;slug&gt;.md** and a task list).
+3. Implement the tasks: edit code, add tests, update docs as needed. Work through the list until done or the user stops.
+4. Optionally: suggest opening a draft PR (e.g. "I can run git checkout -b, push, and gh pr create — say yes to create the PR").
+
+No external API or script required — you do this in Cursor.
+
+---
+
+## Summary
+
+| Agent            | Trigger (examples)                    | Runs in Cursor |
+|------------------|---------------------------------------|----------------|
+| Compound review  | "run compound review", "compound learnings" | Yes — you read logs/daily-context.md and RULE.md / .cursor/rules, then update them. |
+| Auto-compound    | "run auto-compound", "pick next priority"    | Yes — you read reports/priorities.md, create PRD/tasks, implement. |
+
+These are the **agents running on Cursor**. The nightly launchd jobs (10:30 / 11:00 PM) are separate: they run scripts that use Anthropic API or AGENT_CMD when the user is not in Cursor.

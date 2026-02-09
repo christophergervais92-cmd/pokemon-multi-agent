@@ -1,0 +1,13 @@
+---
+description: Security and break-it prompts for reviews and hardening
+alwaysApply: false
+---
+
+# Security & break-it prompts
+
+Use when reviewing or hardening code:
+
+- **Break the function:** "Write 20 unit tests designed to break this function."
+- **Pentest mindset:** "Find every security vulnerability in this file. Think like a pentester." (SQL injection, auth bypasses, privilege escalation, input validation gaps.)
+- **Edge cases:** "Generate 50 edge cases: null, empty strings, negative numbers, unicode, arrays with 100k items." (Paste into Hypothesis for automated fuzzing.)
+- **Secrets audit:** "Audit this entire codebase for leaked secrets." (API keys in comments, passwords in config files, tokens in error messages.)
