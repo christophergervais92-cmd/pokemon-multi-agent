@@ -2279,13 +2279,58 @@
         <section id="card">
             <h1>Card & Product Lookup</h1>
             
-            <div class="search-bar" style="margin-bottom: 1rem;">
-                <input type="text" id="cardName" placeholder="Search cards or products (e.g., Charizard, Pikachu VMAX, ETB)" value="">
+            <div class="search-bar" style="margin-bottom: 0.5rem; position: relative;">
+                <input type="text" id="cardName" placeholder="Search cards or products... (Ctrl+K)" value="" 
+                       oninput="handleSearchInput(event)" 
+                       onfocus="handleSearchInput(event)"
+                       onblur="setTimeout(hideSuggestions, 200)"
+                       autocomplete="off">
                 <select id="searchType" style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card);">
                     <option value="cards">Cards</option>
                     <option value="products">Sealed Products</option>
                 </select>
                 <button class="btn" onclick="searchCardsOrProducts()">Search</button>
+                <kbd style="position: absolute; right: 120px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: 0.5;">Ctrl+K</kbd>
+            </div>
+            
+            <!-- Advanced Search Filters -->
+            <div id="searchFilters" class="search-filters" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Retailer:</span>
+                    <select id="filterRetailer" onchange="applySearchFilters()" style="padding: 0.4rem 0.6rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg);">
+                        <option value="">All Retailers</option>
+                        <option value="Target">Target</option>
+                        <option value="Walmart">Walmart</option>
+                        <option value="Best Buy">Best Buy</option>
+                        <option value="GameStop">GameStop</option>
+                        <option value="Pokemon Center">Pokemon Center</option>
+                        <option value="TCGPlayer">TCGPlayer</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Price:</span>
+                    <input type="number" id="filterMinPrice" placeholder="Min" style="width: 60px; padding: 0.4rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg);" onchange="applySearchFilters()">
+                    <span style="color: var(--text-muted);">-</span>
+                    <input type="number" id="filterMaxPrice" placeholder="Max" style="width: 60px; padding: 0.4rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg);" onchange="applySearchFilters()">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.875rem; cursor: pointer;">
+                        <input type="checkbox" id="filterInStock" onchange="applySearchFilters()" style="width: 16px; height: 16px;">
+                        <span>In Stock Only</span>
+                    </label>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Sort:</span>
+                    <select id="filterSort" onchange="applySearchFilters()" style="padding: 0.4rem 0.6rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg);">
+                        <option value="relevance">Relevance</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                        <option value="name">Name A-Z</option>
+                    </select>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="clearSearchFilters()" style="margin-left: auto;">
+                    Clear Filters
+                </button>
             </div>
 
             <!-- Card Grid Results -->
@@ -2499,6 +2544,41 @@
                     <button class="btn btn-outline" onclick="switchSection('grade')" style="width: 100%; margin-top: 0.75rem;">
                         Go to Grading Tool →
                     </button>
+                </div>
+                
+                <!-- Quick Buy Queue -->
+                <div class="card">
+                    <h2 style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>⚡</span> Quick Buy Queue
+                        <span id="buyQueueBadge" style="display: none; background: var(--accent); color: white; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 999px; margin-left: auto;">0</span>
+                    </h2>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Queue items from search for one-click multi-purchase
+                    </p>
+                    
+                    <div id="buyQueueList" style="min-height: 100px;">
+                        <p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 1rem;">Your buy queue is empty. Add items from search results!</p>
+                    </div>
+                </div>
+                
+                <!-- Price Alerts -->
+                <div class="card">
+                    <h2 style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🔔</span> Price Alerts
+                    </h2>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Get notified when products drop below your target price
+                    </p>
+                    
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                        <input type="text" id="newAlertProduct" placeholder="Product name (e.g., Prismatic ETB)" style="flex: 1;">
+                        <input type="number" id="newAlertPrice" placeholder="$" style="width: 70px;">
+                        <button class="btn" onclick="addPriceAlertFromForm()">Add</button>
+                    </div>
+                    
+                    <div id="priceAlertsList" style="min-height: 60px;">
+                        <p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 1rem;">No price alerts set.</p>
+                    </div>
                 </div>
             </div>
             
@@ -3431,6 +3511,822 @@
                 return defaultValue;
             }
         }
+        
+        // =============================================================================
+        // ENHANCED SEARCH SYSTEM - Fuzzy Search, History, Suggestions, Caching
+        // =============================================================================
+        
+        // Search history and cache
+        let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+        let searchResultsCache = new Map();
+        let searchDebounceTimer = null;
+        const SEARCH_DEBOUNCE_MS = 300;
+        const MAX_SEARCH_HISTORY = 20;
+        const MAX_SUGGESTIONS = 8;
+        
+        // Popular search terms for suggestions
+        const POPULAR_SEARCHES = [
+            'Prismatic Evolutions ETB', 'Charizard', 'Pikachu', 'Umbreon', 'Mew',
+            'Pokemon 151', 'Surging Sparks', 'Elite Trainer Box', 'Booster Box',
+            'Paldean Fates', 'Crown Zenith', 'Evolving Skies', 'Hidden Fates'
+        ];
+        
+        // Fuzzy search using Levenshtein distance
+        function levenshteinDistance(a, b) {
+            if (!a || !b) return 100;
+            a = a.toLowerCase();
+            b = b.toLowerCase();
+            if (a === b) return 0;
+            
+            const matrix = [];
+            for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+            for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+            
+            for (let i = 1; i <= b.length; i++) {
+                for (let j = 1; j <= a.length; j++) {
+                    matrix[i][j] = b[i-1] === a[j-1] 
+                        ? matrix[i-1][j-1]
+                        : Math.min(matrix[i-1][j-1] + 1, matrix[i][j-1] + 1, matrix[i-1][j] + 1);
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+        
+        // Fuzzy match with score (0-100, higher is better)
+        function fuzzyMatch(query, target) {
+            if (!query || !target) return 0;
+            const q = query.toLowerCase();
+            const t = target.toLowerCase();
+            
+            // Exact match
+            if (t === q) return 100;
+            
+            // Contains exact query
+            if (t.includes(q)) return 90 - (t.indexOf(q) * 0.5);
+            
+            // Word match
+            const queryWords = q.split(/\s+/);
+            const targetWords = t.split(/\s+/);
+            let matchedWords = 0;
+            queryWords.forEach(qw => {
+                if (targetWords.some(tw => tw.includes(qw) || qw.includes(tw))) matchedWords++;
+            });
+            if (matchedWords > 0) return 50 + (matchedWords / queryWords.length * 30);
+            
+            // Levenshtein for typo tolerance
+            const dist = levenshteinDistance(q, t);
+            if (dist <= 2) return 40 - dist * 10;
+            if (dist <= 4) return 20 - dist * 2;
+            
+            return 0;
+        }
+        
+        // Get search suggestions
+        function getSearchSuggestions(query) {
+            if (!query || query.length < 2) return [];
+            
+            const suggestions = [];
+            const seen = new Set();
+            
+            // Add matching history items first (most relevant)
+            searchHistory.forEach(item => {
+                const score = fuzzyMatch(query, item.query);
+                if (score > 30 && !seen.has(item.query.toLowerCase())) {
+                    suggestions.push({ text: item.query, score: score + 20, type: 'history' });
+                    seen.add(item.query.toLowerCase());
+                }
+            });
+            
+            // Add matching popular searches
+            POPULAR_SEARCHES.forEach(term => {
+                const score = fuzzyMatch(query, term);
+                if (score > 25 && !seen.has(term.toLowerCase())) {
+                    suggestions.push({ text: term, score, type: 'popular' });
+                    seen.add(term.toLowerCase());
+                }
+            });
+            
+            // Sort by score and limit
+            return suggestions
+                .sort((a, b) => b.score - a.score)
+                .slice(0, MAX_SUGGESTIONS);
+        }
+        
+        // Save search to history
+        function saveSearchToHistory(query) {
+            if (!query || query.length < 2) return;
+            
+            // Remove duplicate if exists
+            searchHistory = searchHistory.filter(h => h.query.toLowerCase() !== query.toLowerCase());
+            
+            // Add to front
+            searchHistory.unshift({
+                query,
+                timestamp: Date.now()
+            });
+            
+            // Limit history size
+            if (searchHistory.length > MAX_SEARCH_HISTORY) {
+                searchHistory = searchHistory.slice(0, MAX_SEARCH_HISTORY);
+            }
+            
+            localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+        }
+        
+        // Clear search history
+        function clearSearchHistory() {
+            searchHistory = [];
+            localStorage.removeItem('searchHistory');
+            hideSuggestions();
+        }
+        
+        // Show search suggestions dropdown
+        function showSuggestions(inputElement, suggestions) {
+            let dropdown = document.getElementById('searchSuggestionsDropdown');
+            
+            if (!dropdown) {
+                dropdown = document.createElement('div');
+                dropdown.id = 'searchSuggestionsDropdown';
+                dropdown.className = 'search-suggestions-dropdown';
+                dropdown.style.cssText = `
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    right: 0;
+                    background: var(--bg-card-elevated);
+                    border: 1px solid var(--border);
+                    border-top: none;
+                    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+                    max-height: 300px;
+                    overflow-y: auto;
+                    z-index: 1000;
+                    box-shadow: var(--shadow);
+                `;
+                inputElement.parentElement.style.position = 'relative';
+                inputElement.parentElement.appendChild(dropdown);
+            }
+            
+            if (!suggestions.length) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            dropdown.innerHTML = suggestions.map((s, i) => `
+                <div class="suggestion-item" data-index="${i}" onclick="selectSuggestion('${s.text.replace(/'/g, "\\'")}')" style="
+                    padding: 0.75rem 1rem;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    border-bottom: 1px solid var(--border);
+                    transition: background 0.15s;
+                " onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                    <span style="font-size: 0.875rem; opacity: 0.6;">
+                        ${s.type === 'history' ? '🕐' : '🔥'}
+                    </span>
+                    <span style="flex: 1;">${s.text}</span>
+                    ${s.type === 'history' ? '<span style="font-size: 0.75rem; color: var(--text-muted);">Recent</span>' : ''}
+                </div>
+            `).join('') + `
+                ${searchHistory.length > 0 ? `
+                    <div onclick="clearSearchHistory()" style="
+                        padding: 0.5rem 1rem;
+                        text-align: center;
+                        font-size: 0.75rem;
+                        color: var(--text-muted);
+                        cursor: pointer;
+                        border-top: 1px solid var(--border);
+                    " onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">
+                        Clear Search History
+                    </div>
+                ` : ''}
+            `;
+            
+            dropdown.style.display = 'block';
+        }
+        
+        function hideSuggestions() {
+            const dropdown = document.getElementById('searchSuggestionsDropdown');
+            if (dropdown) dropdown.style.display = 'none';
+        }
+        
+        function selectSuggestion(text) {
+            const input = document.getElementById('cardName');
+            if (input) {
+                input.value = text;
+                hideSuggestions();
+                searchCardsOrProducts();
+            }
+        }
+        
+        // Enhanced search with debouncing
+        function handleSearchInput(e) {
+            const query = e.target.value.trim();
+            
+            // Clear previous debounce
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            
+            // Show suggestions immediately
+            if (query.length >= 2) {
+                const suggestions = getSearchSuggestions(query);
+                showSuggestions(e.target, suggestions);
+            } else {
+                hideSuggestions();
+            }
+            
+            // Debounce the actual search (for live results)
+            searchDebounceTimer = setTimeout(() => {
+                if (query.length >= 2) {
+                    // Check cache first
+                    const cacheKey = `search_${query.toLowerCase()}`;
+                    const cached = searchResultsCache.get(cacheKey);
+                    if (cached && Date.now() - cached.timestamp < CACHE_TTL_LONG) {
+                        console.log('Using cached search results for:', query);
+                        allCardResults = cached.results;
+                        displayCardGrid(allCardResults);
+                        return;
+                    }
+                }
+            }, SEARCH_DEBOUNCE_MS);
+        }
+        
+        // Cache search results
+        function cacheSearchResults(query, results) {
+            const cacheKey = `search_${query.toLowerCase()}`;
+            searchResultsCache.set(cacheKey, {
+                results,
+                timestamp: Date.now()
+            });
+            
+            // Limit cache size
+            if (searchResultsCache.size > 50) {
+                const oldest = [...searchResultsCache.entries()]
+                    .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+                searchResultsCache.delete(oldest[0]);
+            }
+        }
+        
+        // =============================================================================
+        // ADVANCED SEARCH FILTERS
+        // =============================================================================
+        
+        let unfilteredResults = []; // Store original results before filtering
+        
+        // Apply search filters to current results
+        function applySearchFilters() {
+            if (!allCardResults || !allCardResults.length) return;
+            
+            // Store original results if not already stored
+            if (!unfilteredResults.length) {
+                unfilteredResults = [...allCardResults];
+            }
+            
+            const retailer = document.getElementById('filterRetailer')?.value || '';
+            const minPrice = parseFloat(document.getElementById('filterMinPrice')?.value) || 0;
+            const maxPrice = parseFloat(document.getElementById('filterMaxPrice')?.value) || Infinity;
+            const inStockOnly = document.getElementById('filterInStock')?.checked || false;
+            const sortBy = document.getElementById('filterSort')?.value || 'relevance';
+            
+            let filtered = [...unfilteredResults];
+            
+            // Filter by retailer
+            if (retailer) {
+                filtered = filtered.filter(item => 
+                    (item.retailer || '').toLowerCase() === retailer.toLowerCase()
+                );
+            }
+            
+            // Filter by price range
+            filtered = filtered.filter(item => {
+                const price = item.price || getBestCardPrice(item) || 0;
+                return price >= minPrice && price <= maxPrice;
+            });
+            
+            // Filter by stock status
+            if (inStockOnly) {
+                filtered = filtered.filter(item => 
+                    item.stock !== false && item.stock_status !== 'Out of Stock'
+                );
+            }
+            
+            // Sort results
+            switch (sortBy) {
+                case 'price-low':
+                    filtered.sort((a, b) => {
+                        const priceA = a.price || getBestCardPrice(a) || 0;
+                        const priceB = b.price || getBestCardPrice(b) || 0;
+                        return priceA - priceB;
+                    });
+                    break;
+                case 'price-high':
+                    filtered.sort((a, b) => {
+                        const priceA = a.price || getBestCardPrice(a) || 0;
+                        const priceB = b.price || getBestCardPrice(b) || 0;
+                        return priceB - priceA;
+                    });
+                    break;
+                case 'name':
+                    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    break;
+                // 'relevance' keeps original order
+            }
+            
+            // Update display
+            allCardResults = filtered;
+            displayCardGrid(filtered);
+            
+            // Update filter count badge
+            const activeFilters = [retailer, minPrice > 0, maxPrice < Infinity, inStockOnly, sortBy !== 'relevance'].filter(Boolean).length;
+            updateFilterBadge(activeFilters, filtered.length, unfilteredResults.length);
+        }
+        
+        // Clear all search filters
+        function clearSearchFilters() {
+            document.getElementById('filterRetailer').value = '';
+            document.getElementById('filterMinPrice').value = '';
+            document.getElementById('filterMaxPrice').value = '';
+            document.getElementById('filterInStock').checked = false;
+            document.getElementById('filterSort').value = 'relevance';
+            
+            if (unfilteredResults.length) {
+                allCardResults = [...unfilteredResults];
+                displayCardGrid(allCardResults);
+            }
+            
+            updateFilterBadge(0);
+        }
+        
+        // Update filter badge to show active filter count
+        function updateFilterBadge(count, filteredCount, totalCount) {
+            let badge = document.getElementById('filterBadge');
+            if (!badge) {
+                const filtersDiv = document.getElementById('searchFilters');
+                if (filtersDiv) {
+                    badge = document.createElement('span');
+                    badge.id = 'filterBadge';
+                    badge.style.cssText = 'font-size: 0.75rem; color: var(--accent); margin-left: 0.5rem;';
+                    filtersDiv.querySelector('button')?.before(badge);
+                }
+            }
+            
+            if (badge) {
+                if (count > 0 && filteredCount !== undefined) {
+                    badge.textContent = `${filteredCount} of ${totalCount} shown`;
+                } else {
+                    badge.textContent = '';
+                }
+            }
+        }
+        
+        // Reset filters when new search is performed
+        function resetFiltersOnNewSearch() {
+            unfilteredResults = [];
+            clearSearchFilters();
+        }
+        
+        // =============================================================================
+        // QUICK BUY & AUTO-BUY ENHANCEMENTS
+        // =============================================================================
+        
+        // Buy queue for batch purchasing
+        let buyQueue = JSON.parse(localStorage.getItem('buyQueue') || '[]');
+        let priceAlerts = JSON.parse(localStorage.getItem('priceAlerts') || '[]');
+        
+        // Add to buy queue for one-click purchasing
+        function addToBuyQueue(product) {
+            const existing = buyQueue.find(p => 
+                p.name === product.name && p.retailer === product.retailer
+            );
+            
+            if (existing) {
+                existing.quantity = (existing.quantity || 1) + 1;
+            } else {
+                buyQueue.push({
+                    ...product,
+                    quantity: 1,
+                    addedAt: Date.now()
+                });
+            }
+            
+            localStorage.setItem('buyQueue', JSON.stringify(buyQueue));
+            updateBuyQueueBadge();
+            showNotification(`Added ${product.name} to buy queue`, 'success');
+        }
+        
+        // Remove from buy queue
+        function removeFromBuyQueue(index) {
+            buyQueue.splice(index, 1);
+            localStorage.setItem('buyQueue', JSON.stringify(buyQueue));
+            updateBuyQueueBadge();
+            renderBuyQueue();
+        }
+        
+        // Clear entire buy queue
+        function clearBuyQueue() {
+            buyQueue = [];
+            localStorage.setItem('buyQueue', JSON.stringify(buyQueue));
+            updateBuyQueueBadge();
+            renderBuyQueue();
+        }
+        
+        // Update buy queue badge count
+        function updateBuyQueueBadge() {
+            const badge = document.getElementById('buyQueueBadge');
+            if (badge) {
+                const count = buyQueue.reduce((sum, p) => sum + (p.quantity || 1), 0);
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'inline-flex' : 'none';
+            }
+        }
+        
+        // Generate direct checkout URL for retailer
+        function getDirectCheckoutUrl(product) {
+            const { retailer, url, sku } = product;
+            
+            switch(retailer?.toLowerCase()) {
+                case 'target':
+                    // Target cart add URL
+                    return sku ? `https://www.target.com/co-addToCart?partNumber=${sku}&quantity=1` : url;
+                case 'walmart':
+                    // Walmart add to cart
+                    return sku ? `https://www.walmart.com/cart?items=${sku}:1` : url;
+                case 'best buy':
+                    // Best Buy add to cart
+                    return sku ? `https://www.bestbuy.com/cart/addToCart?lineItems=${sku}|1` : url;
+                case 'gamestop':
+                    return url;
+                case 'pokemon center':
+                    return url;
+                default:
+                    return url;
+            }
+        }
+        
+        // Quick buy - open direct checkout
+        function quickBuy(product) {
+            const checkoutUrl = getDirectCheckoutUrl(product);
+            if (checkoutUrl) {
+                // Track the quick buy attempt
+                logPurchaseAttempt(product);
+                window.open(checkoutUrl, '_blank');
+            }
+        }
+        
+        // Log purchase attempt for analytics
+        function logPurchaseAttempt(product) {
+            const attempts = JSON.parse(localStorage.getItem('purchaseAttempts') || '[]');
+            attempts.push({
+                ...product,
+                timestamp: Date.now()
+            });
+            // Keep last 100 attempts
+            if (attempts.length > 100) attempts.shift();
+            localStorage.setItem('purchaseAttempts', JSON.stringify(attempts));
+        }
+        
+        // =============================================================================
+        // PRICE ALERT SYSTEM
+        // =============================================================================
+        
+        // Add price alert for a product
+        function addPriceAlert(productName, targetPrice, retailers = []) {
+            const alert = {
+                id: Date.now(),
+                productName,
+                targetPrice,
+                retailers: retailers.length ? retailers : ['Target', 'Walmart', 'Best Buy', 'GameStop'],
+                created: Date.now(),
+                active: true,
+                triggered: false
+            };
+            
+            priceAlerts.push(alert);
+            localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
+            showNotification(`Price alert set for ${productName} at $${targetPrice}`, 'success');
+            renderPriceAlerts();
+        }
+        
+        // Remove price alert
+        function removePriceAlert(id) {
+            priceAlerts = priceAlerts.filter(a => a.id !== id);
+            localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
+            renderPriceAlerts();
+        }
+        
+        // Check products against price alerts
+        function checkPriceAlerts(products) {
+            priceAlerts.forEach(alert => {
+                if (!alert.active) return;
+                
+                products.forEach(product => {
+                    const matchesName = fuzzyMatch(alert.productName, product.name) > 60;
+                    const matchesRetailer = alert.retailers.includes(product.retailer);
+                    const belowTarget = product.price <= alert.targetPrice;
+                    
+                    if (matchesName && matchesRetailer && belowTarget && !alert.triggered) {
+                        // Trigger alert!
+                        alert.triggered = true;
+                        alert.triggeredAt = Date.now();
+                        alert.triggeredProduct = product;
+                        localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
+                        
+                        // Show notification
+                        showPriceAlertNotification(alert, product);
+                    }
+                });
+            });
+        }
+        
+        // Show price alert notification
+        function showPriceAlertNotification(alert, product) {
+            // Play sound if enabled
+            if (settings.soundAlerts) {
+                playAlertSound();
+            }
+            
+            // Show browser notification if permitted
+            if (Notification.permission === 'granted') {
+                new Notification('🚨 Price Alert!', {
+                    body: `${product.name} is now $${product.price} at ${product.retailer}!`,
+                    icon: '/favicon.ico',
+                    tag: `price-alert-${alert.id}`
+                });
+            }
+            
+            // Show in-app notification
+            showNotification(
+                `🚨 ${product.name} is now $${product.price} at ${product.retailer}!`,
+                'success',
+                10000 // Show for 10 seconds
+            );
+        }
+        
+        // Render price alerts list
+        function renderPriceAlerts() {
+            const container = document.getElementById('priceAlertsList');
+            if (!container) return;
+            
+            if (!priceAlerts.length) {
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 1rem;">No price alerts set. Add one from search results!</p>';
+                return;
+            }
+            
+            container.innerHTML = priceAlerts.map(alert => `
+                <div class="alert-item" style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.75rem;
+                    background: ${alert.triggered ? 'var(--green-muted)' : 'var(--bg)'};
+                    border-radius: 8px;
+                    margin-bottom: 0.5rem;
+                ">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500;">${alert.productName}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            Target: $${alert.targetPrice} • ${alert.retailers.length} retailers
+                            ${alert.triggered ? `<span style="color: var(--green);"> • Triggered!</span>` : ''}
+                        </div>
+                    </div>
+                    ${alert.triggered && alert.triggeredProduct ? `
+                        <button class="btn btn-buy btn-sm" onclick="quickBuy(${JSON.stringify(alert.triggeredProduct).replace(/"/g, '&quot;')})" style="margin-right: 0.5rem;">
+                            Buy Now
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-outline btn-sm" onclick="removePriceAlert(${alert.id})">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        // Add price alert from form in assistant section
+        function addPriceAlertFromForm() {
+            const productInput = document.getElementById('newAlertProduct');
+            const priceInput = document.getElementById('newAlertPrice');
+            
+            const productName = productInput?.value?.trim();
+            const targetPrice = parseFloat(priceInput?.value);
+            
+            if (!productName) {
+                showNotification('Please enter a product name', 'warning');
+                return;
+            }
+            
+            if (!targetPrice || targetPrice <= 0) {
+                showNotification('Please enter a valid target price', 'warning');
+                return;
+            }
+            
+            addPriceAlert(productName, targetPrice);
+            
+            // Clear form
+            if (productInput) productInput.value = '';
+            if (priceInput) priceInput.value = '';
+        }
+        
+        // =============================================================================
+        // KEYBOARD SHORTCUTS
+        // =============================================================================
+        
+        // Global keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Cmd/Ctrl + K - Focus search
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                const searchInput = document.getElementById('cardName');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                    // Switch to search section if not visible
+                    const searchSection = document.getElementById('search');
+                    if (searchSection && !searchSection.classList.contains('active')) {
+                        showSection('search');
+                    }
+                }
+            }
+            
+            // Escape - Close suggestions or modal
+            if (e.key === 'Escape') {
+                hideSuggestions();
+                const modal = document.querySelector('.modal.active');
+                if (modal) modal.classList.remove('active');
+            }
+            
+            // Enter in search - trigger search
+            if (e.key === 'Enter' && e.target.id === 'cardName') {
+                e.preventDefault();
+                hideSuggestions();
+                searchCardsOrProducts();
+            }
+            
+            // Arrow keys in suggestions
+            if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && e.target.id === 'cardName') {
+                const dropdown = document.getElementById('searchSuggestionsDropdown');
+                if (dropdown && dropdown.style.display !== 'none') {
+                    e.preventDefault();
+                    const items = dropdown.querySelectorAll('.suggestion-item');
+                    const current = dropdown.querySelector('.suggestion-item.selected');
+                    let index = current ? parseInt(current.dataset.index) : -1;
+                    
+                    if (e.key === 'ArrowDown') index = Math.min(index + 1, items.length - 1);
+                    else index = Math.max(index - 1, 0);
+                    
+                    items.forEach((item, i) => {
+                        item.classList.toggle('selected', i === index);
+                        item.style.background = i === index ? 'var(--bg-hover)' : 'transparent';
+                    });
+                    
+                    // Update input with selected suggestion
+                    if (items[index]) {
+                        const text = items[index].querySelector('span:nth-child(2)')?.textContent;
+                        if (text) e.target.value = text;
+                    }
+                }
+            }
+        });
+        
+        // =============================================================================
+        // RENDER BUY QUEUE
+        // =============================================================================
+        
+        function renderBuyQueue() {
+            const container = document.getElementById('buyQueueList');
+            if (!container) return;
+            
+            if (!buyQueue.length) {
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 1rem;">Your buy queue is empty. Add items from search results!</p>';
+                return;
+            }
+            
+            const total = buyQueue.reduce((sum, p) => sum + (p.price || 0) * (p.quantity || 1), 0);
+            
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+                    <span style="font-weight: 600;">${buyQueue.length} items</span>
+                    <span style="font-weight: 600; color: var(--accent);">Total: $${total.toFixed(2)}</span>
+                </div>
+                ${buyQueue.map((product, i) => `
+                    <div style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 0.75rem;
+                        background: var(--bg);
+                        border-radius: 8px;
+                        margin-bottom: 0.5rem;
+                    ">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500;">${product.name}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                ${product.retailer} • $${product.price} ${product.quantity > 1 ? `x${product.quantity}` : ''}
+                            </div>
+                        </div>
+                        <button class="btn btn-buy btn-sm" onclick="quickBuy(buyQueue[${i}])" style="margin-right: 0.5rem;">
+                            Buy
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="removeFromBuyQueue(${i})">✕</button>
+                    </div>
+                `).join('')}
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button class="btn btn-buy" onclick="buyAllInQueue()" style="flex: 1;">
+                        Buy All (${buyQueue.length})
+                    </button>
+                    <button class="btn btn-outline" onclick="clearBuyQueue()">
+                        Clear
+                    </button>
+                </div>
+            `;
+        }
+        
+        // Buy all items in queue (open tabs)
+        function buyAllInQueue() {
+            if (buyQueue.length === 0) return;
+            
+            // Warn user about popup blocker
+            if (buyQueue.length > 3) {
+                if (!confirm(`This will open ${buyQueue.length} tabs. Make sure popups are allowed. Continue?`)) {
+                    return;
+                }
+            }
+            
+            buyQueue.forEach((product, i) => {
+                setTimeout(() => {
+                    quickBuy(product);
+                }, i * 500); // Stagger tab opens
+            });
+            
+            showNotification(`Opening ${buyQueue.length} checkout tabs...`, 'info');
+        }
+        
+        // =============================================================================
+        // NOTIFICATION HELPER
+        // =============================================================================
+        
+        function showNotification(message, type = 'info', duration = 3000) {
+            let container = document.getElementById('notificationContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notificationContainer';
+                container.style.cssText = `
+                    position: fixed;
+                    top: 1rem;
+                    right: 1rem;
+                    z-index: 10000;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                `;
+                document.body.appendChild(container);
+            }
+            
+            const colors = {
+                success: 'var(--green)',
+                error: 'var(--red)',
+                warning: 'var(--gold)',
+                info: 'var(--accent)'
+            };
+            
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                padding: 0.75rem 1rem;
+                background: var(--bg-card-elevated);
+                border-left: 3px solid ${colors[type] || colors.info};
+                border-radius: var(--radius-sm);
+                box-shadow: var(--shadow);
+                animation: slideIn 0.3s ease;
+                max-width: 350px;
+            `;
+            notification.innerHTML = message;
+            
+            container.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, duration);
+        }
+        
+        // Play alert sound
+        function playAlertSound() {
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleWwYLYCz2+KdaUUvaMvqxKFwPz9tw+O+jWg/Q3LJ6sidfl4uRaXf1ZxxST9Nw+vCnHFPOk2z38qaclQ4WMDgvZ1zUz5Tr93KoXNRN1fI4b6fbU84T7TZyZtnQz9PtOHLmWU+P0mn1MaWYEA8Ppraxppj');
+                audio.volume = 0.3;
+                audio.play();
+            } catch (e) { /* ignore audio errors */ }
+        }
+        
+        // Add CSS for notifications
+        const notificationStyles = document.createElement('style');
+        notificationStyles.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(notificationStyles);
         
         // =============================================================================
         // AUTHENTICATION SYSTEM
@@ -9481,6 +10377,26 @@
             
             if (!query || query.length < 2) return;
             
+            // Hide suggestions when searching
+            hideSuggestions();
+            
+            // Save to search history
+            saveSearchToHistory(query);
+            
+            // Reset filters for new search
+            resetFiltersOnNewSearch();
+            
+            // Check cache first for instant results
+            const cacheKey = `search_${searchType}_${query.toLowerCase()}`;
+            const cached = searchResultsCache.get(cacheKey);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL_LONG) {
+                console.log('Using cached results for:', query);
+                allCardResults = cached.results;
+                unfilteredResults = [...cached.results]; // Store for filtering
+                displayCardGrid(allCardResults);
+                return;
+            }
+            
             const results = document.getElementById('cardResults');
             const grid = document.getElementById('cardGrid');
             const detail = document.getElementById('cardDetail');
@@ -9495,6 +10411,11 @@
                     await searchCards(query);
                 } else {
                     await searchProducts(query);
+                }
+                
+                // Cache successful results
+                if (allCardResults && allCardResults.length > 0) {
+                    cacheSearchResults(`${searchType}_${query}`, allCardResults);
                 }
             } catch (e) {
                 results.innerHTML = `<div class="empty"><div class="empty-icon"></div>${e.message}</div>`;
@@ -9745,6 +10666,11 @@
             grid.style.display = 'block';
             detail.style.display = 'none';
             
+            // Check for price alerts
+            if (cards && cards.length > 0) {
+                checkPriceAlerts(cards);
+            }
+            
             document.getElementById('resultCount').textContent = `(${cards.length} results)`;
             
             gridItems.innerHTML = cards.map((card, index) => {
@@ -9762,6 +10688,22 @@
                 const priceNum = parseFloat(price);
                 const priceDisplay = !isNaN(priceNum) && priceNum > 0 ? '$' + priceNum.toFixed(2) : 'See Price';
                 
+                // Generate quick action buttons for products
+                const isProduct = card.isProduct && card.url;
+                const quickButtons = isProduct ? `
+                    <div class="quick-actions" style="display: flex; gap: 0.25rem; margin-top: 0.5rem;" onclick="event.stopPropagation()">
+                        <button class="btn btn-buy btn-sm" onclick="quickBuy(allCardResults[${index}])" title="Open checkout">
+                            Buy
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="addToBuyQueue(allCardResults[${index}])" title="Add to queue">
+                            +Q
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="addPriceAlertFromCard(${index})" title="Set price alert">
+                            🔔
+                        </button>
+                    </div>
+                ` : '';
+                
                 return `
                     <div class="card-grid-item" onclick="selectCardFromGrid(${index})">
                         <img src="${imgUrl}" 
@@ -9774,9 +10716,28 @@
                         <div class="card-title">${card.name}</div>
                         <div class="card-set">${card.set?.name || card.retailer || ''}</div>
                         <div class="card-price">${priceDisplay}</div>
+                        ${quickButtons}
                     </div>
                 `;
             }).join('');
+        }
+        
+        // Add price alert from card grid
+        function addPriceAlertFromCard(index) {
+            const card = allCardResults[index];
+            if (!card) return;
+            
+            const currentPrice = card.price || 0;
+            const targetPrice = Math.floor(currentPrice * 0.9); // Default to 10% below current
+            
+            const userTarget = prompt(
+                `Set price alert for "${card.name}"\nCurrent price: $${currentPrice}\nNotify when price drops to:`,
+                targetPrice
+            );
+            
+            if (userTarget && !isNaN(parseFloat(userTarget))) {
+                addPriceAlert(card.name, parseFloat(userTarget), card.retailer ? [card.retailer] : []);
+            }
         }
         
         function backToGrid() {
@@ -12704,6 +13665,11 @@
                 renderPortfolio();
                 renderPurchaseHistory();
                 renderAnalyticsStats();
+                
+                // Initialize enhanced search & buy features
+                renderBuyQueue();
+                renderPriceAlerts();
+                updateBuyQueueBadge();
                 renderBacktestResults();
             }, 100);
         });
