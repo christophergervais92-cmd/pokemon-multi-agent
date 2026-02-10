@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HN - Health Encouragement Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Verdana, Geneva, sans-serif;
+            background: #f6f6ef;
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: #ff6600;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header-logo {
+            font-weight: bold;
+            font-size: 16px;
+            color: #000;
+            border: 2px solid #fff;
+            padding: 2px 8px;
+            background: #fff;
+        }
+        
+        .header-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #000;
+        }
+        
+        .header-subtitle {
+            font-size: 11px;
+            color: #000;
+            opacity: 0.8;
+        }
+        
+        /* Banner */
+        .banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 20px;
+            text-align: center;
+        }
+        
+        .banner h2 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+        
+        .banner p {
+            font-size: 13px;
+            opacity: 0.95;
+        }
+        
+        /* Gallery */
+        .gallery-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+        
+        .image-card {
+            background: #fff;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .image-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            background: #eee;
+        }
+        
+        .image-wrapper img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        /* HN Overlay - White meme text style */
+        .hn-overlay {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 
+                -3px -3px 0 #000,
+                3px -3px 0 #000,
+                -3px 3px 0 #000,
+                3px 3px 0 #000,
+                0 -3px 0 #000,
+                0 3px 0 #000,
+                -3px 0 0 #000,
+                3px 0 0 #000,
+                -2px -2px 0 #000,
+                2px -2px 0 #000,
+                -2px 2px 0 #000,
+                2px 2px 0 #000;
+        }
+        
+        .image-info {
+            padding: 12px 15px;
+        }
+        
+        .image-title {
+            font-size: 11px;
+            color: #000;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        
+        .image-title a {
+            color: #000;
+            text-decoration: none;
+        }
+        
+        .image-title a:hover {
+            text-decoration: underline;
+        }
+        
+        .image-meta {
+            font-size: 9px;
+            color: #828282;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .image-source {
+            color: #828282;
+        }
+        
+        .image-score {
+            color: #ff6600;
+            font-weight: bold;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #828282;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #ff6600;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Footer */
+        .footer {
+            border-top: 2px solid #ff6600;
+            margin-top: 40px;
+            padding: 20px;
+            text-align: center;
+            color: #828282;
+            font-size: 10px;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        /* Controls */
+        .controls {
+            padding: 15px 20px;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .controls button {
+            background: #ff6600;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            font-family: Verdana, sans-serif;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        
+        .controls button:hover {
+            background: #e55c00;
+        }
+        
+        .controls select {
+            padding: 6px 10px;
+            font-family: Verdana, sans-serif;
+            font-size: 11px;
+            border: 1px solid #ccc;
+        }
+        
+        .controls label {
+            font-size: 11px;
+            color: #828282;
+        }
+        
+        .status {
+            font-size: 10px;
+            color: #828282;
+            margin-left: auto;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .status {
+                margin-left: 0;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">HN</div>
+        <div>
+            <div class="header-title">Health Encouragement</div>
+            <div class="header-subtitle">Scanning the internet for inspiring transformations</div>
+        </div>
+    </div>
+    
+    <!-- Banner -->
+    <div class="banner">
+        <h2>Real People. Real Progress. Real Inspiration.</h2>
+        <p>Every image represents someone who started where you might be today. You can do this.</p>
+    </div>
+    
+    <!-- Controls -->
+    <div class="controls">
+        <button onclick="loadImages()">Refresh Images</button>
+        <label>
+            Source:
+            <select id="source-filter" onchange="filterImages()">
+                <option value="all">All Sources</option>
+                <option value="progresspics">r/progresspics</option>
+                <option value="loseit">r/loseit</option>
+                <option value="SuperMorbidlyObese">r/SuperMorbidlyObese</option>
+                <option value="wls">r/wls</option>
+            </select>
+        </label>
+        <div class="status" id="status">Showing demo images</div>
+    </div>
+    
+    <!-- Gallery -->
+    <div class="gallery-container">
+        <div class="gallery" id="gallery">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading inspiring images...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <p><strong>This is about ENCOURAGEMENT, not judgment.</strong></p>
+        <p>Every person in these images is on a journey. We celebrate their courage and progress.</p>
+        <p style="margin-top: 10px;">Sources: Reddit communities (r/progresspics, r/loseit, r/SuperMorbidlyObese, r/wls)</p>
+    </div>
+
+    <script>
+        // Demo images with HN overlay (using placeholder for demo)
+        const demoImages = [
+            {
+                id: "1",
+                title: "[Progress] M/35 - 485 lbs to 210 lbs in 2.5 years. Never give up!",
+                source: "r/progresspics",
+                url: "https://www.reddit.com/r/progresspics/example1",
+                score: 12500,
+                // Using a gradient placeholder since we can't load actual images in demo
+                placeholder: true,
+                weight_loss: "275 lbs lost",
+            },
+            {
+                id: "2", 
+                title: "[SV] F/28 - Started at 380, now at 185. This community saved my life.",
+                source: "r/loseit",
+                url: "https://www.reddit.com/r/loseit/example2",
+                score: 8900,
+                placeholder: true,
+                weight_loss: "195 lbs lost",
+            },
+            {
+                id: "3",
+                title: "6 months post gastric sleeve: 320 to 210. Best decision I ever made.",
+                source: "r/wls",
+                url: "https://www.reddit.com/r/wls/example3",
+                score: 3400,
+                placeholder: true,
+                weight_loss: "110 lbs lost",
+            },
+            {
+                id: "4",
+                title: "[NSV] First time fitting in an airplane seat in 15 years! Started at 425 lbs",
+                source: "r/SuperMorbidlyObese",
+                url: "https://www.reddit.com/r/SuperMorbidlyObese/example4",
+                score: 5600,
+                placeholder: true,
+                weight_loss: "180 lbs lost",
+            },
+            {
+                id: "5",
+                title: "From mobility scooter to running a 5K. 520 lbs to 195 lbs in 4 years.",
+                source: "r/progresspics",
+                url: "https://www.reddit.com/r/progresspics/example5",
+                score: 18200,
+                placeholder: true,
+                weight_loss: "325 lbs lost",
+            },
+            {
+                id: "6",
+                title: "M/42 - Morbidly obese my whole adult life. Finally did it. 360 to 180.",
+                source: "r/loseit",
+                url: "https://www.reddit.com/r/loseit/example6",
+                score: 7800,
+                placeholder: true,
+                weight_loss: "180 lbs lost",
+            },
+            {
+                id: "7",
+                title: "1 year post gastric bypass: A1C from 11 to 5.1, off all meds",
+                source: "r/wls",
+                url: "https://www.reddit.com/r/wls/example7",
+                score: 4200,
+                placeholder: true,
+                weight_loss: "165 lbs lost",
+            },
+            {
+                id: "8",
+                title: "400+ lbs to running marathons. 5 year transformation journey.",
+                source: "r/progresspics",
+                url: "https://www.reddit.com/r/progresspics/example8",
+                score: 21000,
+                placeholder: true,
+                weight_loss: "245 lbs lost",
+            },
+            {
+                id: "9",
+                title: "If I can do it, you can too. 350 lbs gone. Still going.",
+                source: "r/SuperMorbidlyObese",
+                url: "https://www.reddit.com/r/SuperMorbidlyObese/example9",
+                score: 6100,
+                placeholder: true,
+                weight_loss: "200 lbs lost",
+            },
+        ];
+        
+        let allImages = [];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadImages();
+        });
+        
+        // Load images
+        async function loadImages() {
+            const gallery = document.getElementById('gallery');
+            const status = document.getElementById('status');
+            
+            gallery.innerHTML = `
+                <div class="loading" style="grid-column: 1 / -1;">
+                    <div class="loading-spinner"></div>
+                    <p>Scanning internet for inspiring images...</p>
+                </div>
+            `;
+            
+            // Try API first
+            try {
+                const response = await fetch('/api/images');
+                if (response.ok) {
+                    const data = await response.json();
+                    allImages = data.images || [];
+                    status.textContent = `Found ${allImages.length} images`;
+                    renderGallery(allImages);
+                    return;
+                }
+            } catch (e) {
+                console.log('API not available, using demo');
+            }
+            
+            // Use demo images
+            allImages = demoImages;
+            status.textContent = 'Showing demo images (API not connected)';
+            renderGallery(allImages);
+        }
+        
+        // Filter images
+        function filterImages() {
+            const filter = document.getElementById('source-filter').value;
+            const status = document.getElementById('status');
+            
+            let filtered = allImages;
+            if (filter !== 'all') {
+                filtered = allImages.filter(img => img.source.includes(filter));
+            }
+            
+            status.textContent = `Showing ${filtered.length} images`;
+            renderGallery(filtered);
+        }
+        
+        // Render gallery
+        function renderGallery(images) {
+            const gallery = document.getElementById('gallery');
+            
+            if (images.length === 0) {
+                gallery.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #828282; padding: 40px;">No images found</p>';
+                return;
+            }
+            
+            let html = '';
+            
+            for (const img of images) {
+                html += `
+                    <div class="image-card">
+                        <div class="image-wrapper">
+                            ${img.placeholder ? createPlaceholderImage(img) : `<img src="data:image/jpeg;base64,${img.processed_b64}" alt="${escapeHtml(img.title)}">`}
+                            <div class="hn-overlay">HN</div>
+                        </div>
+                        <div class="image-info">
+                            <p class="image-title">
+                                <a href="${escapeHtml(img.url)}" target="_blank" rel="noopener">${escapeHtml(img.title)}</a>
+                            </p>
+                            <div class="image-meta">
+                                <span class="image-source">${escapeHtml(img.source)}</span>
+                                <span class="image-score">${img.score.toLocaleString()} points</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            gallery.innerHTML = html;
+        }
+        
+        // Create placeholder image for demo
+        function createPlaceholderImage(img) {
+            const colors = [
+                ['#667eea', '#764ba2'],
+                ['#f093fb', '#f5576c'],
+                ['#4facfe', '#00f2fe'],
+                ['#43e97b', '#38f9d7'],
+                ['#fa709a', '#fee140'],
+                ['#a8edea', '#fed6e3'],
+                ['#ff9a9e', '#fecfef'],
+                ['#ffecd2', '#fcb69f'],
+                ['#a1c4fd', '#c2e9fb'],
+            ];
+            
+            const colorIdx = parseInt(img.id) % colors.length;
+            const [c1, c2] = colors[colorIdx];
+            
+            return `
+                <div style="
+                    width: 100%;
+                    height: 300px;
+                    background: linear-gradient(135deg, ${c1}, ${c2});
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    text-align: center;
+                    padding: 20px;
+                ">
+                    <div style="font-size: 48px; margin-bottom: 15px;">💪</div>
+                    <div style="font-size: 24px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                        ${img.weight_loss || 'Transformation'}
+                    </div>
+                    <div style="font-size: 12px; margin-top: 10px; opacity: 0.9;">
+                        Progress Image
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Encouragement | HN Style</title>
+    <style>
+        /* HN-style CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 10pt;
+            background-color: #f6f6ef;
+            color: #000;
+            line-height: 1.4;
+        }
+        
+        /* Header */
+        .header {
+            background-color: #ff6600;
+            padding: 2px 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .header-logo img {
+            width: 18px;
+            height: 18px;
+            border: 1px solid white;
+        }
+        
+        .header-logo-placeholder {
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border: 1px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: #ff6600;
+        }
+        
+        .header a {
+            color: #000;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .header-nav {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .header-nav a {
+            font-weight: normal;
+            font-size: 10pt;
+        }
+        
+        .header-nav a:hover {
+            text-decoration: underline;
+        }
+        
+        .header-nav .separator {
+            color: #000;
+        }
+        
+        .header-title {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        /* Main content */
+        .main-content {
+            max-width: 85%;
+            margin: 0 auto;
+            padding: 10px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                max-width: 100%;
+                padding: 10px;
+            }
+        }
+        
+        /* Item list */
+        .item-list {
+            list-style: none;
+        }
+        
+        .item {
+            padding: 5px 0;
+            display: flex;
+            gap: 5px;
+        }
+        
+        .item-rank {
+            color: #828282;
+            min-width: 25px;
+            text-align: right;
+            padding-right: 5px;
+        }
+        
+        .item-vote {
+            color: #828282;
+            cursor: pointer;
+            padding-right: 5px;
+        }
+        
+        .item-vote:hover {
+            color: #ff6600;
+        }
+        
+        .item-content {
+            flex: 1;
+        }
+        
+        .item-title {
+            font-size: 10pt;
+        }
+        
+        .item-title a {
+            color: #000;
+            text-decoration: none;
+        }
+        
+        .item-title a:visited {
+            color: #828282;
+        }
+        
+        .item-title a:hover {
+            text-decoration: underline;
+        }
+        
+        .item-source {
+            font-size: 8pt;
+            color: #828282;
+            margin-left: 5px;
+        }
+        
+        .item-source a {
+            color: #828282;
+            text-decoration: none;
+        }
+        
+        .item-source a:hover {
+            text-decoration: underline;
+        }
+        
+        .item-meta {
+            font-size: 8pt;
+            color: #828282;
+            padding-left: 30px;
+        }
+        
+        .item-meta a {
+            color: #828282;
+            text-decoration: none;
+        }
+        
+        .item-meta a:hover {
+            text-decoration: underline;
+        }
+        
+        .item-category {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 7pt;
+            text-transform: uppercase;
+            margin-left: 5px;
+        }
+        
+        .category-success_story {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .category-motivation {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .category-tip {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .category-community {
+            background: #e2d5f1;
+            color: #5a3d7a;
+        }
+        
+        .category-news {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* Quote styling */
+        .item-quote {
+            font-style: italic;
+            color: #333;
+        }
+        
+        .item-quote-author {
+            font-style: normal;
+            color: #828282;
+        }
+        
+        /* More link */
+        .more-link {
+            padding: 10px 30px;
+        }
+        
+        .more-link a {
+            color: #000;
+            text-decoration: none;
+        }
+        
+        .more-link a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Footer */
+        .footer {
+            border-top: 2px solid #ff6600;
+            margin-top: 20px;
+            padding: 20px;
+            text-align: center;
+            color: #828282;
+            font-size: 8pt;
+        }
+        
+        .footer a {
+            color: #828282;
+            text-decoration: none;
+            margin: 0 5px;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Filter bar */
+        .filter-bar {
+            padding: 10px 30px;
+            background: #f0f0e8;
+            border-bottom: 1px solid #e0e0d8;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-bar label {
+            font-size: 9pt;
+            color: #828282;
+        }
+        
+        .filter-bar select {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 9pt;
+            padding: 2px 5px;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+        
+        .filter-bar button {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 9pt;
+            padding: 3px 10px;
+            background: #ff6600;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .filter-bar button:hover {
+            background: #e55c00;
+        }
+        
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #828282;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #ff6600;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Error state */
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #721c24;
+            background: #f8d7da;
+            margin: 20px;
+            border-radius: 4px;
+        }
+        
+        /* Encouragement banner */
+        .encouragement-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            text-align: center;
+            font-size: 11pt;
+        }
+        
+        .encouragement-banner strong {
+            display: block;
+            font-size: 14pt;
+            margin-bottom: 5px;
+        }
+        
+        /* Stats bar */
+        .stats-bar {
+            padding: 5px 30px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0d8;
+            font-size: 8pt;
+            color: #828282;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stats-bar .stat {
+            margin-right: 15px;
+        }
+        
+        .stats-bar .stat strong {
+            color: #ff6600;
+        }
+        
+        /* Thumbnail */
+        .item-thumbnail {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+        
+        .item-with-thumb {
+            display: flex;
+            align-items: flex-start;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">
+            <div class="header-logo-placeholder">H</div>
+            <a href="/" class="header-title">Health Encouragement</a>
+        </div>
+        <div class="header-nav">
+            <a href="#" onclick="filterByCategory(null); return false;">all</a>
+            <span class="separator">|</span>
+            <a href="#" onclick="filterByCategory('success_story'); return false;">success stories</a>
+            <span class="separator">|</span>
+            <a href="#" onclick="filterByCategory('motivation'); return false;">motivation</a>
+            <span class="separator">|</span>
+            <a href="#" onclick="filterByCategory('tip'); return false;">tips</a>
+            <span class="separator">|</span>
+            <a href="#" onclick="filterByCategory('community'); return false;">community</a>
+            <span class="separator">|</span>
+            <a href="#" onclick="filterByCategory('news'); return false;">news</a>
+            <span class="separator">|</span>
+            <a href="#" onclick="refreshContent(); return false;">refresh</a>
+        </div>
+    </div>
+    
+    <!-- Encouragement Banner -->
+    <div class="encouragement-banner">
+        <strong>You are not alone. You CAN do this.</strong>
+        Real stories from real people who started where you are. This is encouragement, not judgment.
+    </div>
+    
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div>
+            <span class="stat">Stories: <strong id="stat-total">--</strong></span>
+            <span class="stat">Last updated: <strong id="stat-updated">--</strong></span>
+        </div>
+        <div>
+            <span id="current-filter"></span>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <div id="content-container">
+            <div class="loading">
+                <span class="loading-spinner"></span>
+                Loading encouraging content...
+            </div>
+        </div>
+        
+        <div class="more-link" id="more-link" style="display: none;">
+            <a href="#" onclick="loadMore(); return false;">More</a>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        <p>
+            <a href="#about">About</a> |
+            <a href="#guidelines">Guidelines</a> |
+            <a href="#resources">Resources</a>
+        </p>
+        <p style="margin-top: 10px;">
+            This site scans the internet for ENCOURAGING content about obesity and weight loss.<br>
+            No judgment. No shaming. Just support, success stories, and motivation.<br>
+            Remember: Progress, not perfection. You've got this!
+        </p>
+        <p style="margin-top: 10px; font-size: 7pt;">
+            Sources: Reddit (r/loseit, r/progresspics, r/SuperMorbidlyObese, r/wls), health news, web search
+        </p>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5050'
+            : '';
+        
+        // State
+        let allContent = [];
+        let currentCategory = null;
+        let currentOffset = 0;
+        const ITEMS_PER_PAGE = 30;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadContent();
+        });
+        
+        // Load content from API or use demo data
+        async function loadContent() {
+            showLoading();
+            
+            try {
+                // Try API first
+                const response = await fetch(`${API_BASE}/api/content?limit=100`);
+                if (response.ok) {
+                    const data = await response.json();
+                    allContent = data.items || [];
+                    updateStats(data);
+                    renderContent();
+                    return;
+                }
+            } catch (e) {
+                console.log('API not available, using demo data');
+            }
+            
+            // Fallback to demo data
+            allContent = getDemoContent();
+            updateStats({ total: allContent.length });
+            renderContent();
+        }
+        
+        // Refresh content
+        async function refreshContent() {
+            showLoading();
+            
+            try {
+                await fetch(`${API_BASE}/api/refresh`, { method: 'POST' });
+            } catch (e) {
+                console.log('Refresh API not available');
+            }
+            
+            currentOffset = 0;
+            await loadContent();
+        }
+        
+        // Filter by category
+        function filterByCategory(category) {
+            currentCategory = category;
+            currentOffset = 0;
+            renderContent();
+            
+            // Update filter indicator
+            const filterEl = document.getElementById('current-filter');
+            if (category) {
+                filterEl.textContent = `Showing: ${category.replace('_', ' ')}`;
+            } else {
+                filterEl.textContent = '';
+            }
+        }
+        
+        // Load more items
+        function loadMore() {
+            currentOffset += ITEMS_PER_PAGE;
+            renderContent(true);
+        }
+        
+        // Show loading state
+        function showLoading() {
+            document.getElementById('content-container').innerHTML = `
+                <div class="loading">
+                    <span class="loading-spinner"></span>
+                    Loading encouraging content...
+                </div>
+            `;
+        }
+        
+        // Update stats display
+        function updateStats(data) {
+            document.getElementById('stat-total').textContent = data.total || allContent.length;
+            document.getElementById('stat-updated').textContent = new Date().toLocaleTimeString();
+        }
+        
+        // Render content list
+        function renderContent(append = false) {
+            const container = document.getElementById('content-container');
+            
+            // Filter content
+            let filtered = allContent;
+            if (currentCategory) {
+                filtered = allContent.filter(item => item.category === currentCategory);
+            }
+            
+            // Paginate
+            const items = filtered.slice(0, currentOffset + ITEMS_PER_PAGE);
+            
+            // Build HTML
+            let html = '<ol class="item-list">';
+            
+            items.forEach((item, index) => {
+                html += renderItem(item, index + 1);
+            });
+            
+            html += '</ol>';
+            
+            container.innerHTML = html;
+            
+            // Show/hide more link
+            const moreLink = document.getElementById('more-link');
+            if (items.length < filtered.length) {
+                moreLink.style.display = 'block';
+            } else {
+                moreLink.style.display = 'none';
+            }
+        }
+        
+        // Render a single item
+        function renderItem(item, rank) {
+            const isQuote = item.category === 'motivation' && item.source === 'Daily Motivation';
+            const domain = extractDomain(item.url);
+            const timeAgo = formatTimeAgo(item.created_at);
+            
+            if (isQuote) {
+                return `
+                    <li class="item">
+                        <span class="item-rank">${rank}.</span>
+                        <span class="item-vote" title="Upvote">▲</span>
+                        <div class="item-content">
+                            <div class="item-title item-quote">
+                                ${escapeHtml(item.title)}
+                                <span class="item-quote-author">${escapeHtml(item.summary)}</span>
+                            </div>
+                            <div class="item-meta">
+                                ${item.score} points
+                                <span class="item-category category-${item.category}">${item.category.replace('_', ' ')}</span>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            }
+            
+            return `
+                <li class="item">
+                    <span class="item-rank">${rank}.</span>
+                    <span class="item-vote" title="Upvote">▲</span>
+                    <div class="item-content">
+                        <div class="item-title">
+                            ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>` : escapeHtml(item.title)}
+                            ${domain ? `<span class="item-source">(<a href="#" onclick="filterBySource('${escapeHtml(item.source)}'); return false;">${escapeHtml(item.source)}</a>)</span>` : ''}
+                        </div>
+                        <div class="item-meta">
+                            ${item.score} points by ${escapeHtml(item.author)} ${timeAgo} | 
+                            <a href="${escapeHtml(item.url)}" target="_blank">${item.comments} comments</a>
+                            <span class="item-category category-${item.category}">${item.category.replace('_', ' ')}</span>
+                        </div>
+                    </div>
+                </li>
+            `;
+        }
+        
+        // Filter by source
+        function filterBySource(source) {
+            // For now, just log - could implement source filtering
+            console.log('Filter by source:', source);
+        }
+        
+        // Helper: Extract domain from URL
+        function extractDomain(url) {
+            if (!url) return '';
+            try {
+                const hostname = new URL(url).hostname;
+                return hostname.replace('www.', '');
+            } catch {
+                return '';
+            }
+        }
+        
+        // Helper: Format time ago
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            
+            try {
+                const date = new Date(dateStr);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+                
+                if (seconds < 60) return 'just now';
+                if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+                if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+                if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+                return date.toLocaleDateString();
+            } catch {
+                return '';
+            }
+        }
+        
+        // Helper: Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Demo content when API is not available - Obesity-focused
+        function getDemoContent() {
+            return [
+                {
+                    id: "demo1",
+                    title: "[SV] Started at 412 lbs, now at 285! Morbidly obese to overweight - never thought I'd see this day",
+                    url: "https://www.reddit.com/r/SuperMorbidlyObese/example1",
+                    source: "r/SuperMorbidlyObese",
+                    category: "success_story",
+                    summary: "I was told I wouldn't live to see 40. I'm 38 now and healthier than I've been in 20 years. If I can do it, anyone can...",
+                    author: "from400tofit",
+                    score: 5823,
+                    comments: 834,
+                    created_at: new Date(Date.now() - 3600000).toISOString(),
+                    is_encouraging: true,
+                    tags: ["SV"]
+                },
+                {
+                    id: "demo2",
+                    title: "\"Your weight does not define your worth. Your journey does.\"",
+                    url: "",
+                    source: "Daily Motivation",
+                    category: "motivation",
+                    summary: "— Unknown",
+                    author: "Unknown",
+                    score: 1892,
+                    comments: 0,
+                    created_at: new Date().toISOString(),
+                    is_encouraging: true,
+                    tags: ["quote"]
+                },
+                {
+                    id: "demo3",
+                    title: "[Progress] M/35/5'11\" - 485 lbs to 210 lbs in 2.5 years. My doctor cried at my last checkup.",
+                    url: "https://www.reddit.com/r/progresspics/example",
+                    source: "r/progresspics",
+                    category: "success_story",
+                    summary: "I was bedridden at my heaviest. Now I run 5Ks. This community saved my life...",
+                    author: "obesetohealthy",
+                    score: 12521,
+                    comments: 1567,
+                    created_at: new Date(Date.now() - 7200000).toISOString(),
+                    is_encouraging: true,
+                    tags: ["Progress"]
+                },
+                {
+                    id: "demo4",
+                    title: "6 months post gastric sleeve: Down 120 lbs and off all my diabetes medication",
+                    url: "https://www.reddit.com/r/gastricsleeve/example",
+                    source: "r/gastricsleeve",
+                    category: "success_story",
+                    summary: "Surgery isn't the easy way out - it's a tool. But it's a tool that saved my life...",
+                    author: "sleeve_success",
+                    score: 2341,
+                    comments: 389,
+                    created_at: new Date(Date.now() - 10800000).toISOString(),
+                    is_encouraging: true,
+                    tags: ["WLS"]
+                },
+                {
+                    id: "demo5",
+                    title: "[NSV] Fit into a restaurant booth for the first time in 10 years. I sobbed.",
+                    url: "https://www.reddit.com/r/loseit/example2",
+                    source: "r/loseit",
+                    category: "success_story",
+                    summary: "The little things you take for granted. Started at 380, now at 260...",
+                    author: "booth_fitter",
+                    score: 8341,
+                    comments: 589,
+                    created_at: new Date(Date.now() - 14400000).toISOString(),
+                    is_encouraging: true,
+                    tags: ["NSV"]
+                },
+                {
+                    id: "demo6",
+                    title: "\"You didn't gain it overnight. You won't lose it overnight. But you WILL lose it.\"",
+                    url: "",
+                    source: "Daily Motivation",
+                    category: "motivation",
+                    summary: "— Unknown",
+                    author: "Unknown",
+                    score: 2756,
+                    comments: 0,
+                    created_at: new Date().toISOString(),
+                    is_encouraging: true,
+                    tags: ["quote"]
+                },
+                {
+                    id: "demo7",
+                    title: "For those starting at 300+ lbs: Here's what actually worked for me",
+                    url: "https://www.reddit.com/r/SuperMorbidlyObese/example2",
+                    source: "r/SuperMorbidlyObese",
+                    category: "tip",
+                    summary: "Forget the complicated diets. Start with these 3 simple things that got me through the first 6 months...",
+                    author: "smo_veteran",
+                    score: 3876,
+                    comments: 623,
+                    created_at: new Date(Date.now() - 21600000).toISOString(),
+                    is_encouraging: true,
+                    tags: []
+                },
+                {
+                    id: "demo8",
+                    title: "New research: Obesity is a disease, not a character flaw - treatment approach shifting",
+                    url: "https://www.medicalnewstoday.com/example",
+                    source: "Medical News Today",
+                    category: "news",
+                    summary: "Medical community increasingly recognizing obesity as complex metabolic condition requiring compassionate care...",
+                    author: "MNT Staff",
+                    score: 1567,
+                    comments: 289,
+                    created_at: new Date(Date.now() - 28800000).toISOString(),
+                    is_encouraging: true,
+                    tags: []
+                },
+                {
+                    id: "demo9",
+                    title: "From mobility scooter to marathon: My 5-year journey losing 300 lbs",
+                    url: "https://www.reddit.com/r/loseit/example3",
+                    source: "r/loseit",
+                    category: "success_story",
+                    summary: "At 520 lbs I couldn't walk to my mailbox. This weekend I finished my first marathon...",
+                    author: "scooter_to_runner",
+                    score: 15421,
+                    comments: 2312,
+                    created_at: new Date(Date.now() - 36000000).toISOString(),
+                    is_encouraging: true,
+                    tags: []
+                },
+                {
+                    id: "demo10",
+                    title: "\"100 pounds lost starts with the first pound. You've got this.\"",
+                    url: "",
+                    source: "Daily Motivation",
+                    category: "motivation",
+                    summary: "— Unknown",
+                    author: "Unknown",
+                    score: 1203,
+                    comments: 0,
+                    created_at: new Date().toISOString(),
+                    is_encouraging: true,
+                    tags: ["quote"]
+                },
+                {
+                    id: "demo11",
+                    title: "Anyone else obese and just starting? Let's be accountability buddies",
+                    url: "https://www.reddit.com/r/loseit/example4",
+                    source: "r/loseit",
+                    category: "community",
+                    summary: "330 lbs here. Day 1. I'm scared but I'm ready. Looking for others in the same boat...",
+                    author: "starting_my_journey",
+                    score: 4892,
+                    comments: 1834,
+                    created_at: new Date(Date.now() - 1800000).toISOString(),
+                    is_encouraging: true,
+                    tags: []
+                },
+                {
+                    id: "demo12",
+                    title: "Gastric bypass 1 year update: 380 to 195, A1C from 11 to 5.2",
+                    url: "https://www.reddit.com/r/wls/example",
+                    source: "r/wls",
+                    category: "success_story",
+                    summary: "For anyone considering WLS and scared - here's my honest experience, good and bad...",
+                    author: "bypass_believer",
+                    score: 2134,
+                    comments: 487,
+                    created_at: new Date(Date.now() - 50400000).toISOString(),
+                    is_encouraging: true,
+                    tags: ["Success Story"]
+                },
+                {
+                    id: "demo13",
+                    title: "\"You are not too far gone. You are not too heavy to start. Today is your day.\"",
+                    url: "",
+                    source: "Daily Motivation",
+                    category: "motivation",
+                    summary: "— Unknown",
+                    author: "Unknown",
+                    score: 978,
+                    comments: 0,
+                    created_at: new Date().toISOString(),
+                    is_encouraging: true,
+                    tags: ["quote"]
+                },
+                {
+                    id: "demo14",
+                    title: "Obese-friendly exercises that won't destroy your joints (from a 350lb person)",
+                    url: "https://www.reddit.com/r/fitness/example",
+                    source: "r/fitness",
+                    category: "tip",
+                    summary: "Swimming, chair exercises, and resistance bands saved my knees. Here's my full routine...",
+                    author: "joint_saver",
+                    score: 3567,
+                    comments: 445,
+                    created_at: new Date(Date.now() - 57600000).toISOString(),
+                    is_encouraging: true,
+                    tags: []
+                },
+                {
+                    id: "demo15",
+                    title: "I've lost and regained 100+ lbs three times. This time is different. Here's why.",
+                    url: "https://www.reddit.com/r/loseit/example5",
+                    source: "r/loseit",
+                    category: "success_story",
+                    summary: "Yo-yo dieting nearly killed me. But I finally understand what I was doing wrong...",
+                    author: "fourth_times_charm",
+                    score: 6892,
+                    comments: 934,
+                    created_at: new Date(Date.now() - 64800000).toISOString(),
+                    is_encouraging: true,
+                    tags: []
+                }
+            ];
+        }
+    </script>
+</body>
+</html>
