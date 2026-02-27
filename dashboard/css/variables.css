@@ -1,0 +1,103 @@
+/* PokeAgent Design System - CSS Custom Properties */
+
+:root {
+    /* Spacing scale */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+
+    /* Colors - Dark theme (default) */
+    --bg: #070910;
+    --bg-card: #0e121b;
+    --bg-card-elevated: #131a26;
+    --bg-tertiary: rgba(255, 255, 255, 0.04);
+    --bg-hover: #182235;
+    --surface: rgba(255, 255, 255, 0.06);
+    --text: #f6f7fb;
+    --text-secondary: #c7cbe0;
+    --text-muted: #7a829a;
+    --border: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.18);
+    --accent: #ff4d2e;
+    --accent-hover: #ff6a52;
+    --accent-muted: rgba(255, 77, 46, 0.18);
+    --green: #34d399;
+    --green-muted: rgba(52, 211, 153, 0.16);
+    --red: #fb7185;
+    --red-muted: rgba(251, 113, 133, 0.16);
+    --blue: #22d3ee;
+    --blue-muted: rgba(34, 211, 238, 0.16);
+    --gold: #fbbf24;
+    --gold-muted: rgba(251, 191, 36, 0.16);
+    --yellow: #fbbf24;
+    --purple: #a78bfa;
+
+    /* Radii */
+    --radius: 16px;
+    --radius-sm: 10px;
+
+    /* Shadows */
+    --shadow-sm: 0 4px 18px rgba(0,0,0,0.35);
+    --shadow: 0 18px 60px rgba(0,0,0,0.55);
+    --shadow-glow: 0 0 60px rgba(255, 77, 46, 0.20);
+}
+
+/* Light theme */
+body[data-theme="light"] {
+    --bg: #faf7f2;
+    --bg-card: #ffffff;
+    --bg-card-elevated: #f5efe6;
+    --bg-tertiary: rgba(15, 23, 42, 0.04);
+    --bg-hover: #efe6d8;
+    --surface: rgba(15, 23, 42, 0.06);
+    --text: #0b1020;
+    --text-secondary: #22304f;
+    --text-muted: #64748b;
+    --border: rgba(15, 23, 42, 0.16);
+    --border-subtle: rgba(15, 23, 42, 0.22);
+    --accent: #ff4d2e;
+    --accent-hover: #ff3d1d;
+    --accent-muted: rgba(255, 77, 46, 0.18);
+    --green: #0f766e;
+    --red: #dc2626;
+    --gold: #b45309;
+    --purple: #0ea5e9;
+    --shadow-sm: 0 2px 12px rgba(2, 6, 23, 0.06);
+    --shadow: 0 18px 60px rgba(2, 6, 23, 0.12);
+    --shadow-glow: 0 0 48px rgba(255, 77, 46, 0.12);
+}
+
+/* Light mode component overrides */
+body[data-theme="light"] .nav-btn { color: var(--text); }
+body[data-theme="light"] .nav-btn:hover { color: var(--text); background: var(--bg-hover); }
+body[data-theme="light"] .nav-btn.active { color: #ffffff; }
+body[data-theme="light"] h1 { color: var(--text); }
+body[data-theme="light"] .card { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+body[data-theme="light"] .stat-card { background: var(--bg-card); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+body[data-theme="light"] input,
+body[data-theme="light"] select { background: var(--bg-card); border-color: var(--border); color: var(--text); }
+body[data-theme="light"] input::placeholder { color: var(--text-muted); }
+body[data-theme="light"] .btn-outline { color: var(--text); border-color: var(--border); }
+body[data-theme="light"] .btn-outline:hover { background: var(--bg-hover); color: var(--text); }
+body[data-theme="light"] .store-header { background: var(--bg-card); }
+body[data-theme="light"] .price-cell { background: var(--bg-card); }
+body[data-theme="light"] .mobile-nav select {
+    color: var(--text);
+    background: var(--bg-card);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+body[data-theme="light"] .chase-card { background: var(--bg-card) !important; }
+body[data-theme="light"] code { background: var(--bg-hover); color: var(--text); }
+
+/* Theme toggle icons */
+#themeToggle .icon-moon,
+#themeToggle .icon-sun { transition: opacity 0.18s ease, transform 0.18s ease; }
+body[data-theme="light"] #themeToggle .icon-moon { display: inline-block; }
+body[data-theme="light"] #themeToggle .icon-sun { display: none; }
+body:not([data-theme]) #themeToggle .icon-moon,
+body[data-theme="dark"] #themeToggle .icon-moon { display: none; }
+body:not([data-theme]) #themeToggle .icon-sun,
+body[data-theme="dark"] #themeToggle .icon-sun { display: inline-block; }
