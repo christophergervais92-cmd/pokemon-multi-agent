@@ -8368,74 +8368,6 @@
             return promise;
         }
         
-        // Fallback demo data for when TCG API is down/slow
-        // These are the most popular sets - demo data ensures the dashboard works even when API is unavailable
-        const DEMO_SET_DATA = {
-            'sv8pt5': {
-                set: { id: 'sv8pt5', name: 'Prismatic Evolutions', series: 'Scarlet & Violet', releaseDate: '2025/01/17', printedTotal: 182, total: 225, images: { logo: 'https://images.pokemontcg.io/sv8pt5/logo.png', symbol: 'https://images.pokemontcg.io/sv8pt5/symbol.png' } },
-                cards: [
-                    { id: 'sv8pt5-161', name: 'Umbreon ex', number: '161', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/161.png', large: 'https://images.pokemontcg.io/sv8pt5/161_hires.png' }, tcgplayer: { prices: { holofoil: { market: 299.99 } } } },
-                    { id: 'sv8pt5-189', name: 'Eevee', number: '189', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/189.png', large: 'https://images.pokemontcg.io/sv8pt5/189_hires.png' }, tcgplayer: { prices: { holofoil: { market: 149.99 } } } },
-                    { id: 'sv8pt5-186', name: 'Sylveon ex', number: '186', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/186.png', large: 'https://images.pokemontcg.io/sv8pt5/186_hires.png' }, tcgplayer: { prices: { holofoil: { market: 89.99 } } } },
-                    { id: 'sv8pt5-162', name: 'Vaporeon ex', number: '162', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/162.png', large: 'https://images.pokemontcg.io/sv8pt5/162_hires.png' }, tcgplayer: { prices: { holofoil: { market: 79.99 } } } },
-                    { id: 'sv8pt5-163', name: 'Jolteon ex', number: '163', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/163.png', large: 'https://images.pokemontcg.io/sv8pt5/163_hires.png' }, tcgplayer: { prices: { holofoil: { market: 74.99 } } } },
-                    { id: 'sv8pt5-164', name: 'Flareon ex', number: '164', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/164.png', large: 'https://images.pokemontcg.io/sv8pt5/164_hires.png' }, tcgplayer: { prices: { holofoil: { market: 69.99 } } } },
-                    { id: 'sv8pt5-165', name: 'Espeon ex', number: '165', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/165.png', large: 'https://images.pokemontcg.io/sv8pt5/165_hires.png' }, tcgplayer: { prices: { holofoil: { market: 84.99 } } } },
-                    { id: 'sv8pt5-166', name: 'Glaceon ex', number: '166', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/166.png', large: 'https://images.pokemontcg.io/sv8pt5/166_hires.png' }, tcgplayer: { prices: { holofoil: { market: 79.99 } } } },
-                    { id: 'sv8pt5-167', name: 'Leafeon ex', number: '167', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8pt5/167.png', large: 'https://images.pokemontcg.io/sv8pt5/167_hires.png' }, tcgplayer: { prices: { holofoil: { market: 74.99 } } } },
-                ]
-            },
-            'sv8': {
-                set: { id: 'sv8', name: 'Surging Sparks', series: 'Scarlet & Violet', releaseDate: '2024/11/08', printedTotal: 191, total: 252, images: { logo: 'https://images.pokemontcg.io/sv8/logo.png', symbol: 'https://images.pokemontcg.io/sv8/symbol.png' } },
-                cards: [
-                    { id: 'sv8-230', name: 'Pikachu ex', number: '230', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8/230.png', large: 'https://images.pokemontcg.io/sv8/230_hires.png' }, tcgplayer: { prices: { holofoil: { market: 189.99 } } } },
-                    { id: 'sv8-225', name: 'Charizard ex', number: '225', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8/225.png', large: 'https://images.pokemontcg.io/sv8/225_hires.png' }, tcgplayer: { prices: { holofoil: { market: 124.99 } } } },
-                    { id: 'sv8-226', name: 'Raichu ex', number: '226', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv8/226.png', large: 'https://images.pokemontcg.io/sv8/226_hires.png' }, tcgplayer: { prices: { holofoil: { market: 54.99 } } } },
-                ]
-            },
-            'swsh7': {
-                set: { id: 'swsh7', name: 'Evolving Skies', series: 'Sword & Shield', releaseDate: '2021/08/27', printedTotal: 203, total: 237, images: { logo: 'https://images.pokemontcg.io/swsh7/logo.png', symbol: 'https://images.pokemontcg.io/swsh7/symbol.png' } },
-                cards: [
-                    { id: 'swsh7-215', name: 'Umbreon VMAX', number: '215', rarity: 'Secret Rare', images: { small: 'https://images.pokemontcg.io/swsh7/215.png', large: 'https://images.pokemontcg.io/swsh7/215_hires.png' }, tcgplayer: { prices: { holofoil: { market: 399.99 } } } },
-                    { id: 'swsh7-212', name: 'Rayquaza VMAX', number: '212', rarity: 'Secret Rare', images: { small: 'https://images.pokemontcg.io/swsh7/212.png', large: 'https://images.pokemontcg.io/swsh7/212_hires.png' }, tcgplayer: { prices: { holofoil: { market: 249.99 } } } },
-                    { id: 'swsh7-203', name: 'Dragonite V', number: '203', rarity: 'Secret Rare', images: { small: 'https://images.pokemontcg.io/swsh7/203.png', large: 'https://images.pokemontcg.io/swsh7/203_hires.png' }, tcgplayer: { prices: { holofoil: { market: 89.99 } } } },
-                ]
-            },
-            'sv3pt5': {
-                set: { id: 'sv3pt5', name: '151', series: 'Scarlet & Violet', releaseDate: '2023/09/22', printedTotal: 165, total: 207, images: { logo: 'https://images.pokemontcg.io/sv3pt5/logo.png', symbol: 'https://images.pokemontcg.io/sv3pt5/symbol.png' } },
-                cards: [
-                    { id: 'sv3pt5-205', name: 'Mew ex', number: '205', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv3pt5/205.png', large: 'https://images.pokemontcg.io/sv3pt5/205_hires.png' }, tcgplayer: { prices: { holofoil: { market: 124.99 } } } },
-                    { id: 'sv3pt5-199', name: 'Charizard ex', number: '199', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv3pt5/199.png', large: 'https://images.pokemontcg.io/sv3pt5/199_hires.png' }, tcgplayer: { prices: { holofoil: { market: 179.99 } } } },
-                    { id: 'sv3pt5-198', name: 'Alakazam ex', number: '198', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv3pt5/198.png', large: 'https://images.pokemontcg.io/sv3pt5/198_hires.png' }, tcgplayer: { prices: { holofoil: { market: 49.99 } } } },
-                ]
-            },
-            'sv4pt5': {
-                set: { id: 'sv4pt5', name: 'Paldean Fates', series: 'Scarlet & Violet', releaseDate: '2024/01/26', printedTotal: 91, total: 245, images: { logo: 'https://images.pokemontcg.io/sv4pt5/logo.png', symbol: 'https://images.pokemontcg.io/sv4pt5/symbol.png' } },
-                cards: [
-                    { id: 'sv4pt5-220', name: 'Charizard ex', number: '220', rarity: 'Shiny Rare', images: { small: 'https://images.pokemontcg.io/sv4pt5/220.png', large: 'https://images.pokemontcg.io/sv4pt5/220_hires.png' }, tcgplayer: { prices: { holofoil: { market: 89.99 } } } },
-                    { id: 'sv4pt5-234', name: 'Maushold ex', number: '234', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv4pt5/234.png', large: 'https://images.pokemontcg.io/sv4pt5/234_hires.png' }, tcgplayer: { prices: { holofoil: { market: 34.99 } } } },
-                ]
-            },
-            'sv6pt5': {
-                set: { id: 'sv6pt5', name: 'Shrouded Fable', series: 'Scarlet & Violet', releaseDate: '2024/08/02', printedTotal: 99, total: 99, images: { logo: 'https://images.pokemontcg.io/sv6pt5/logo.png', symbol: 'https://images.pokemontcg.io/sv6pt5/symbol.png' } },
-                cards: [
-                    { id: 'sv6pt5-81', name: 'Greninja ex', number: '81', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv6pt5/81.png', large: 'https://images.pokemontcg.io/sv6pt5/81_hires.png' }, tcgplayer: { prices: { holofoil: { market: 64.99 } } } },
-                    { id: 'sv6pt5-99', name: 'Pecharunt ex', number: '99', rarity: 'Special Illustration Rare', images: { small: 'https://images.pokemontcg.io/sv6pt5/99.png', large: 'https://images.pokemontcg.io/sv6pt5/99_hires.png' }, tcgplayer: { prices: { holofoil: { market: 44.99 } } } },
-                ]
-            }
-        };
-        
-        // Get demo data for a set (returns null if not available)
-        function getDemoData(setId) {
-            const demo = DEMO_SET_DATA[setId];
-            if (!demo) return null;
-            // Format like API response
-            return {
-                data: demo.cards.map(c => ({ ...c, set: demo.set })),
-                _isDemo: true
-            };
-        }
-        
         async function loadSetChaseCards(setId) {
             if (!setId) {
                 console.warn('loadSetChaseCards called with empty setId');
@@ -9388,7 +9320,10 @@
             let allVariations = [card];
             try {
                 console.log('Fetching all variations of:', card.name);
-                const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=30&orderBy=-set.releaseDate`);
+                const variationUrl = shouldUseProxy()
+                    ? `${getApiBaseUrl()}/api/tcg/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=30&orderBy=-set.releaseDate`
+                    : `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(card.name)}"&pageSize=30&orderBy=-set.releaseDate`;
+                const res = await fetch(variationUrl);
                 const data = await res.json();
                 if (data.data?.length) {
                     allVariations = data.data;
@@ -9527,7 +9462,9 @@
                 
                 try {
                     console.log(`Search attempt ${attempt} for: ${query}`);
-                    const url = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer,number`;
+                    const url = shouldUseProxy()
+                        ? `${getApiBaseUrl()}/api/tcg/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer,number`
+                        : `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(query)}*&pageSize=100&select=id,name,images,set,rarity,tcgplayer,number`;
                     
                     const res = await fetch(url, { 
                         signal: controller.signal,
@@ -9842,7 +9779,10 @@
             if (allVariations.length < 3) {
                 try {
                     console.log('Fetching more variations from TCG API...');
-                    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(selectedCard.name)}"&pageSize=30&orderBy=-set.releaseDate`);
+                    const moreVariationsUrl = shouldUseProxy()
+                        ? `${getApiBaseUrl()}/api/tcg/cards?q=name:"${encodeURIComponent(selectedCard.name)}"&pageSize=30&orderBy=-set.releaseDate`
+                        : `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(selectedCard.name)}"&pageSize=30&orderBy=-set.releaseDate`;
+                    const res = await fetch(moreVariationsUrl);
                     const data = await res.json();
                     if (data.data?.length) {
                         allVariations = data.data;
@@ -11277,10 +11217,13 @@
             const name = document.getElementById('cardName').value || 'Charizard';
             const results = document.getElementById('cardResults');
             
-            results.innerHTML = '<div class="loading"><div class="spinner"></div>Testing direct image fetch...</div>';
+            results.innerHTML = '<div class="loading"><div class="spinner"></div>Testing image fetch...</div>';
             
             try {
-                const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(name)}&pageSize=5`);
+                const testUrl = shouldUseProxy()
+                    ? `${getApiBaseUrl()}/api/tcg/cards?q=name:${encodeURIComponent(name)}&pageSize=5`
+                    : `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(name)}&pageSize=5`;
+                const res = await fetch(testUrl);
                 const data = await res.json();
                 
                 console.log('API Response:', data);
@@ -11472,7 +11415,10 @@
             
             // Try to fetch a random card from this set for the image
             try {
-                const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setInfo.id}&pageSize=1&orderBy=-tcgplayer.prices.holofoil.market`);
+                const setCardUrl = shouldUseProxy()
+                    ? `${getApiBaseUrl()}/api/tcg/cards?q=set.id:${setInfo.id}&pageSize=1&orderBy=-tcgplayer.prices.holofoil.market`
+                    : `https://api.pokemontcg.io/v2/cards?q=set.id:${setInfo.id}&pageSize=1&orderBy=-tcgplayer.prices.holofoil.market`;
+                const res = await fetch(setCardUrl);
                 const data = await res.json();
                 if (data.data?.[0]?.images?.small) {
                     const imageUrl = data.data[0].images.small;
@@ -11571,11 +11517,13 @@
             try {
                 console.log('[Flip] Fetching cards from TCG API...');
                 
-                // Use direct fetch with longer timeout for flip calculator
+                // Use backend proxy with longer timeout for flip calculator
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
                 
-                const url = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(card)}*&pageSize=50&select=id,name,images,set,rarity,tcgplayer,number`;
+                const url = shouldUseProxy()
+                    ? `${getApiBaseUrl()}/api/tcg/cards?q=name:${encodeURIComponent(card)}*&pageSize=50&select=id,name,images,set,rarity,tcgplayer,number`
+                    : `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(card)}*&pageSize=50&select=id,name,images,set,rarity,tcgplayer,number`;
                 const res = await fetch(url, {
                     signal: controller.signal,
                     headers: { 'Accept': 'application/json' }
@@ -12173,8 +12121,11 @@
             priceDiv.style.color = 'var(--text-muted)';
             
             try {
-                // Fetch price from Pokemon TCG API
-                const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=1`);
+                // Fetch price from Pokemon TCG API via backend proxy
+                const priceUrl = shouldUseProxy()
+                    ? `${getApiBaseUrl()}/api/tcg/cards?q=name:"${encodeURIComponent(name)}"&pageSize=1`
+                    : `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(name)}"&pageSize=1`;
+                const res = await fetch(priceUrl);
                 const data = await res.json();
                 
                 if (data.data?.length) {
@@ -13325,10 +13276,6 @@ Use the quick question buttons above to jump in.`
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(initAIAssistant, 100);
         });
-        
-        // =============================================================================
-        // EMULATOR SECTION
-        // =============================================================================
         
     </script>
     
