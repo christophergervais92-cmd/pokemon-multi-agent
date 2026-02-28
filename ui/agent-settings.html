@@ -1,0 +1,312 @@
+<!-- Agent Settings Component for PokeAgent UI -->
+<!-- Add this to your Settings tab -->
+
+<div class="agent-settings-section">
+  <h3>🤖 Agent Autonomy</h3>
+  
+  <div class="setting-group">
+    <label>Autonomy Level</label>
+    <select id="autonomy-level" class="dark-select">
+      <option value="0">Level 0 - Monitor (research only)</option>
+      <option value="1">Level 1 - Draft (recommend, wait for approval)</option>
+      <option value="2">Level 2 - Execute (auto-buy within rules)</option>
+      <option value="3">Level 3 - Full Auto (minimal alerts)</option>
+    </select>
+    <p class="setting-hint" id="level-hint">Agent will research and report only</p>
+  </div>
+
+  <div class="setting-row">
+    <div class="setting-group">
+      <label>Daily Budget ($)</label>
+      <input type="number" id="daily-budget" class="dark-input" value="500" min="0" step="50">
+    </div>
+    <div class="setting-group">
+      <label>Per-Card Max ($)</label>
+      <input type="number" id="per-card-max" class="dark-input" value="200" min="0" step="10">
+    </div>
+    <div class="setting-group">
+      <label>Deal Threshold (%)</label>
+      <input type="number" id="deal-threshold" class="dark-input" value="15" min="0" max="100" step="5">
+      <span class="input-suffix">% below market</span>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <label>Card Types</label>
+    <div class="checkbox-row">
+      <label class="checkbox-label">
+        <input type="checkbox" id="psa10-only" checked>
+        <span>PSA 10 only</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="raw-allowed">
+        <span>Allow raw cards</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="modern-only" checked>
+        <span>Modern sets only</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <label>Buy From</label>
+    <div class="checkbox-row">
+      <label class="checkbox-label">
+        <input type="checkbox" id="ebay-allowed" checked>
+        <span>eBay</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="tcgplayer-allowed" checked>
+        <span>TCGPlayer</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="facebook-allowed">
+        <span>Facebook</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <label>Notifications</label>
+    <div class="checkbox-row">
+      <label class="checkbox-label">
+        <input type="checkbox" id="notify-discord" checked>
+        <span>Discord</span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="notify-telegram">
+        <span>Telegram</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="budget-status" id="budget-status">
+    <span class="budget-label">Today's Budget:</span>
+    <span class="budget-amount">$0 / $500 spent</span>
+  </div>
+
+  <button class="save-btn" id="save-settings">Save Settings</button>
+  <span class="save-status" id="save-status"></span>
+</div>
+
+<style>
+.agent-settings-section {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+  color: #fff;
+}
+
+.agent-settings-section h3 {
+  margin: 0 0 20px 0;
+  color: #ff6b6b;
+  font-size: 18px;
+}
+
+.setting-group {
+  margin-bottom: 20px;
+}
+
+.setting-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #a0a0b0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dark-select, .dark-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: #252538;
+  border: 1px solid #3a3a4e;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.dark-select:focus, .dark-input:focus {
+  border-color: #ff6b6b;
+}
+
+.setting-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.input-suffix {
+  color: #666;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #d0d0e0;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ff6b6b;
+  cursor: pointer;
+}
+
+.setting-hint {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  color: #888;
+}
+
+.budget-status {
+  background: #252538;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 20px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-label {
+  color: #a0a0b0;
+}
+
+.budget-amount {
+  color: #4ecdc4;
+  font-weight: 600;
+}
+
+.save-btn {
+  background: #ff6b6b;
+  color: #fff;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.save-btn:hover {
+  background: #ff5252;
+}
+
+.save-status {
+  margin-left: 16px;
+  font-size: 14px;
+}
+
+.save-status.success { color: #4ecdc4; }
+.save-status.error { color: #ff6b6b; }
+</style>
+
+<script>
+const API_BASE = 'http://127.0.0.1:5000/api';
+
+// Level hints
+const levelHints = {
+  0: 'Agent will research and report only',
+  1: 'Agent will find deals and ask for your approval',
+  2: 'Agent will auto-buy cards matching your rules',
+  3: 'Agent runs fully autonomously, alerts on anomalies'
+};
+
+// Load settings on mount
+async function loadSettings() {
+  try {
+    const res = await fetch(`${API_BASE}/agent/settings`);
+    const data = await res.json();
+    
+    document.getElementById('autonomy-level').value = data.autonomy_level;
+    document.getElementById('daily-budget').value = data.daily_budget;
+    document.getElementById('per-card-max').value = data.per_card_max;
+    document.getElementById('deal-threshold').value = data.deal_threshold_percent;
+    document.getElementById('psa10-only').checked = data.psa10_only;
+    document.getElementById('raw-allowed').checked = data.raw_allowed;
+    document.getElementById('modern-only').checked = data.modern_only;
+    document.getElementById('ebay-allowed').checked = data.ebay_allowed;
+    document.getElementById('tcgplayer-allowed').checked = data.tcgplayer_allowed;
+    document.getElementById('facebook-allowed').checked = data.facebook_allowed;
+    document.getElementById('notify-discord').checked = data.notification_discord;
+    document.getElementById('notify-telegram').checked = data.notification_telegram;
+    
+    updateLevelHint(data.autonomy_level);
+  } catch (err) {
+    console.error('Failed to load settings:', err);
+  }
+}
+
+// Update level hint
+function updateLevelHint(level) {
+  document.getElementById('level-hint').textContent = levelHints[level] || '';
+}
+
+// Save settings
+async function saveSettings() {
+  const status = document.getElementById('save-status');
+  status.textContent = 'Saving...';
+  status.className = 'save-status';
+  
+  const settings = {
+    autonomy_level: parseInt(document.getElementById('autonomy-level').value),
+    daily_budget: parseFloat(document.getElementById('daily-budget').value),
+    per_card_max: parseFloat(document.getElementById('per-card-max').value),
+    deal_threshold_percent: parseFloat(document.getElementById('deal-threshold').value),
+    psa10_only: document.getElementById('psa10-only').checked,
+    raw_allowed: document.getElementById('raw-allowed').checked,
+    modern_only: document.getElementById('modern-only').checked,
+    ebay_allowed: document.getElementById('ebay-allowed').checked,
+    tcgplayer_allowed: document.getElementById('tcgplayer-allowed').checked,
+    facebook_allowed: document.getElementById('facebook-allowed').checked,
+    notification_discord: document.getElementById('notify-discord').checked,
+    notification_telegram: document.getElementById('notify-telegram').checked
+  };
+  
+  try {
+    const res = await fetch(`${API_BASE}/agent/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+    
+    if (res.ok) {
+      status.textContent = '✓ Saved';
+      status.className = 'save-status success';
+    } else {
+      throw new Error('Save failed');
+    }
+  } catch (err) {
+    status.textContent = '✗ Failed';
+    status.className = 'save-status error';
+  }
+  
+  setTimeout(() => status.textContent = '', 3000);
+}
+
+// Event listeners
+document.getElementById('autonomy-level').addEventListener('change', (e) => {
+  updateLevelHint(e.target.value);
+});
+
+document.getElementById('save-settings').addEventListener('click', saveSettings);
+
+// Load on mount
+loadSettings();
+</script>

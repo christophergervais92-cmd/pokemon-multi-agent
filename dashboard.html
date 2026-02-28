@@ -1799,6 +1799,7 @@
         <nav class="desktop-nav">
             <button class="nav-btn active" data-section="search">Drops</button>
             <button class="nav-btn" data-section="stock">Stock</button>
+            <button class="nav-btn" data-section="vending">Vending</button>
             <button class="nav-btn" data-section="monitors">Monitors</button>
             <button class="nav-btn" data-section="database">Database</button>
             <button class="nav-btn" data-section="card">Cards</button>
@@ -1815,6 +1816,7 @@
             <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
                 <option value="search">Upcoming Drops</option>
                 <option value="stock">Stock Map</option>
+                <option value="vending">Vending</option>
                 <option value="monitors">Monitors</option>
                 <option value="database">Set Database</option>
                 <option value="card">Card Lookup</option>
@@ -2538,7 +2540,7 @@
                     <div class="stat-label">Total Gain/Loss</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value" id="portfolioItems">0</div>
+                    <div class="stat-value" id="portfolioItemCount">0</div>
                     <div class="stat-label">Items</div>
                 </div>
                 <div class="stat">
@@ -3932,10 +3934,11 @@
         }
 
 	        function switchSection(name) {
+	            if (!name || !document.getElementById(name)) return;
 	            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 	            document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
 	            document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
-	            document.getElementById(name)?.classList.add('active');
+	            document.getElementById(name).classList.add('active');
             
             // Sync mobile dropdown
             const mobileSelect = document.getElementById('mobileNavSelect');
@@ -3976,14 +3979,23 @@
 	            if (name === 'monitors') {
 	                setTimeout(() => { initMonitors(); }, 50);
 	            }
+	            // Refresh portfolio when switching to portfolio tab
+	            if (name === 'portfolio' && typeof renderPortfolio === 'function') {
+	                setTimeout(() => renderPortfolio(), 50);
+	            }
+	            // Refresh analytics when switching to analytics tab
+	            if (name === 'analytics' && typeof renderAnalyticsStats === 'function') {
+	                setTimeout(() => renderAnalyticsStats(), 50);
+	            }
 	        }
 	        
 	        function switchSectionMobile(name) {
+	            if (!name || !document.getElementById(name)) return;
 	            // Switch section and sync desktop nav
 	            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
             document.querySelector(`[data-section="${name}"]`)?.classList.add('active');
-            document.getElementById(name)?.classList.add('active');
+            document.getElementById(name).classList.add('active');
             
             // Initialize drops when switching to drops section
 	            if (name === 'search') {
@@ -4050,6 +4062,14 @@
                     initVendingMap();
                     if (vendingMap) vendingMap.invalidateSize();
                 }, 100);
+            }
+            // Refresh portfolio when switching to portfolio tab
+            if (name === 'portfolio' && typeof renderPortfolio === 'function') {
+                setTimeout(() => renderPortfolio(), 50);
+            }
+            // Refresh analytics when switching to analytics tab
+            if (name === 'analytics' && typeof renderAnalyticsStats === 'function') {
+                setTimeout(() => renderAnalyticsStats(), 50);
             }
         }
 
@@ -12289,7 +12309,7 @@
             document.getElementById('portfolioTotal').textContent = `$${totalValue.toFixed(2)}`;
             document.getElementById('portfolioGain').textContent = `${gain >= 0 ? '+' : ''}$${gain.toFixed(2)}`;
             document.getElementById('portfolioGain').className = `stat-value ${gain >= 0 ? 'green' : 'red'}`;
-            document.querySelector('#portfolio .stat:nth-child(3) .stat-value').textContent = portfolio.length;
+            document.getElementById('portfolioItemCount').textContent = portfolio.length;
             document.getElementById('portfolioROI').textContent = `${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%`;
             
             if (!portfolio.length) {

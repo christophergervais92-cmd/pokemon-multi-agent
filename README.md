@@ -68,11 +68,35 @@ pokemon_multi_agent/
 │   ├── grading_agent.py        # ROI & grading evaluation
 │   ├── db.py                   # SQLite database layer
 │   └── agents_server.py        # Flask HTTP server
+├── api/                        # Card dashboard Flask API (from pokemon-card-agent)
+├── db/                         # SQLite for sets, collection, alerts, agent settings
+├── market/                     # Set/card prices (TCGdex, live prices)
+├── search/                     # Card search
+├── collection/                 # Collection manager
+├── alerts/                     # Price alert tracker
+├── grading/                   # Grade estimator
+├── agent/                      # Agent settings (budget, autonomy)
+├── ui/                         # Dashboard HTML/frontend
 ├── workflows/
 │   └── pokemon_multi_agent_workflow.json  # n8n workflow
 ├── config.json                 # Configuration file
 └── README.md
 ```
+
+### Card Dashboard (from pokemon-card-agent)
+
+The repo includes the **card dashboard** API and UI: sets, card search, collection, price alerts, and grading estimates. Run it from the project root:
+
+```bash
+flask --app api.app:create_app run
+# or: python -m flask --app api.app:create_app run
+```
+
+Then open **http://localhost:5000**. The API uses SQLite at `pokemon_tcg.db` (created on first run).
+
+### DEX (separate repo)
+
+Perpetual trading / DEX on card prices is **not** in this repo. It lives in a separate repo (e.g. `pokemon_perp_dex` or your DEX project).
 
 ## 🚀 Quick Start
 
