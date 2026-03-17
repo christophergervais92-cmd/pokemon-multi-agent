@@ -294,10 +294,12 @@ export interface GradedPrices {
 
 export interface CollectionItem {
   card_id: string
+  card_name?: string
   quantity: number
   condition: string
   purchase_price?: number
   current_price?: number
+  tcgplayer_market?: number
   [key: string]: unknown
 }
 

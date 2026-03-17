@@ -50,6 +50,27 @@ from agent.settings import get_settings, update_settings, can_auto_purchase, get
 from api.ebay_client import search_sold_listings
 
 
+def _auto_seed_if_empty():
+    """Seed the database on startup if it's empty (Render's ephemeral filesystem)."""
+    try:
+        from db.connection import get_connection
+        conn = get_connection()
+        card_count = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
+        sealed_count = conn.execute("SELECT COUNT(*) FROM sealed_products").fetchone()[0]
+        if card_count == 0 and sealed_count == 0:
+            import logging
+            logging.getLogger(__name__).info("Empty database detected — auto-seeding...")
+            from scripts.seed_database import seed_sealed_products, generate_price_history, sync_sets_from_api, seed_card_price_history
+            sync_sets_from_api()
+            seed_sealed_products()
+            generate_price_history(days=90)
+            seed_card_price_history(days=30)
+            logging.getLogger(__name__).info("Auto-seed complete.")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Auto-seed failed: %s", e)
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
 
@@ -58,6 +79,9 @@ def create_app() -> Flask:
     from alerts.tracker import init_alerts_table
     init_db()
     init_alerts_table()
+
+    # Auto-seed if database is empty (handles Render's ephemeral filesystem)
+    _auto_seed_if_empty()
 
     # ===== In-memory cache =====
     _cache: dict = {}

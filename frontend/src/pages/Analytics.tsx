@@ -59,7 +59,7 @@ export default function Analytics() {
       { range: '$250+', min: 250, max: Infinity, count: 0 },
     ]
     items.forEach(item => {
-      const price = (item.tcgplayer_market as number | undefined) ?? item.current_price ?? 0
+      const price = item.tcgplayer_market ?? item.current_price ?? 0
       const bucket = priceBuckets.find(b => price >= b.min && price < b.max)
       if (bucket) bucket.count += item.quantity
     })
@@ -68,7 +68,7 @@ export default function Analytics() {
     const performers = items
       .map(item => {
         const cost = (item.purchase_price ?? 0) * item.quantity
-        const current = ((item.tcgplayer_market as number | undefined) ?? item.current_price ?? 0) * item.quantity
+        const current = (item.tcgplayer_market ?? item.current_price ?? 0) * item.quantity
         const gain = current - cost
         const pct = cost > 0 ? ((gain / cost) * 100) : 0
         return { ...item, gain, pct, current, cost }
@@ -304,7 +304,7 @@ export default function Analytics() {
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs font-mono text-muted w-5">{i + 1}.</span>
-                        <span className="text-sm font-medium truncate">{(item as any).card_name || item.card_id}</span>
+                        <span className="text-sm font-medium truncate">{item.card_name || item.card_id}</span>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-mono-numbers font-bold text-success text-glow-green">
@@ -345,12 +345,12 @@ export default function Analytics() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-xs font-mono text-muted w-5">{i + 1}.</span>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{(item as any).card_name || item.card_id}</p>
+                          <p className="text-sm font-medium truncate">{item.card_name || item.card_id}</p>
                           <p className="text-[10px] text-muted">{item.condition} {item.quantity > 1 ? `x${item.quantity}` : ''}</p>
                         </div>
                       </div>
                       <span className="text-sm font-mono-numbers font-bold text-accent">
-                        ${formatPrice(((item.tcgplayer_market as number | undefined) ?? item.current_price ?? 0) * item.quantity)}
+                        ${formatPrice((item.tcgplayer_market ?? item.current_price ?? 0) * item.quantity)}
                       </span>
                     </motion.div>
                   ))}
