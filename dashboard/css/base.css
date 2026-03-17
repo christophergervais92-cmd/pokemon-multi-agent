@@ -1,0 +1,203 @@
+/* PokeAgent - Base Styles, Typography, Layout, Animations */
+
+/* Performance */
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img { content-visibility: auto; }
+
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+body {
+    font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    overscroll-behavior: contain;
+}
+
+/* Atmosphere gradients */
+body::before {
+    content: "";
+    position: fixed;
+    inset: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(70% 55% at 18% 0%, rgba(255, 77, 46, 0.25) 0%, transparent 60%),
+        radial-gradient(55% 50% at 88% 10%, rgba(34, 211, 238, 0.22) 0%, transparent 55%),
+        radial-gradient(45% 45% at 55% 115%, rgba(52, 211, 153, 0.16) 0%, transparent 60%);
+    filter: saturate(1.05);
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image:
+        linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(60% 50% at 50% 18%, black 0%, transparent 70%);
+}
+
+/* Touch feedback */
+button, .btn, .nav-btn, .card { -webkit-tap-highlight-color: transparent; }
+button:active, .btn:active, .nav-btn:active { transform: scale(0.98); transition: transform 0.1s ease; }
+
+/* Layout */
+.app {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: clamp(1rem, 2.8vw, 2.5rem);
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+    padding: var(--space-md) 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 6px);
+    background: var(--bg-card);
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.logo {
+    font-family: 'Pokemon Solid', 'Bricolage Grotesque', sans-serif;
+    font-size: 2.125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--blue) 55%, var(--gold) 115%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 10px 28px rgba(0,0,0,0.35));
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-card);
+    border-radius: 999px;
+    border: 1px solid var(--border);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.status-dot.offline {
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+    animation: none;
+}
+
+/* Typography */
+h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin-bottom: var(--space-lg);
+    color: #ffffff;
+}
+
+h2 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: var(--space-md);
+}
+
+/* Utility colors */
+.green { color: var(--green); }
+.red { color: var(--red); }
+.blue { color: var(--blue); }
+
+/* Sections */
+section { display: none; animation: fadeIn 0.3s ease; }
+section.active { display: block; }
+
+/* Grid */
+.grid { display: grid; gap: var(--space-md); }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.5); opacity: 0.1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Responsive grid */
+@media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="version" content="3.0.0">
+    <title>PokeAgent v3</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>">
+    <meta name="theme-color" content="#070910">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://api.pokemontcg.io">
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="dns-prefetch" href="https://cdn.discordapp.com">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"></noscript>
+
+    <!-- Leaflet CSS (lazy) -->
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""></noscript>
+
+    <!-- Leaflet JS (lazy load) -->
+    <script>
+        window.loadLeaflet = function() {
+            if (window.L) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+                script.crossOrigin = 'anonymous';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        };
+    </script>
+
+    <!-- Pokemon font -->
+    <style>
+        @font-face {
+            font-family: 'Pokemon Solid';
+            src: url('https://fonts.cdnfonts.com/s/32808/Pokemon Solid.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+
+    <!-- Modular CSS -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/nav.css">
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="logo">PokeAgent</div>
+            <div class="header-controls">
+                <button id="themeToggle" class="icon-btn" type="button" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+                    <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+                    </svg>
+                    <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2"></path>
+                        <path d="M12 20v2"></path>
+                        <path d="m4.93 4.93 1.41 1.41"></path>
+                        <path d="m17.66 17.66 1.41 1.41"></path>
+                        <path d="M2 12h2"></path>
+                        <path d="M20 12h2"></path>
+                        <path d="m6.34 17.66-1.41 1.41"></path>
+                        <path d="m19.07 4.93-1.41 1.41"></path>
+                    </svg>
+                </button>
+                <div class="status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+                <div id="userSection">
+                    <button id="loginBtn" class="btn btn-sm" onclick="startDiscordLogin()" style="display: none;">
+                        Login with Discord
+                    </button>
+                    <div id="userInfo" class="user-info" style="display: none;">
+                        <img id="userAvatar" src="" alt="" class="user-avatar">
+                        <span id="userName" class="user-name"></span>
+                        <button class="btn btn-sm btn-logout" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Desktop Navigation -->
+        <nav class="desktop-nav">
+            <button class="nav-btn active" data-section="search">Drops</button>
+            <button class="nav-btn" data-section="stock">Stock</button>
+            <button class="nav-btn" data-section="monitors">Monitors</button>
+            <button class="nav-btn" data-section="database">Database</button>
+            <button class="nav-btn" data-section="card">Cards</button>
+            <button class="nav-btn" data-section="flip">Flip Calculator</button>
+            <button class="nav-btn" data-section="grade">Grading</button>
+            <button class="nav-btn" data-section="assistant">AI Assistant</button>
+            <button class="nav-btn" data-section="portfolio">Portfolio</button>
+            <button class="nav-btn" data-section="analytics">Analytics</button>
+            <button class="nav-btn" data-section="settings">Settings</button>
+        </nav>
+
+        <!-- Mobile Navigation -->
+        <div class="mobile-nav">
+            <select id="mobileNavSelect" onchange="switchSectionMobile(this.value)">
+                <option value="search">Upcoming Drops</option>
+                <option value="stock">Stock Map</option>
+                <option value="monitors">Monitors</option>
+                <option value="database">Set Database</option>
+                <option value="card">Card Lookup</option>
+                <option value="flip">Flip Calculator</option>
+                <option value="grade">AI Grading</option>
+                <option value="assistant">AI Assistant</option>
+                <option value="portfolio">Portfolio</option>
+                <option value="analytics">Analytics</option>
+                <option value="settings">Settings</option>
+            </select>
+        </div>
+
+        <!-- ==================== DROPS ==================== -->
+        <section id="search" class="active">
+            <h1 class="section-title">
+                Drops
+                <span id="dropsDayLabel" class="section-subtitle"></span>
+            </h1>
+
+            <div class="drop-controls">
+                <button class="btn btn-sm drop-type-btn active" data-type="confirmed" onclick="toggleDropType('confirmed')">Confirmed</button>
+                <button class="btn btn-sm drop-type-btn" data-type="rumors" onclick="toggleDropType('rumors')">Rumors</button>
+                <div class="spacer"></div>
+                <button class="btn btn-sm time-btn active" data-filter="today" onclick="filterDrops('today')">Today</button>
+                <button class="btn btn-sm time-btn" data-filter="next7" onclick="filterDrops('next7')">Next 7 Days</button>
+                <button class="btn btn-sm time-btn" data-filter="schedule" onclick="filterDrops('schedule')">Schedule</button>
+            </div>
+
+            <div class="card card--gradient">
+                <div class="live-intel-header">
+                    <div class="live-dot-wrapper">
+                        <div class="live-dot"></div>
+                        <div class="live-dot-ring"></div>
+                    </div>
+                    <div>
+                        <h2 class="live-intel-title">Live Drop Intel</h2>
+                        <div class="live-intel-source">Live from PokeBeach, Reddit, X, Instagram & TikTok</div>
+                    </div>
+                </div>
+                <div class="live-intel-updated">
+                    Last updated: <span id="dropUpdateTime">Just now</span>
+                </div>
+                <div id="liveIntel" class="live-intel-feed">
+                    <div class="loading-placeholder">Loading live intel...</div>
+                </div>
+            </div>
+
+            <!-- Confirmed Drops -->
+            <div id="confirmedDropsSection">
+                <div class="section-header">
+                    <h2 class="section-header-title">Confirmed Drops</h2>
+                    <button class="btn btn-sm btn-icon" onclick="checkDropStock(); showNotification('Checking stock for upcoming drops...', 'info');">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21 12a9 9 0 0 0-9-9 9 9 0 0 0-6.219 2.475L3 8"></path>
+                            <path d="M3 3v5h5"></path>
+                            <path d="M3 12a9 9 0 0 0 9 9 9 9 0 0 0 6.219-2.475L21 16"></path>
+                            <path d="M16 16h5v5"></path>
+                        </svg>
+                        Refresh Stock
+                    </button>
+                </div>
+                <div id="upcomingDrops"></div>
+            </div>
+
+            <!-- Rumors -->
+            <div id="rumorsSection" style="display: none;">
+                <h2 class="section-header-title">
+                    Rumors & Speculation
+                    <span class="section-header-note">Unconfirmed - Take with a grain of salt</span>
+                </h2>
+                <div id="rumorsDrops"></div>
+            </div>
+        </section>
+
+        <!-- ==================== STOCK ==================== -->
+        <section id="stock">
+            <h1>Local Stock Map</h1>
+
+            <!-- Quick Retailer Search -->
+            <div class="card retailer-quick-search">
+                <div class="field-label">QUICK SEARCH BY RETAILER</div>
+                <div class="retailer-quick-btns">
+                    <button class="btn btn-sm btn-target" onclick="quickRetailerSearch('Target', 'pokemon')">Target</button>
+                    <button class="btn btn-sm btn-walmart" onclick="quickRetailerSearch('Walmart', 'pokemon')">Walmart</button>
+                    <button class="btn btn-sm btn-bestbuy" onclick="quickRetailerSearch('Best Buy', 'pokemon')">Best Buy</button>
+                    <button class="btn btn-sm btn-gamestop" onclick="quickRetailerSearch('GameStop', 'pokemon')">GameStop</button>
+                    <button class="btn btn-sm btn-pokecenter" onclick="quickRetailerSearch('Pokemon Center', 'pokemon')">Pokemon Center</button>
+                    <button class="btn btn-sm btn-costco" onclick="quickRetailerSearch('Costco', 'pokemon')">Costco</button>
+                    <button class="btn btn-sm btn-amazon" onclick="quickRetailerSearch('Amazon', 'pokemon')">Amazon</button>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="stockZip" placeholder="ZIP Code" class="input-zip">
+                <input type="text" id="stockQuery" placeholder="Search products (etb, booster, etc.)">
+                <button class="btn" onclick="findStock()">Find Stock</button>
+            </div>
+
+            <!-- Retailer Filter -->
+            <div class="retailer-filter">
+                <span class="filter-label">Filter:</span>
+                <button class="btn btn-sm retailer-btn active" data-retailer="all" onclick="filterRetailer('all')">All</button>
+                <button class="btn btn-sm retailer-btn btn-target" data-retailer="Target" onclick="filterRetailer('Target')">Target</button>
+                <button class="btn btn-sm retailer-btn btn-walmart" data-retailer="Walmart" onclick="filterRetailer('Walmart')">Walmart</button>
+                <button class="btn btn-sm retailer-btn btn-amazon" data-retailer="Amazon" onclick="filterRetailer('Amazon')">Amazon</button>
+                <button class="btn btn-sm retailer-btn btn-bestbuy" data-retailer="Best Buy" onclick="filterRetailer('Best Buy')">Best Buy</button>
+                <button class="btn btn-sm retailer-btn btn-gamestop" data-retailer="GameStop" onclick="filterRetailer('GameStop')">GameStop</button>
+                <button class="btn btn-sm retailer-btn btn-pokecenter" data-retailer="Pokemon Center" onclick="filterRetailer('Pokemon Center')">Pokemon Center</button>
+                <button class="btn btn-sm retailer-btn btn-costco" data-retailer="Costco" onclick="filterRetailer('Costco')">Costco</button>
+                <button class="btn btn-sm retailer-btn btn-bn" data-retailer="Barnes & Noble" onclick="filterRetailer('Barnes & Noble')">B&N</button>
+            </div>
+
+            <div class="card grid grid-4 stock-stats">
+                <div class="stat">
+                    <div class="stat-value" id="statStores">-</div>
+                    <div class="stat-label">Stores</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value green" id="statInStock">-</div>
+                    <div class="stat-label">In Stock</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value blue" id="statProducts">-</div>
+                    <div class="stat-label">Products</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="statUnits">-</div>
+                    <div class="stat-label">Total Units</div>
+                </div>
+            </div>
+
+            <div id="stockResults">
+                <div class="empty">
+                    <div class="empty-icon"></div>
+                    <div>Enter your ZIP code to find nearby stock</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== MONITORS ==================== -->
+        <section id="monitors">
+            <h1>Monitors</h1>
+
+            <div class="card card--gradient">
+                <h2 class="card-title-inline">Stock Monitors</h2>
+                <p class="card-description">
+                    Create monitors that scan retailers on an interval and alert you via Discord only when items transition to in-stock. Checkout is not automated.
+                </p>
+            </div>
+
+            <div id="monitorsAuthGate" class="card" style="display: none;">
+                <div class="auth-gate">
+                    <svg class="icon icon-lg" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <div>
+                        <div class="auth-gate-title">Login Required</div>
+                        <div class="auth-gate-desc">Login with Discord to create and manage monitors.</div>
+                    </div>
+                    <div class="spacer"></div>
+                    <button class="btn btn-sm" onclick="startDiscordLogin()">Login with Discord</button>
+                </div>
+            </div>
+
+            <div id="monitorsApp" style="display: none;">
+                <div class="card">
+                    <h2>Alert Destination</h2>
+                    <p class="card-description">
+                        Paste a Discord webhook URL to receive alerts. Only Discord webhooks are supported.
+                    </p>
+                    <div class="search-bar" style="margin-top: 0.75rem;">
+                        <input type="text" id="monitorsWebhookUrl" placeholder="https://discord.com/api/webhooks/..." class="input-mono">
+                        <button class="btn" onclick="saveMonitorGroupSettings()">Save</button>
+                    </div>
+                    <div id="monitorsWebhookStatus" class="field-status"></div>
+                </div>
+
+                <div class="card">
+                    <h2>Create Monitor</h2>
+                    <div class="search-bar" style="margin-top: 0.75rem;">
+                        <input type="text" id="monitorQuery" placeholder="Search query (e.g., 'destined rivals etb')">
+                        <select id="monitorRetailer" class="select-retailer">
+                            <option value="target">Target</option>
+                            <option value="pokemoncenter">Pokemon Center</option>
+                            <option value="gamestop">GameStop</option>
+                            <option value="walmart">Walmart (Often Blocked)</option>
+                            <option value="tcgplayer">TCGPlayer (Singles)</option>
+                        </select>
+                        <button class="btn" onclick="createMonitorTask()">Add</button>
+                    </div>
+                    <div class="monitor-options">
+                        <div class="monitor-option">
+                            <label class="field-label-sm">ZIP</label>
+                            <input type="text" id="monitorZip" placeholder="90210">
+                        </div>
+                        <div class="monitor-option-wide">
+                            <label class="field-label-sm">Interval (seconds)</label>
+                            <input type="number" id="monitorInterval" placeholder="60" min="30" step="10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-header">
+                        <h2 style="margin: 0;">Your Monitors</h2>
+                        <button class="btn btn-outline btn-sm" onclick="loadMonitors()">Refresh</button>
+                    </div>
+                    <div id="monitorsList" style="margin-top: 0.75rem;"></div>
+                </div>
+
+                <div class="card">
+                    <div class="section-header">
+                        <h2 style="margin: 0;">Runner Status</h2>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline" onclick="startInProcessRunner()">Start (Dev)</button>
+                            <button class="btn btn-sm btn-outline" onclick="stopInProcessRunner()">Stop (Dev)</button>
+                        </div>
+                    </div>
+                    <div id="runnerStatus" class="runner-status">Checking...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== DATABASE ==================== -->
+        <section id="database">
+            <h1>Pokemon TCG Set Database</h1>
+
+            <!-- Set Selector -->
+            <div class="card">
+                <div class="set-selector-row">
+                    <div class="set-selector-col">
+                        <label class="field-label-sm">SELECT SET</label>
+                        <select id="setSelector" onchange="debouncedLoadSet(this.value)" class="select-full">
+                            <option value="">Select a set...</option>
+                            <optgroup label="2025 Sets" data-series="2025">
+                                <option value="sv8pt5">Prismatic Evolutions (Jan 2025)</option>
+                                <option value="sv9">Journey Together (Mar 2025)</option>
+                                <option value="sv10">Destined Rivals (May 2025)</option>
+                            </optgroup>
+                            <optgroup label="Coming Soon (Not in API Yet)" data-series="coming-soon">
+                                <option value="" disabled>Mega Evolution (Dec 2025) - API pending</option>
+                                <option value="" disabled>Terastal Festival ex - API pending</option>
+                            </optgroup>
+                            <optgroup label="Scarlet & Violet" data-series="scarlet-violet">
+                                <option value="sv8">Surging Sparks (2024)</option>
+                                <option value="sv7">Stellar Crown (2024)</option>
+                                <option value="sv6pt5">Shrouded Fable (2024)</option>
+                                <option value="sv6">Twilight Masquerade (2024)</option>
+                                <option value="sv5">Temporal Forces (2024)</option>
+                                <option value="sv4pt5">Paldean Fates (2024)</option>
+                                <option value="sv4">Paradox Rift (2023)</option>
+                                <option value="sv3pt5">151 (2023)</option>
+                                <option value="sv3">Obsidian Flames (2023)</option>
+                                <option value="sv2">Paldea Evolved (2023)</option>
+                                <option value="sv1">Scarlet & Violet Base (2023)</option>
+                            </optgroup>
+                            <optgroup label="Sword & Shield" data-series="sword-shield">
+                                <option value="swsh12pt5">Crown Zenith (2023)</option>
+                                <option value="swsh12">Silver Tempest (2022)</option>
+                                <option value="swsh11">Lost Origin (2022)</option>
+                                <option value="swsh10">Astral Radiance (2022)</option>
+                                <option value="swsh9">Brilliant Stars (2022)</option>
+                                <option value="swsh8">Fusion Strike (2021)</option>
+                                <option value="swsh7">Evolving Skies (2021)</option>
+                                <option value="swsh6">Chilling Reign (2021)</option>
+                                <option value="swsh5">Battle Styles (2021)</option>
+                                <option value="swsh45sv">Shining Fates (2021)</option>
+                                <option value="swsh4">Vivid Voltage (2020)</option>
+                                <option value="swsh35">Champion's Path (2020)</option>
+                                <option value="swsh3">Darkness Ablaze (2020)</option>
+                                <option value="swsh2">Rebel Clash (2020)</option>
+                                <option value="swsh1">Sword & Shield Base (2020)</option>
+                            </optgroup>
+                            <optgroup label="Sun & Moon" data-series="sun-moon">
+                                <option value="sm12">Cosmic Eclipse (2019)</option>
+                                <option value="sm115">Hidden Fates (2019)</option>
+                                <option value="sm11">Unified Minds (2019)</option>
+                                <option value="sm10">Unbroken Bonds (2019)</option>
+                                <option value="sm9">Team Up (2019)</option>
+                            </optgroup>
+                            <optgroup label="XY" data-series="xy">
+                                <option value="xy12">Evolutions (2016)</option>
+                                <option value="xy11">Steam Siege (2016)</option>
+                                <option value="xy10">Fates Collide (2016)</option>
+                                <option value="xy9">BREAKpoint (2016)</option>
+                                <option value="xy8">BREAKthrough (2015)</option>
+                                <option value="xy7">Ancient Origins (2015)</option>
+                                <option value="xy6">Roaring Skies (2015)</option>
+                            </optgroup>
+                            <optgroup label="Classic (WOTC)" data-series="base">
+                                <option value="base1">Base Set (1999)</option>
+                                <option value="base2">Jungle (1999)</option>
+                                <option value="base3">Fossil (1999)</option>
+                                <option value="base4">Base Set 2 (2000)</option>
+                                <option value="base5">Team Rocket (2000)</option>
+                                <option value="gym1">Gym Heroes (2000)</option>
+                                <option value="gym2">Gym Challenge (2000)</option>
+                                <option value="neo1">Neo Genesis (2000)</option>
+                                <option value="neo2">Neo Discovery (2001)</option>
+                                <option value="neo3">Neo Revelation (2001)</option>
+                                <option value="neo4">Neo Destiny (2002)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="set-selector-col-sm">
+                        <label class="field-label-sm">SERIES</label>
+                        <select id="seriesFilter" onchange="filterSetsBySeries(this.value)" class="select-full">
+                            <option value="all">All Series</option>
+                            <option value="2025">2025 Sets (NEW!)</option>
+                            <option value="scarlet-violet">Scarlet & Violet</option>
+                            <option value="sword-shield">Sword & Shield</option>
+                            <option value="sun-moon">Sun & Moon</option>
+                            <option value="xy">XY</option>
+                            <option value="black-white">Black & White</option>
+                            <option value="heartgold-soulsilver">HeartGold SoulSilver</option>
+                            <option value="platinum">Platinum</option>
+                            <option value="diamond-pearl">Diamond & Pearl</option>
+                            <option value="ex">EX Series</option>
+                            <option value="e-card">E-Card</option>
+                            <option value="neo">Neo</option>
+                            <option value="gym">Gym</option>
+                            <option value="base">Base Set Era</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label-sm">&nbsp;</label>
+                        <button class="btn" onclick="loadAllSets()">Refresh</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Set Info -->
+            <div id="setInfoCard" class="card" style="display: none;">
+                <div class="set-info-row">
+                    <div class="set-info-logo">
+                        <img id="setLogo" src="" alt="Set Logo">
+                    </div>
+                    <div class="set-info-details">
+                        <h2 id="setName" class="set-info-name"></h2>
+                        <div class="set-info-meta">
+                            <span id="setSeries"></span>
+                            <span id="setReleaseDate"></span>
+                            <span id="setTotalCards"></span>
+                        </div>
+                    </div>
+                    <div class="set-info-value">
+                        <div class="field-label-xs">SET VALUE INDEX</div>
+                        <div id="setValueIndex" class="stat-value-lg green"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pull Rates -->
+            <div id="pullRatesCard" class="card" style="display: none;">
+                <h3 class="card-heading-sm">Pull Rates (Per Pack)</h3>
+                <div id="pullRatesGrid" class="pull-rates-grid"></div>
+                <div class="card-footnote">* Pull rates are estimates based on community data and may vary</div>
+            </div>
+
+            <!-- Chase Cards -->
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="card-heading-sm">Chase Cards (Highest Value)</h3>
+                    <div class="btn-group">
+                        <button class="btn btn-sm chase-filter active" data-rarity="all" onclick="filterChaseCards('all')">All</button>
+                        <button class="btn btn-sm chase-filter" data-rarity="illustration" onclick="filterChaseCards('illustration')">Illustration Rare</button>
+                        <button class="btn btn-sm chase-filter" data-rarity="special" onclick="filterChaseCards('special')">Special Art</button>
+                        <button class="btn btn-sm chase-filter" data-rarity="holo" onclick="filterChaseCards('holo')">Holo</button>
+                    </div>
+                </div>
+                <div id="chaseCardsGrid" class="chase-cards-grid">
+                    <div class="empty" style="grid-column: 1 / -1;">
+                        <div class="empty-icon"></div>
+                        <div>Select a set to view chase cards</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Set Statistics -->
+            <div id="setStatsCard" class="card" style="display: none;">
+                <h3 class="card-heading-sm">Set Statistics</h3>
+                <div class="set-stats-grid">
+                    <div class="set-stat-cell">
+                        <div class="field-label-xs">TOTAL CARDS</div>
+                        <div id="statTotalCards" class="stat-value-lg"></div>
+                    </div>
+                    <div class="set-stat-cell">
+                        <div class="field-label-xs">CHASE CARDS</div>
+                        <div id="statChaseCards" class="stat-value-lg gold"></div>
+                    </div>
+                    <div class="set-stat-cell">
+                        <div class="field-label-xs">AVG CHASE VALUE</div>
+                        <div id="statAvgValue" class="stat-value-lg green"></div>
+                    </div>
+                    <div class="set-stat-cell">
+                        <div class="field-label-xs">TOP CARD VALUE</div>
+                        <div id="statTopValue" class="stat-value-lg purple"></div>
+                    </div>
+                    <div class="set-stat-cell">
+                        <div class="field-label-xs">EV PER PACK</div>
+                        <div id="statEvPack" class="stat-value-lg"></div>
+                    </div>
+                    <div class="set-stat-cell">
+                        <div class="field-label-xs">PACKS TO HIT</div>
+                        <div id="statPacksToHit" class="stat-value-lg red"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VENDING ==================== -->
+        <section id="vending">
+            <h1>Pokemon Vending Machines</h1>
+
+            <div class="card card--vending-hero">
+                <div class="vending-hero-row">
+                    <div>
+                        <h2 class="vending-hero-title">Find Vending Machines Near You</h2>
+                    </div>
+                    <div class="search-bar vending-search">
+                        <input type="text" id="vendingZip" placeholder="Enter ZIP Code" class="vending-zip-input">
+                        <button class="btn btn-vending-search" onclick="searchVendingMap()">Search</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card--map">
+                <div id="vendingMap" class="vending-map"></div>
+            </div>
+
+            <div id="vendingResults" style="display: none;"></div>
+
+            <div class="pokevend-credit">
+                <p>
+                    Vending machine location data provided by
+                    <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener">PokeVend.us</a>
+                    <span class="credit-sep">|</span>
+                    <a href="https://www.pokevend.us/pokemon-vending-machine-map" target="_blank" rel="noopener">View on PokeVend</a>
+                </p>
+            </div>
+        </section>
+
+        <!-- ==================== CARDS ==================== -->
+        <section id="card">
+            <h1>Card & Product Lookup</h1>
+
+            <div class="search-bar">
+                <input type="text" id="cardName" placeholder="Search cards or products (e.g., Charizard, Pikachu VMAX, ETB)" value="">
+                <select id="searchType" class="select-search-type">
+                    <option value="cards">Cards</option>
+                    <option value="products">Sealed Products</option>
+                </select>
+                <button class="btn" onclick="searchCardsOrProducts()">Search</button>
+            </div>
+
+            <!-- Card Grid Results -->
+            <div id="cardGrid" style="display: none;">
+                <h2>Search Results <span id="resultCount" class="result-count"></span></h2>
+                <div id="cardGridItems" class="card-grid"></div>
+            </div>
+
+            <!-- Card Detail -->
+            <div id="cardDetail" style="display: none;">
+                <button class="btn btn-outline btn-sm btn-back" onclick="backToGrid()">&#8592; Back to Results</button>
+
+                <div class="card card-detail-layout">
+                    <!-- Card Image -->
+                    <div class="card-detail-image">
+                        <img id="detailImage" src="">
+                        <div class="variation-select">
+                            <label class="field-label-xs">Select Variation:</label>
+                            <select id="variationSelect" onchange="selectVariation()" class="select-variation"></select>
+                        </div>
+                    </div>
+
+                    <!-- Card Info -->
+                    <div>
+                        <h2 id="detailName" class="detail-name"></h2>
+                        <div id="detailSet" class="detail-set"></div>
+                        <div id="detailMeta" class="detail-meta"></div>
+
+                        <h2 class="detail-section-heading">Market Prices</h2>
+                        <div id="detailPrices" class="price-table"></div>
+
+                        <h2 class="detail-section-heading">Price History</h2>
+                        <div class="chart-controls">
+                            <select id="gradeSelect" onchange="setChartGrade(this.value)" class="select-grade">
+                                <option value="raw">Raw (Ungraded)</option>
+                                <optgroup label="PSA">
+                                    <option value="PSA 10">PSA 10 Gem Mint</option>
+                                    <option value="PSA 9">PSA 9 Mint</option>
+                                    <option value="PSA 8">PSA 8 NM-MT</option>
+                                    <option value="PSA 7">PSA 7 NM</option>
+                                </optgroup>
+                                <optgroup label="CGC">
+                                    <option value="CGC 10">CGC 10 Pristine</option>
+                                    <option value="CGC 9.5">CGC 9.5 Gem Mint</option>
+                                    <option value="CGC 9">CGC 9 Mint</option>
+                                    <option value="CGC 8.5">CGC 8.5 NM-MT+</option>
+                                </optgroup>
+                                <optgroup label="BGS / Beckett">
+                                    <option value="BGS 10 Black">BGS 10 Black Label</option>
+                                    <option value="BGS 10">BGS 10 Pristine</option>
+                                    <option value="BGS 9.5">BGS 9.5 Gem Mint</option>
+                                    <option value="BGS 9">BGS 9 Mint</option>
+                                    <option value="BGS 8.5">BGS 8.5 NM-MT+</option>
+                                </optgroup>
+                            </select>
+                            <div class="btn-group">
+                                <button class="btn btn-sm time-btn active" data-range="1M" onclick="setChartRange('1M')">1M</button>
+                                <button class="btn btn-sm time-btn" data-range="3M" onclick="setChartRange('3M')">3M</button>
+                                <button class="btn btn-sm time-btn" data-range="6M" onclick="setChartRange('6M')">6M</button>
+                                <button class="btn btn-sm time-btn" data-range="1Y" onclick="setChartRange('1Y')">1Y</button>
+                                <button class="btn btn-sm time-btn" data-range="2Y" onclick="setChartRange('2Y')">2Y</button>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="priceChart"></canvas>
+                            <div id="chartStats" class="chart-stats"></div>
+                        </div>
+
+                        <h2 class="detail-section-heading">Recent Sales</h2>
+                        <div id="recentSales" class="recent-sales-grid"></div>
+
+                        <h2 class="detail-section-heading">Purchase</h2>
+                        <div id="detailBuyLinks" class="buy-links"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="cardResults">
+                <div class="empty">
+                    <div class="empty-icon"></div>
+                    <div>Search for cards or products to see all variations and price history</div>
+                    <div class="quick-search-btns">
+                        <button class="btn btn-outline btn-sm" onclick="quickCardSearch('Charizard')">Charizard</button>
+                        <button class="btn btn-outline btn-sm" onclick="quickCardSearch('Pikachu')">Pikachu</button>
+                        <button class="btn btn-outline btn-sm" onclick="quickCardSearch('Umbreon')">Umbreon</button>
+                        <button class="btn btn-outline btn-sm" onclick="quickCardSearch('Mewtwo')">Mewtwo</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== AI ASSISTANT ==================== -->
+        <section id="assistant">
+            <h1>AI Assistant</h1>
+
+            <!-- AI Status -->
+            <div class="card card--ai-status">
+                <div class="ai-status-row">
+                    <div class="ai-status-info">
+                        <h2 class="card-title-inline">AI Assistant</h2>
+                        <p class="card-description">Uses a lightweight built-in guide and optional backend AI when available</p>
+                    </div>
+                    <span id="aiKeyStatus" class="badge badge--green">Active</span>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="card">
+                <h2 class="card-title-with-icon">Pokemon TCG Assistant</h2>
+                <p class="card-description">
+                    Ask about card values, market trends, set recommendations, grading advice, and more!
+                </p>
+
+                <div id="aiChatMessages" class="chat-messages">
+                    <div class="ai-message">
+                        <div class="ai-message-author">AI Assistant</div>
+                        <div>Ask me anything about cards, prices, grading, or collecting strategies.</div>
+                    </div>
+                </div>
+
+                <div class="search-bar">
+                    <input type="text" id="aiChatInput" placeholder="Ask about cards, prices, grading..." onkeypress="if(event.key==='Enter')sendAIChat()">
+                    <button class="btn" onclick="sendAIChat()">Send</button>
+                </div>
+
+                <div class="quick-questions">
+                    <button class="btn btn-sm btn-outline" onclick="askAI('What are the best sets to invest in right now?')">Best Sets to Buy?</button>
+                    <button class="btn btn-sm btn-outline" onclick="askAI('Should I grade my cards or sell raw?')">Grade or Sell Raw?</button>
+                    <button class="btn btn-sm btn-outline" onclick="askAI('What chase cards should I look for?')">Top Chase Cards</button>
+                    <button class="btn btn-sm btn-outline" onclick="askAI('How do I spot fake Pokemon cards?')">Spot Fakes</button>
+                </div>
+            </div>
+
+            <!-- AI Features Grid -->
+            <div class="ai-features-grid">
+                <!-- Alert Rules -->
+                <div class="card">
+                    <h2 class="card-title-with-icon">Alert Rules</h2>
+                    <p class="card-description">
+                        Monitor stock and alert when criteria are met. Checkout is not automated.
+                    </p>
+                    <div class="alert-rules-form">
+                        <div class="toggle-row">
+                            <div>
+                                <div class="toggle-label">Alerts Enabled</div>
+                                <div class="toggle-desc">Send alerts for matching products</div>
+                            </div>
+                            <div class="toggle" id="toggleAutoBuy" onclick="toggleSetting('autoBuy')"></div>
+                        </div>
+
+                        <div class="form-field-bg">
+                            <div class="field-label-sm">Budget Limit</div>
+                            <input type="number" id="autoBuyBudget" placeholder="500" value="500">
+                        </div>
+                        <div class="form-field-bg">
+                            <div class="field-label-sm">Max Price Per Item</div>
+                            <input type="number" id="autoBuyMaxPrice" placeholder="100" value="100">
+                        </div>
+                        <div class="form-field-bg">
+                            <div class="field-label-sm">Target Products</div>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label"><input type="checkbox" id="buyETBs" checked> ETBs</label>
+                                <label class="checkbox-label"><input type="checkbox" id="buyBoosters" checked> Booster Boxes</label>
+                                <label class="checkbox-label"><input type="checkbox" id="buyCollections"> Collection Boxes</label>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="saveAutoBuySettings()">Save Alert Settings</button>
+                    </div>
+                </div>
+
+                <!-- Grading Queue -->
+                <div class="card">
+                    <h2 class="card-title-with-icon">Grading Queue</h2>
+                    <p class="card-description">Cards queued for AI grading analysis</p>
+                    <div id="gradingQueue" class="grading-queue">
+                        <div class="empty-sm">
+                            <div class="empty-icon inbox"></div>
+                            <div>No cards in queue</div>
+                            <div class="empty-hint">Go to Grading tab to analyze cards</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline btn-full" onclick="switchSection('grade')">Go to Grading Tool &#8594;</button>
+                </div>
+            </div>
+
+            <!-- Market Insights -->
+            <div class="card">
+                <h2 class="card-title-with-icon">Market Insights</h2>
+                <div id="aiInsights" class="insights-grid">
+                    <div class="insight-item insight-item--green">
+                        <div class="insight-label green">TRENDING UP</div>
+                        <div class="insight-text">Prismatic Evolutions chase cards seeing 15-20% price increases</div>
+                    </div>
+                    <div class="insight-item insight-item--accent">
+                        <div class="insight-label" style="color: var(--accent);">RESTOCK ALERT</div>
+                        <div class="insight-text">Target and Walmart expecting new Destined Rivals inventory</div>
+                    </div>
+                    <div class="insight-item insight-item--gold">
+                        <div class="insight-label" style="color: var(--yellow);">INVESTMENT TIP</div>
+                        <div class="insight-text">Stellar Crown ETBs at MSRP could yield good returns long-term</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== PORTFOLIO ==================== -->
+        <section id="portfolio">
+            <h1>Portfolio Tracker</h1>
+
+            <div class="card grid grid-4 portfolio-stats">
+                <div class="stat">
+                    <div class="stat-value" id="portfolioTotal">$0</div>
+                    <div class="stat-label">Total Value</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value green" id="portfolioGain">+$0</div>
+                    <div class="stat-label">Total Gain/Loss</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="portfolioCount">0</div>
+                    <div class="stat-label">Items</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value blue" id="portfolioROI">0%</div>
+                    <div class="stat-label">ROI</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Add to Portfolio</h2>
+                <div class="portfolio-add-row-1">
+                    <div>
+                        <label class="field-label-xs">Card/Product Name</label>
+                        <input type="text" id="portfolioName" placeholder="e.g., Charizard VMAX" oninput="lookupPortfolioPrice()">
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Grade Type</label>
+                        <select id="portfolioType" onchange="lookupPortfolioPrice()">
+                            <option value="card">Raw (Ungraded)</option>
+                            <option value="psa10">PSA 10</option>
+                            <option value="psa9">PSA 9</option>
+                            <option value="psa8">PSA 8</option>
+                            <option value="cgc10">CGC 10</option>
+                            <option value="cgc95">CGC 9.5</option>
+                            <option value="bgs10">BGS 10</option>
+                            <option value="bgs95">BGS 9.5</option>
+                            <option value="sealed">Sealed Product</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Card Type</label>
+                        <select id="portfolioCardType">
+                            <option value="">-- Select --</option>
+                            <option value="Pokemon">Pokemon</option>
+                            <option value="Trainer">Trainer</option>
+                            <option value="Energy">Energy</option>
+                            <optgroup label="Pokemon Types">
+                                <option value="Fire">Fire</option>
+                                <option value="Water">Water</option>
+                                <option value="Grass">Grass</option>
+                                <option value="Lightning">Lightning</option>
+                                <option value="Psychic">Psychic</option>
+                                <option value="Fighting">Fighting</option>
+                                <option value="Darkness">Darkness</option>
+                                <option value="Metal">Metal</option>
+                                <option value="Dragon">Dragon</option>
+                                <option value="Colorless">Colorless</option>
+                                <option value="Fairy">Fairy</option>
+                            </optgroup>
+                            <optgroup label="Products">
+                                <option value="ETB">Elite Trainer Box</option>
+                                <option value="Booster Box">Booster Box</option>
+                                <option value="Booster Pack">Booster Pack</option>
+                                <option value="Collection Box">Collection Box</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+                <div class="portfolio-add-row-2">
+                    <div>
+                        <label class="field-label-xs">Your Cost ($)</label>
+                        <input type="number" id="portfolioCost" placeholder="What you paid" step="0.01">
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Current Market Price</label>
+                        <div id="portfolioMarketPrice" class="market-price-display">-- Enter name --</div>
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Quantity</label>
+                        <input type="number" id="portfolioQty" placeholder="Qty" value="1" min="1">
+                    </div>
+                    <button class="btn" onclick="addToPortfolio()">Add to Collection</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header">
+                    <h2 style="margin: 0;">Your Collection</h2>
+                    <button class="btn btn-outline btn-sm" onclick="refreshPortfolioPrices()">Refresh Prices</button>
+                </div>
+                <div id="portfolioItems" class="portfolio-list"></div>
+            </div>
+        </section>
+
+        <!-- ==================== GRADING ==================== -->
+        <section id="grade">
+            <h1>AI Card Grading</h1>
+
+            <div class="card">
+                <h2>Upload Card Image</h2>
+                <p class="card-description">
+                    Get an AI-powered grade estimate for your card. Upload a clear, well-lit photo of the front of the card.
+                </p>
+
+                <div class="grade-inputs">
+                    <div>
+                        <label class="field-label-sm">Image URL</label>
+                        <input type="text" id="gradeImageUrl" placeholder="https://example.com/card.jpg">
+                    </div>
+                    <div>
+                        <label class="field-label-sm">Or Upload File</label>
+                        <input type="file" id="gradeImageFile" accept="image/*" onchange="handleGradeFileSelect(this)">
+                    </div>
+                </div>
+
+                <div class="drop-zone" id="dropZone" onclick="document.getElementById('gradeImageFile').click()">
+                    <div class="empty-icon camera"></div>
+                    <div>Drag & drop card image here or click to browse</div>
+                    <div class="drop-zone-hint">or paste from clipboard (Ctrl+V)</div>
+                </div>
+
+                <div id="imagePreview" class="image-preview" style="display: none;">
+                    <img id="previewImg">
+                </div>
+
+                <button class="btn" onclick="gradeCard()" id="gradeBtn">Analyze Card</button>
+            </div>
+
+            <div id="gradeResults"></div>
+        </section>
+
+        <!-- ==================== FLIP CALCULATOR ==================== -->
+        <section id="flip">
+            <h1>Flip Calculator</h1>
+
+            <div class="card">
+                <div class="search-bar">
+                    <input type="text" id="flipCard" placeholder="Card name (e.g., Charizard VMAX)">
+                    <input type="number" id="flipPrice" placeholder="Raw price ($)" class="input-price">
+                    <select id="flipCompany" class="select-company" onchange="updateFlipTiers()">
+                        <option value="PSA">PSA</option>
+                        <option value="CGC">CGC</option>
+                        <option value="BGS">BGS</option>
+                    </select>
+                    <select id="flipTier" class="select-tier">
+                        <option value="economy">Economy</option>
+                        <option value="regular">Regular</option>
+                        <option value="express">Express</option>
+                        <option value="super_express">Super Express</option>
+                        <option value="walk_through">Walk-Through</option>
+                    </select>
+                    <button class="btn" onclick="calculateFlip()">Calculate</button>
+                </div>
+            </div>
+
+            <!-- Multiple Card Results -->
+            <div id="flipCardGrid" style="display: none;">
+                <h2>Select Card <span id="flipResultCount" class="result-count"></span></h2>
+                <div id="flipCardGridItems" class="card-grid flip-card-grid"></div>
+            </div>
+
+            <div id="flipResults"></div>
+        </section>
+
+        <!-- ==================== ANALYTICS ==================== -->
+        <section id="analytics">
+            <h1>Analytics & Backtesting</h1>
+
+            <div class="card grid grid-4">
+                <div class="stat">
+                    <div class="stat-value" id="analyticsScans">0</div>
+                    <div class="stat-label">Total Scans</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value green" id="analyticsHits">0</div>
+                    <div class="stat-label">Stock Found</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value blue" id="analyticsAccuracy">0%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="analyticsPurchases">0</div>
+                    <div class="stat-label">Purchases Logged</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Purchase Tracking</h2>
+                <p class="card-description">Log your purchases to track monitor effectiveness and spending.</p>
+                <div class="purchase-form">
+                    <div>
+                        <label class="field-label-xs">Product</label>
+                        <input type="text" id="purchaseProduct" placeholder="e.g., Prismatic Evolutions ETB">
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Retailer</label>
+                        <select id="purchaseRetailer">
+                            <option value="Target">Target</option>
+                            <option value="Walmart">Walmart</option>
+                            <option value="Best Buy">Best Buy</option>
+                            <option value="GameStop">GameStop</option>
+                            <option value="Pokemon Center">Pokemon Center</option>
+                            <option value="TCGPlayer">TCGPlayer</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Price</label>
+                        <input type="number" id="purchasePrice" placeholder="$">
+                    </div>
+                    <div>
+                        <label class="field-label-xs">Qty</label>
+                        <input type="number" id="purchaseQty" value="1">
+                    </div>
+                    <button class="btn" onclick="logPurchase()">Log</button>
+                </div>
+                <div id="purchaseHistory" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div class="card">
+                <h2>Stock Check Accuracy</h2>
+                <p class="card-description">When you check stock and then visit the store, log whether the stock was accurate.</p>
+                <div id="stockVerifications"></div>
+                <div class="verify-form">
+                    <div class="field-label-sm">Verify a Stock Check</div>
+                    <div class="verify-form-row">
+                        <div>
+                            <label class="field-label-xs">Store/Product</label>
+                            <input type="text" id="verifyStore" placeholder="e.g., Target Hollywood - ETB">
+                        </div>
+                        <div>
+                            <label class="field-label-xs">System Said</label>
+                            <select id="verifySystemSaid">
+                                <option value="in_stock">In Stock</option>
+                                <option value="out_of_stock">Out of Stock</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-sm btn-correct" onclick="verifyStock(true)">Correct</button>
+                        <button class="btn btn-sm btn-wrong" onclick="verifyStock(false)">Wrong</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Backtest Results</h2>
+                <div id="backtestResults">
+                    <div class="backtest-grid">
+                        <div class="backtest-cell">
+                            <div class="field-label-xs">STOCK ACCURACY BY RETAILER</div>
+                            <div id="retailerAccuracy"></div>
+                        </div>
+                        <div class="backtest-cell">
+                            <div class="field-label-xs">ALERT RULE PERFORMANCE</div>
+                            <div id="rulePerformance"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Spending Summary</h2>
+                <div class="spending-grid">
+                    <div class="spending-cell">
+                        <div class="spending-value" id="spendToday">$0</div>
+                        <div class="field-label-xs">Today</div>
+                    </div>
+                    <div class="spending-cell">
+                        <div class="spending-value" id="spendWeek">$0</div>
+                        <div class="field-label-xs">This Week</div>
+                    </div>
+                    <div class="spending-cell">
+                        <div class="spending-value" id="spendMonth">$0</div>
+                        <div class="field-label-xs">This Month</div>
+                    </div>
+                    <div class="spending-cell">
+                        <div class="spending-value" id="spendTotal">$0</div>
+                        <div class="field-label-xs">All Time</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-header">
+                    <h2 style="margin: 0;">Run Backtest</h2>
+                    <button class="btn" onclick="runBacktest()">Run Backtest</button>
+                </div>
+                <p class="card-description">
+                    Simulates stock checks across all retailers and compares against your verified data.
+                </p>
+                <div id="backtestOutput" style="margin-top: 1rem;"></div>
+            </div>
+        </section>
+
+        <!-- ==================== SETTINGS ==================== -->
+        <section id="settings">
+            <h1>Settings</h1>
+
+            <div class="card card--accent-border">
+                <h2 class="card-title-with-icon">API Configuration</h2>
+                <p class="card-description">
+                    Change the backend API URL. Use <code>http://127.0.0.1:5001</code> for local server or <code>https://pokemon-multi-agent.onrender.com</code> for deployed version.
+                </p>
+                <div class="search-bar">
+                    <input type="text" id="settingsApi" placeholder="http://127.0.0.1:5001" class="input-mono">
+                    <button class="btn" onclick="testApi()">Test & Save</button>
+                </div>
+                <div id="apiStatus" class="api-status" style="display: none;"></div>
+
+                <div class="safe-mode-toggle">
+                    <label class="safe-mode-label">
+                        <input type="checkbox" id="safeModeToggle" onchange="toggleSafeMode()">
+                        <span><strong>Safe Mode</strong> - Disable proxy, use direct API calls</span>
+                    </label>
+                    <p class="safe-mode-note">
+                        Note: Direct API calls may fail on deployed domains due to CORS. Use only if the proxy is banned.
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Notifications</h2>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Desktop Notifications</div>
+                        <div class="toggle-desc">Get browser alerts for deals</div>
+                    </div>
+                    <div class="toggle active" id="toggleNotif" onclick="toggleSetting('notif')"></div>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Sound Alerts</div>
+                        <div class="toggle-desc">Play sound for new deals</div>
+                    </div>
+                    <div class="toggle active" id="toggleSound" onclick="toggleSetting('sound')"></div>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <div class="toggle-label">Live Scanner</div>
+                        <div class="toggle-desc">Auto-scan every 60 seconds</div>
+                    </div>
+                    <div class="toggle" id="toggleScanner" onclick="toggleScanner()"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Location</h2>
+                <div class="search-bar">
+                    <input type="text" id="settingsZip" placeholder="Your ZIP code">
+                    <button class="btn btn-outline" onclick="saveZip()">Save</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Shipping Address</h2>
+                <div class="address-form">
+                    <input type="text" id="settingsName" placeholder="Full Name">
+                    <input type="text" id="settingsAddress1" placeholder="Street Address">
+                    <input type="text" id="settingsAddress2" placeholder="Apt, Suite, Unit (optional)">
+                    <div class="address-city-row">
+                        <input type="text" id="settingsCity" placeholder="City">
+                        <input type="text" id="settingsState" placeholder="State">
+                        <input type="text" id="settingsZipShip" placeholder="ZIP">
+                    </div>
+                    <input type="tel" id="settingsPhone" placeholder="Phone Number">
+                    <button class="btn btn-outline" onclick="saveAddress()">Save Address</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Payment Methods</h2>
+                <p class="card-description">Connect secure payment methods. Your card details are never stored on our servers.</p>
+
+                <div id="connectedPayments">
+                    <div id="stripeConnected" class="payment-method" style="display: none;">
+                        <div class="payment-method-row">
+                            <div class="payment-method-info">
+                                <div class="payment-badge payment-badge--stripe">STRIPE</div>
+                                <span id="stripeCardDisplay" class="payment-card-num">&bull;&bull;&bull;&bull; 4242</span>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="disconnectStripe()">Remove</button>
+                        </div>
+                    </div>
+                    <div id="paypalConnected" class="payment-method" style="display: none;">
+                        <div class="payment-method-row">
+                            <div class="payment-method-info">
+                                <div class="payment-badge payment-badge--paypal">PayPal</div>
+                                <span id="paypalEmailDisplay">user@email.com</span>
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="disconnectPaypal()">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="payment-add-btns">
+                    <button id="addStripeBtn" class="btn btn-stripe" onclick="connectStripe()">Add Card with Stripe</button>
+                    <button id="addPaypalBtn" class="btn btn-paypal" onclick="connectPaypal()">Connect PayPal</button>
+                </div>
+
+                <div class="payment-security-note">
+                    <strong>Your payment info is secure</strong>
+                    <div>Card numbers are never stored on our servers. All payments are processed securely through Stripe or PayPal.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Retailer Accounts</h2>
+                <p class="card-description">Link your retailer accounts for faster checkout. Click to log in and save your session.</p>
+                <div class="retailer-accounts">
+                    <a href="https://www.target.com/account" target="_blank" class="btn btn-outline retailer-link">Target Account</a>
+                    <a href="https://www.walmart.com/account" target="_blank" class="btn btn-outline retailer-link">Walmart Account</a>
+                    <a href="https://www.bestbuy.com/identity/signin" target="_blank" class="btn btn-outline retailer-link">Best Buy Account</a>
+                    <a href="https://www.gamestop.com/account/" target="_blank" class="btn btn-outline retailer-link">GameStop Account</a>
+                    <a href="https://www.pokemoncenter.com/account" target="_blank" class="btn btn-outline retailer-link">Pokemon Center Account</a>
+                    <a href="https://www.tcgplayer.com/settings/account" target="_blank" class="btn btn-outline retailer-link">TCGPlayer Account</a>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Data Backup & Sync</h2>
+                <p class="card-description">Your data syncs automatically when logged in with Discord. You can also export/import backups manually.</p>
+                <div id="syncStatus" class="sync-status">
+                    <span id="syncStatusText">Not logged in - data stored locally only</span>
+                </div>
+                <div class="backup-btns">
+                    <button class="btn btn-outline" onclick="exportUserData()">Export Backup</button>
+                    <label class="btn btn-outline backup-import-label">
+                        Import Backup
+                        <input type="file" accept=".json" onchange="importUserData(this.files[0]); this.value='';" style="display: none;">
+                    </label>
+                </div>
+            </div>
+
+            <div class="card card--danger">
+                <h2 class="danger-title">Danger Zone</h2>
+                <p class="card-description">Permanently delete all your data from the server. This cannot be undone.</p>
+                <button class="btn btn-danger" onclick="deleteAllData()">Delete All My Data</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Alerts Container -->
+    <div class="alerts" id="alertsContainer"></div>
+
+    <!-- Core modules (load order matters) -->
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/cache.js"></script>
+    <script src="js/products.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/live.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/chart.js"></script>
+
+    <!-- Tab modules -->
+    <script src="js/tabs/drops.js"></script>
+    <script src="js/tabs/vending.js"></script>
+    <script src="js/tabs/stock.js"></script>
+    <script src="js/tabs/monitors.js"></script>
+    <script src="js/tabs/database.js"></script>
+    <script src="js/tabs/cards.js"></script>
+    <script src="js/tabs/flip.js"></script>
+    <script src="js/tabs/grading.js"></script>
+    <script src="js/tabs/assistant.js"></script>
+    <script src="js/tabs/portfolio.js"></script>
+    <script src="js/tabs/analytics.js"></script>
+    <script src="js/tabs/settings.js"></script>
+
+    <!-- Bootstrap (DOMContentLoaded handler, section switching, init) -->
+    <script src="js/app.js"></script>
+</body>
+</html>
