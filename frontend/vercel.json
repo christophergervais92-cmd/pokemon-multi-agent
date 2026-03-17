@@ -10,9 +10,8 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://pokemon-multi-agent.onrender.com/api/$1" },
-    { "source": "/dashboard", "destination": "/index.html" },
-    { "source": "/dashboard/(.*)", "destination": "/index.html" },
-    { "source": "/", "destination": "/landing.html" }
+    { "source": "/dashboard", "destination": "/app.html" },
+    { "source": "/dashboard/(.*)", "destination": "/app.html" }
   ],
   "headers": [
     {

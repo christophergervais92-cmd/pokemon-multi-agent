@@ -23,6 +23,7 @@ export default defineConfig({
     target: 'es2020',
     chunkSizeWarningLimit: 600,
     rollupOptions: {
+      input: path.resolve(__dirname, 'app.html'),
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
