@@ -178,7 +178,7 @@ export default function Sealed() {
           set: p.set_name || '',
           type: ptype as SealedProduct['type'],
           msrp: p.msrp ?? 0,
-          releaseDate: p.updated_at || '',
+          releaseDate: (p.updated_at as string) || '',
           currentPrice: p.current_price ?? 0,
           priceHistory: [],
           notes: p.notes || undefined,
