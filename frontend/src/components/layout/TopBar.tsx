@@ -86,25 +86,31 @@ export default function TopBar() {
       {/* Right: Actions */}
       <div className="flex items-center gap-1">
         {/* Backend status badge */}
-        {!healthLoading && (
-          <div
-            className={cn(
-              'hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mr-1 transition-colors',
-              isOnline
+        <div
+          className={cn(
+            'hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mr-1 transition-all duration-500',
+            healthLoading
+              ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'
+              : isOnline
                 ? 'bg-green-500/10 border border-green-500/20 text-green-400'
                 : 'bg-red-500/10 border border-red-500/20 text-red-400'
+          )}
+          title={healthLoading ? 'Checking backend...' : isOnline ? 'Backend API is online' : 'Backend API is offline'}
+        >
+          <span className="relative flex h-1.5 w-1.5">
+            {(healthLoading || isOnline) && (
+              <span className={cn(
+                'animate-ping absolute inline-flex h-full w-full rounded-full opacity-75',
+                healthLoading ? 'bg-yellow-400' : 'bg-green-400'
+              )} />
             )}
-            title={isOnline ? 'Backend API is online' : 'Backend API is offline'}
-          >
-            <span className="relative flex h-1.5 w-1.5">
-              {isOnline && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-              )}
-              <span className={cn('relative inline-flex rounded-full h-1.5 w-1.5', isOnline ? 'bg-green-500' : 'bg-red-500')} />
-            </span>
-            {isOnline ? 'Online' : 'Offline'}
-          </div>
-        )}
+            <span className={cn(
+              'relative inline-flex rounded-full h-1.5 w-1.5',
+              healthLoading ? 'bg-yellow-500' : isOnline ? 'bg-green-500' : 'bg-red-500'
+            )} />
+          </span>
+          {healthLoading ? 'Checking…' : isOnline ? 'Online' : 'Offline'}
+        </div>
 
         {/* Mobile search toggle */}
         <button

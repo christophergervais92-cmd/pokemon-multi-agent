@@ -196,7 +196,10 @@ export function useHealth() {
     queryKey: ['health'],
     queryFn: () => api.health(),
     staleTime: 30_000,
-    retry: 2,
+    retry: 4,
+    retryDelay: (attempt) => Math.min(3000 * (attempt + 1), 15_000), // 3s, 6s, 9s, 12s
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   })
 }
 
