@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Database as DatabaseIcon, AlertCircle } from 'lucide-react'
+import { Database as DatabaseIcon, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PageTransition } from '@/components/layout/PageTransition'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -9,7 +9,8 @@ import { Progress } from '@/components/ui/Progress'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations'
 import { useSets, usePullRates, useChaseCards, useSetCards } from '@/hooks/useApi'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import CardGradeModal from '@/components/shared/CardGradeModal'
+import type { SetCardItem } from '@/lib/api'
 
 const SERIES_OPTIONS = [
   { value: '', label: 'All Series' },
@@ -44,6 +45,7 @@ export default function Database() {
   const [chaseFilter, setChaseFilter] = useState('All')
   const [cardsPage, setCardsPage] = useState(1)
   const [activeTab, setActiveTab] = useState<'all' | 'chase'>('all')
+  const [selectedCard, setSelectedCard] = useState<SetCardItem | null>(null)
 
   // Fetch sets from API
   const { data: setsData, isLoading: setsLoading, isError: setsError } = useSets(series || undefined)
@@ -271,16 +273,26 @@ export default function Database() {
                     >
                       {allCards.map((card) => (
                         <motion.div key={card.id} variants={staggerItem}>
-                          <Card hover className="overflow-hidden">
+                          <Card
+                            hover
+                            className="overflow-hidden cursor-pointer group"
+                            onClick={() => setSelectedCard(card)}
+                          >
                             <div className="aspect-[3/4] bg-gradient-to-br from-surface-elevated to-surface relative overflow-hidden">
                               {card.image_url || card.small_image_url ? (
                                 <img
                                   src={card.small_image_url ?? card.image_url}
                                   alt={card.name}
-                                  className="absolute inset-0 w-full h-full object-contain"
+                                  className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                                   loading="lazy"
                                 />
                               ) : null}
+                              {/* Grade chart hint overlay */}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+                                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] text-white font-medium bg-black/60 px-2 py-1 rounded-full">
+                                  View Grades
+                                </span>
+                              </div>
                             </div>
                             <CardContent className="p-3 space-y-1">
                               <p className="text-sm font-medium text-foreground truncate">{card.name}</p>
@@ -363,16 +375,25 @@ export default function Database() {
                   >
                     {filteredChaseCards.map((card) => (
                       <motion.div key={card.id || card.name} variants={staggerItem}>
-                        <Card hover className="overflow-hidden">
+                        <Card
+                          hover
+                          className="overflow-hidden cursor-pointer group"
+                          onClick={() => setSelectedCard(card as unknown as SetCardItem)}
+                        >
                           <div className="aspect-[3/4] bg-gradient-to-br from-accent/20 via-surface-elevated to-accent/5 relative overflow-hidden">
                             {card.image_url ? (
                               <img
                                 src={card.image_url}
                                 alt={card.name}
-                                className="absolute inset-0 w-full h-full object-contain"
+                                className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                                 loading="lazy"
                               />
                             ) : null}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center">
+                              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] text-white font-medium bg-black/60 px-2 py-1 rounded-full">
+                                View Grades
+                              </span>
+                            </div>
                           </div>
                           <CardContent className="p-3 space-y-1.5">
                             <p className="text-sm font-medium text-foreground truncate">{card.name}</p>
@@ -395,6 +416,9 @@ export default function Database() {
           </div>
         )}
       </div>
+
+      {/* Grade chart modal */}
+      <CardGradeModal card={selectedCard} onClose={() => setSelectedCard(null)} />
     </PageTransition>
   )
 }
