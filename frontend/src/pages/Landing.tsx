@@ -161,12 +161,28 @@ export default function Landing() {
             </p>
           </motion.div>
 
+          {/* Online badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.35 }}
+            className="flex justify-center mt-8"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              Systems Online
+            </div>
+          </motion.div>
+
           {/* CTA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6"
           >
             <motion.button
               onClick={() => navigate('/dashboard')}
