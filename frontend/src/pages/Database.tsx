@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Database as DatabaseIcon, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Database as DatabaseIcon, AlertCircle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { PageTransition } from '@/components/layout/PageTransition'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -46,6 +46,7 @@ export default function Database() {
   const [cardsPage, setCardsPage] = useState(1)
   const [activeTab, setActiveTab] = useState<'all' | 'chase'>('all')
   const [selectedCard, setSelectedCard] = useState<SetCardItem | null>(null)
+  const [setSearch, setSetSearch] = useState('')
 
   // Fetch sets from API
   const { data: setsData, isLoading: setsLoading, isError: setsError } = useSets(series || undefined)
@@ -84,6 +85,14 @@ export default function Database() {
 
   const selectedSetInfo = sets.find((s) => s.id === selectedSet)
 
+  const filteredSets = useMemo(() => {
+    if (!setSearch.trim()) return sets
+    const q = setSearch.toLowerCase()
+    return sets.filter((s) =>
+      s.name.toLowerCase().includes(q) || (s.series || '').toLowerCase().includes(q)
+    )
+  }, [sets, setSearch])
+
   return (
     <PageTransition>
       <div className="space-y-8">
@@ -93,76 +102,118 @@ export default function Database() {
           <p className="mt-1 text-muted-foreground/60 text-sm">Explore every Pokemon TCG set</p>
         </div>
 
-        {/* Set Selector */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="w-full sm:w-48">
+        {/* Filters row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="w-full sm:w-44 shrink-0">
             <Select
               label="Series"
               options={SERIES_OPTIONS}
               value={series}
-              onChange={(e) => {
-                setSeries(e.target.value)
-                setSelectedSet('')
-              }}
+              onChange={(e) => { setSeries(e.target.value); setSelectedSet(''); setSetSearch('') }}
             />
           </div>
-          <div className="flex-1">
-            {setsLoading ? (
-              <Skeleton className="h-10 w-full rounded-lg" />
-            ) : setsError ? (
-              <div className="flex items-center gap-2 text-sm text-rose-400 h-10">
-                <AlertCircle className="h-4 w-4" />
-                Failed to load sets
-              </div>
-            ) : (
-              <Select
-                label="Set"
-                options={setOptions}
-                value={selectedSet}
-                onChange={(e) => { setSelectedSet(e.target.value); setCardsPage(1); setActiveTab('all') }}
-                placeholder="Select a set..."
-              />
+          {/* Search box */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
+            <input
+              type="text"
+              value={setSearch}
+              onChange={(e) => { setSetSearch(e.target.value); setSelectedSet('') }}
+              placeholder="Search sets… (e.g. Prismatic, 151, Surging)"
+              className="w-full h-10 pl-9 pr-9 rounded-lg text-sm bg-surface border border-border text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors"
+            />
+            {setSearch && (
+              <button
+                onClick={() => setSetSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
         </div>
 
-        {/* Set List (when no set selected) */}
-        {!selectedSet && sets.length > 0 && (
-          <motion.div
-            variants={staggerContainer}
-            initial="initial"
-            animate="animate"
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          >
-            {sets.slice(0, 20).map((set) => (
-              <motion.div key={set.id} variants={staggerItem}>
-                <Card
-                  hover
-                  className="cursor-pointer overflow-hidden"
-                  onClick={() => setSelectedSet(set.id)}
+        {/* Set Grid (when no set selected) */}
+        {!selectedSet && (
+          <>
+            {setsLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-24 w-full rounded-xl" />
+                    <Skeleton className="h-3 w-3/4 mx-auto" />
+                    <Skeleton className="h-2.5 w-1/2 mx-auto" />
+                  </div>
+                ))}
+              </div>
+            ) : setsError ? (
+              <div className="flex items-center gap-2 text-sm text-rose-400">
+                <AlertCircle className="h-4 w-4" />
+                Failed to load sets — check that the backend is online
+              </div>
+            ) : filteredSets.length > 0 ? (
+              <>
+                <p className="text-xs text-muted-foreground/50">
+                  {filteredSets.length} set{filteredSets.length !== 1 ? 's' : ''}
+                  {setSearch ? ` matching "${setSearch}"` : (series ? ` in ${series}` : ' across all series')}
+                  {' '}— click any set to explore its cards
+                </p>
+                <motion.div
+                  variants={staggerContainer}
+                  initial="initial"
+                  animate="animate"
+                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
                 >
-                  <CardContent className="p-4">
-                    {set.logo_url ? (
-                      <img
-                        src={set.logo_url}
-                        alt={set.name}
-                        className="h-12 mx-auto mb-3 object-contain"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center">
-                        <DatabaseIcon className="h-6 w-6 text-accent" />
-                      </div>
-                    )}
-                    <p className="text-sm font-semibold text-center truncate">{set.name}</p>
-                    <p className="text-xs text-muted text-center mt-0.5">
-                      {set.series}{set.total_cards ? ` · ${set.total_cards} cards` : ''}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
+                  {filteredSets.map((set) => (
+                    <motion.div key={set.id} variants={staggerItem}>
+                      <Card
+                        hover
+                        className="cursor-pointer overflow-hidden group transition-all duration-300 hover:border-accent/30"
+                        onClick={() => { setSelectedSet(set.id); setCardsPage(1); setActiveTab('all') }}
+                      >
+                        <CardContent className="p-3 flex flex-col items-center">
+                          {/* Set logo — tall box so logos have room */}
+                          <div className="w-full h-20 flex items-center justify-center mb-2 rounded-lg overflow-hidden bg-gradient-to-br from-white/[0.03] to-white/[0.01] group-hover:from-accent/10 group-hover:to-accent/5 transition-colors duration-300">
+                            {set.logo_url ? (
+                              <img
+                                src={set.logo_url}
+                                alt={set.name}
+                                className="max-h-16 max-w-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition-transform duration-300 group-hover:scale-105"
+                                loading="lazy"
+                                onError={(e) => {
+                                  // fallback: hide broken image, show icon
+                                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            ) : (
+                              <DatabaseIcon className="h-8 w-8 text-accent/40" />
+                            )}
+                          </div>
+                          <p className="text-xs font-semibold text-center leading-tight line-clamp-2">{set.name}</p>
+                          <p className="text-[10px] text-muted text-center mt-0.5 truncate w-full">
+                            {set.series || '—'}{set.total_cards ? ` · ${set.total_cards}` : ''}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </>
+            ) : (
+              <p className="text-sm text-muted text-center py-8">No sets found{setSearch ? ` for "${setSearch}"` : ''}</p>
+            )}
+          </>
+        )}
+
+        {/* Back to all sets */}
+        {selectedSet && (
+          <button
+            onClick={() => { setSelectedSet(''); setCardsPage(1) }}
+            className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            All Sets
+          </button>
         )}
 
         {/* Set Info Hero Card */}
