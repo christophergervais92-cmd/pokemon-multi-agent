@@ -5,6 +5,7 @@ import { NAV_ITEMS } from '@/lib/constants'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { useTheme } from '@/hooks/useTheme'
+import { useHealth } from '@/hooks/useApi'
 import { useState, useRef, useEffect } from 'react'
 
 export default function TopBar() {
@@ -13,9 +14,12 @@ export default function TopBar() {
   const { user, isAuthenticated } = useAuthStore()
   const { sidebarCollapsed } = useUIStore()
   const { isDark, toggleTheme } = useTheme()
+  const { data: healthData, isError: healthError, isLoading: healthLoading } = useHealth()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
+
+  const isOnline = !healthLoading && !healthError && !!healthData
 
   const currentPage = NAV_ITEMS.find((item) => {
     if (item.path === '/') return location.pathname === '/'
@@ -81,6 +85,27 @@ export default function TopBar() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-1">
+        {/* Backend status badge */}
+        {!healthLoading && (
+          <div
+            className={cn(
+              'hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mr-1 transition-colors',
+              isOnline
+                ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            )}
+            title={isOnline ? 'Backend API is online' : 'Backend API is offline'}
+          >
+            <span className="relative flex h-1.5 w-1.5">
+              {isOnline && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              )}
+              <span className={cn('relative inline-flex rounded-full h-1.5 w-1.5', isOnline ? 'bg-green-500' : 'bg-red-500')} />
+            </span>
+            {isOnline ? 'Online' : 'Offline'}
+          </div>
+        )}
+
         {/* Mobile search toggle */}
         <button
           onClick={() => setSearchOpen(!searchOpen)}
