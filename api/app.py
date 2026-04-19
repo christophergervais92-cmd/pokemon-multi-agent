@@ -51,6 +51,19 @@ from alerts.tracker import (
 from grading.estimator import estimate_grade, assess_condition, get_grading_cost_estimate
 from agent.settings import get_settings, update_settings, can_auto_purchase, get_remaining_budget
 from api.ebay_client import search_sold_listings
+from drops.data import (
+    list_drops, list_rumors, list_live_intel, get_calendar_events, drops_summary,
+)
+from monitors.tracker import (
+    init_monitors_table, list_monitors, create_monitor, update_monitor,
+    delete_monitor, get_monitor, monitor_stats,
+)
+from vending.locations import (
+    list_locations as list_vending_locations,
+    get_location as get_vending_location,
+    vending_stats,
+)
+from db.queries import get_cards_by_set
 
 
 def _auto_seed_if_empty():
@@ -82,6 +95,7 @@ def create_app() -> Flask:
     from alerts.tracker import init_alerts_table
     init_db()
     init_alerts_table()
+    init_monitors_table()
 
     # Auto-seed if database is empty (handles Render's ephemeral filesystem)
     _auto_seed_if_empty()
@@ -1243,6 +1257,171 @@ def create_app() -> Flask:
             ]
 
         return jsonify(result)
+
+    # ── Paginated cards for a set ───────────────────────────
+    @app.route("/api/sets/<set_id>/cards", methods=["GET"])
+    def api_set_cards(set_id):
+        """Paginated card list for a set. Query: ?page=1&limit=60"""
+        try:
+            page = max(1, int(request.args.get("page", "1")))
+            limit = max(1, min(int(request.args.get("limit", "60")), 200))
+        except ValueError:
+            return jsonify({"error": "invalid page or limit"}), 400
+
+        resolved = resolve_set_id(set_id)
+        if not resolved:
+            return jsonify({"data": [], "set_id": set_id, "total": 0, "page": page, "pages": 0, "limit": limit})
+
+        cards = _cached(f"set_cards:{resolved}", 300, lambda: get_cards_by_set(resolved))
+        total = len(cards)
+        start = (page - 1) * limit
+        end = start + limit
+        pages = (total + limit - 1) // limit if limit else 1
+        page_cards = cards[start:end]
+
+        # Shape to frontend SetCardItem
+        shaped = []
+        for c in page_cards:
+            shaped.append({
+                "id": c.get("id", ""),
+                "set_id": c.get("set_id", resolved),
+                "name": c.get("name", ""),
+                "number": c.get("number"),
+                "rarity": c.get("rarity"),
+                "supertype": c.get("supertype"),
+                "subtype": c.get("subtype"),
+                "image_url": c.get("image_url") or c.get("image"),
+                "small_image_url": c.get("small_image_url") or c.get("image_url") or c.get("image"),
+                "tcgplayer_market": c.get("tcgplayer_market"),
+            })
+
+        resp = jsonify({
+            "data": shaped, "set_id": resolved, "total": total,
+            "page": page, "pages": pages, "limit": limit,
+        })
+        resp.headers["X-Cache-TTL"] = "180"
+        return resp
+
+    # ── Drops (upcoming releases, rumors, live intel) ───────
+    @app.route("/api/drops", methods=["GET"])
+    def api_drops():
+        """Upcoming drops. ?filter=this_week|this_month|next_month|q2_2026|all"""
+        tf = request.args.get("filter")
+        resp = jsonify({"data": list_drops(tf), "summary": drops_summary()})
+        resp.headers["X-Cache-TTL"] = "120"
+        return resp
+
+    @app.route("/api/drops/summary", methods=["GET"])
+    def api_drops_summary():
+        resp = jsonify(drops_summary())
+        resp.headers["X-Cache-TTL"] = "120"
+        return resp
+
+    @app.route("/api/drops/calendar", methods=["GET"])
+    def api_drops_calendar():
+        resp = jsonify({"data": get_calendar_events()})
+        resp.headers["X-Cache-TTL"] = "300"
+        return resp
+
+    @app.route("/api/drops/rumors", methods=["GET"])
+    def api_drops_rumors():
+        """?reliability=high|medium|low"""
+        r = request.args.get("reliability")
+        resp = jsonify({"data": list_rumors(r)})
+        resp.headers["X-Cache-TTL"] = "300"
+        return resp
+
+    @app.route("/api/drops/live-intel", methods=["GET"])
+    def api_drops_live_intel():
+        """?source=Reddit&verified=true"""
+        src = request.args.get("source")
+        verified_only = request.args.get("verified", "").lower() == "true"
+        resp = jsonify({"data": list_live_intel(src, verified_only)})
+        resp.headers["X-Cache-TTL"] = "60"
+        return resp
+
+    # ── Monitors (persistent stock watch tasks) ─────────────
+    @app.route("/api/monitors/<user_id>", methods=["GET"])
+    def api_monitors_list(user_id):
+        return jsonify({
+            "user_id": user_id,
+            "monitors": list_monitors(user_id),
+            "stats": monitor_stats(user_id),
+        })
+
+    @app.route("/api/monitors/<user_id>", methods=["POST"])
+    def api_monitors_create(user_id):
+        body = request.get_json(silent=True) or {}
+        try:
+            monitor = create_monitor(
+                user_id=user_id,
+                query=body.get("query", ""),
+                retailer=body.get("retailer", "all"),
+                zip_code=body.get("zip_code") or body.get("zip"),
+                interval_seconds=int(body.get("interval_seconds", 60)),
+                webhook_url=body.get("webhook_url"),
+                active=bool(body.get("active", True)),
+            )
+            return jsonify({"success": True, "monitor": monitor}), 201
+        except ValueError as e:
+            return jsonify({"success": False, "error": str(e)}), 400
+
+    @app.route("/api/monitors/<user_id>/<int:monitor_id>", methods=["PATCH"])
+    def api_monitors_update(user_id, monitor_id):
+        body = request.get_json(silent=True) or {}
+        monitor = update_monitor(user_id, monitor_id, **body)
+        if not monitor:
+            return jsonify({"success": False, "error": "not found"}), 404
+        return jsonify({"success": True, "monitor": monitor})
+
+    @app.route("/api/monitors/<user_id>/<int:monitor_id>", methods=["DELETE"])
+    def api_monitors_delete(user_id, monitor_id):
+        ok = delete_monitor(user_id, monitor_id)
+        if not ok:
+            return jsonify({"success": False, "error": "not found"}), 404
+        return jsonify({"success": True})
+
+    @app.route("/api/monitors/<user_id>/<int:monitor_id>/toggle", methods=["PATCH"])
+    def api_monitors_toggle(user_id, monitor_id):
+        existing = get_monitor(user_id, monitor_id)
+        if not existing:
+            return jsonify({"success": False, "error": "not found"}), 404
+        monitor = update_monitor(user_id, monitor_id, active=not existing["active"])
+        return jsonify({"success": True, "monitor": monitor})
+
+    # ── Vending machine locations ───────────────────────────
+    @app.route("/api/vending/locations", methods=["GET"])
+    def api_vending_locations():
+        """?zip=90210&radius=25&state=CA&city=seattle&verified=true"""
+        zip_code = request.args.get("zip") or request.args.get("zip_code")
+        state = request.args.get("state")
+        city = request.args.get("city")
+        radius = request.args.get("radius")
+        radius_miles = float(radius) if radius else None
+        verified_only = request.args.get("verified", "").lower() == "true"
+
+        locs = list_vending_locations(
+            zip_code=zip_code, state=state, city=city,
+            radius_miles=radius_miles, verified_only=verified_only,
+        )
+        resp = jsonify({"data": locs, "count": len(locs), "stats": vending_stats()})
+        resp.headers["X-Cache-TTL"] = "600"
+        return resp
+
+    @app.route("/api/vending/locations/<location_id>", methods=["GET"])
+    def api_vending_location(location_id):
+        loc = get_vending_location(location_id)
+        if not loc:
+            return jsonify({"error": "not found"}), 404
+        resp = jsonify(loc)
+        resp.headers["X-Cache-TTL"] = "600"
+        return resp
+
+    @app.route("/api/vending/stats", methods=["GET"])
+    def api_vending_stats():
+        resp = jsonify(vending_stats())
+        resp.headers["X-Cache-TTL"] = "600"
+        return resp
 
     return app
 

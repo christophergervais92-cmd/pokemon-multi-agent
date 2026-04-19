@@ -274,3 +274,95 @@ export function useTrendingCards(limit: number = 20) {
     gcTime: 30 * 60_000,
   })
 }
+
+/* ── Drops ── */
+export function useDrops(filter?: string) {
+  return useQuery({
+    queryKey: ['drops', filter],
+    queryFn: () => api.drops.list(filter),
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+  })
+}
+
+export function useDropsCalendar() {
+  return useQuery({
+    queryKey: ['dropsCalendar'],
+    queryFn: () => api.drops.calendar(),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+  })
+}
+
+export function useDropsRumors(reliability?: string) {
+  return useQuery({
+    queryKey: ['dropsRumors', reliability],
+    queryFn: () => api.drops.rumors(reliability),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+  })
+}
+
+export function useDropsLiveIntel(source?: string, verifiedOnly?: boolean) {
+  return useQuery({
+    queryKey: ['dropsLiveIntel', source, verifiedOnly],
+    queryFn: () => api.drops.liveIntel(source, verifiedOnly),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+  })
+}
+
+/* ── Monitors ── */
+export function useMonitors(userId: string) {
+  return useQuery({
+    queryKey: ['monitors', userId],
+    queryFn: () => api.monitors.list(userId),
+    enabled: !!userId,
+    staleTime: 30_000,
+  })
+}
+
+export function useCreateMonitor(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: import('@/lib/api').CreateMonitorBody) => api.monitors.create(userId, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['monitors', userId] }),
+  })
+}
+
+export function useUpdateMonitor(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: Partial<import('@/lib/api').CreateMonitorBody> }) =>
+      api.monitors.update(userId, id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['monitors', userId] }),
+  })
+}
+
+export function useToggleMonitor(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.monitors.toggle(userId, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['monitors', userId] }),
+  })
+}
+
+export function useDeleteMonitor(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.monitors.delete(userId, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['monitors', userId] }),
+  })
+}
+
+/* ── Vending ── */
+export function useVendingLocations(params?: {
+  zip?: string; state?: string; city?: string; radius?: number; verifiedOnly?: boolean
+}) {
+  return useQuery({
+    queryKey: ['vendingLocations', params],
+    queryFn: () => api.vending.locations(params),
+    staleTime: 10 * 60_000,
+    gcTime: 60 * 60_000,
+  })
+}

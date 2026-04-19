@@ -211,6 +211,75 @@ export const api = {
     triggerPriceSync: () =>
       request<{ success: boolean }>('/sync/prices', { method: 'POST' }),
   },
+
+  /* ── Drops ── */
+  drops: {
+    list: (filter?: string) =>
+      request<{ data: Drop[]; summary: DropsSummary }>(
+        `/drops${filter ? `?filter=${encodeURIComponent(filter)}` : ''}`
+      ),
+    summary: () => request<DropsSummary>('/drops/summary'),
+    calendar: () => request<{ data: CalendarEvent[] }>('/drops/calendar'),
+    rumors: (reliability?: string) =>
+      request<{ data: Rumor[] }>(
+        `/drops/rumors${reliability ? `?reliability=${reliability}` : ''}`
+      ),
+    liveIntel: (source?: string, verifiedOnly?: boolean) => {
+      const params = new URLSearchParams()
+      if (source) params.set('source', source)
+      if (verifiedOnly) params.set('verified', 'true')
+      const qs = params.toString()
+      return request<{ data: LiveIntel[] }>(`/drops/live-intel${qs ? `?${qs}` : ''}`)
+    },
+  },
+
+  /* ── Monitors ── */
+  monitors: {
+    list: (userId: string) =>
+      request<{ user_id: string; monitors: Monitor[]; stats: MonitorStats }>(
+        `/monitors/${encodeURIComponent(userId)}`
+      ),
+    create: (userId: string, body: CreateMonitorBody) =>
+      request<{ success: boolean; monitor: Monitor }>(
+        `/monitors/${encodeURIComponent(userId)}`,
+        { method: 'POST', body: JSON.stringify(body) }
+      ),
+    update: (userId: string, monitorId: number, body: Partial<CreateMonitorBody>) =>
+      request<{ success: boolean; monitor: Monitor }>(
+        `/monitors/${encodeURIComponent(userId)}/${monitorId}`,
+        { method: 'PATCH', body: JSON.stringify(body) }
+      ),
+    toggle: (userId: string, monitorId: number) =>
+      request<{ success: boolean; monitor: Monitor }>(
+        `/monitors/${encodeURIComponent(userId)}/${monitorId}/toggle`,
+        { method: 'PATCH' }
+      ),
+    delete: (userId: string, monitorId: number) =>
+      request<{ success: boolean }>(
+        `/monitors/${encodeURIComponent(userId)}/${monitorId}`,
+        { method: 'DELETE' }
+      ),
+  },
+
+  /* ── Vending ── */
+  vending: {
+    locations: (params?: {
+      zip?: string; state?: string; city?: string; radius?: number; verifiedOnly?: boolean
+    }) => {
+      const qs = new URLSearchParams()
+      if (params?.zip) qs.set('zip', params.zip)
+      if (params?.state) qs.set('state', params.state)
+      if (params?.city) qs.set('city', params.city)
+      if (params?.radius) qs.set('radius', String(params.radius))
+      if (params?.verifiedOnly) qs.set('verified', 'true')
+      const q = qs.toString()
+      return request<{ data: VendingLocation[]; count: number; stats: VendingStats }>(
+        `/vending/locations${q ? `?${q}` : ''}`
+      )
+    },
+    location: (id: string) => request<VendingLocation>(`/vending/locations/${id}`),
+    stats: () => request<VendingStats>('/vending/stats'),
+  },
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -495,6 +564,126 @@ export interface EbaySoldResult {
   query: string
   fallback?: boolean
   message?: string
+}
+
+/* ── Drops ── */
+export interface DropProduct {
+  name: string
+  msrp: number
+  packs?: number
+  type: 'etb' | 'booster_box' | 'booster_bundle' | 'blister' | 'tin' | 'collection_box' | 'ultra_premium' | string
+}
+
+export interface PullRateEstimate {
+  rarity: string
+  rate: string
+}
+
+export interface Drop {
+  id: string
+  title: string
+  date: string
+  date_label: string
+  retailers: string[]
+  type: 'new_set' | 'restock' | 'exclusive' | 'special'
+  border_color: string
+  products: DropProduct[]
+  top_chase_cards: string[]
+  estimated_pull_rates: PullRateEstimate[]
+  days_until: number
+}
+
+export interface Rumor {
+  id: string
+  title: string
+  source: string
+  reliability: 'high' | 'medium' | 'low'
+  description: string
+  date: string
+  impact: string
+}
+
+export interface LiveIntel {
+  id: string
+  source: string
+  content: string
+  timestamp: string
+  verified: boolean
+  location: string | null
+  product: string | null
+}
+
+export interface CalendarEvent {
+  date: string
+  title: string
+  type: string
+  color: string
+  drop_id: string
+}
+
+export interface DropsSummary {
+  total_drops: number
+  new_sets: number
+  restocks: number
+  exclusives: number
+  verified_sightings: number
+  active_rumors: number
+  days_until_next: number | null
+  next_drop_title: string | null
+}
+
+/* ── Monitors ── */
+export interface Monitor {
+  id: number
+  user_id: string
+  query: string
+  retailer: string
+  zip_code: string | null
+  interval_seconds: number
+  webhook_url: string | null
+  active: boolean
+  last_hit_at: string | null
+  last_hit_summary: string | null
+  hit_count: number
+  created_at: string
+}
+
+export interface CreateMonitorBody {
+  query: string
+  retailer?: string
+  zip_code?: string
+  interval_seconds?: number
+  webhook_url?: string
+  active?: boolean
+}
+
+export interface MonitorStats {
+  total: number
+  active: number
+  paused: number
+  total_hits: number
+}
+
+/* ── Vending ── */
+export interface VendingLocation {
+  id: string
+  name: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  lat: number
+  lng: number
+  verified: boolean
+  last_verified: string
+  products: string[]
+  distance_miles?: number
+}
+
+export interface VendingStats {
+  total_locations: number
+  verified: number
+  states_covered: number
 }
 
 /* ── Stock Scanner ── */

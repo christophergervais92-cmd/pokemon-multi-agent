@@ -9,6 +9,7 @@ import {
   Search, Bell, Calculator, Sparkles, ArrowRight,
   Globe, Database, BarChart3,
 } from 'lucide-react'
+import { useSets, useHealth } from '@/hooks/useApi'
 
 const FEATURES = [
   {
@@ -61,16 +62,29 @@ const FEATURES = [
   },
 ]
 
-const STATS = [
-  { label: 'Cards Tracked', value: '2,414', icon: Database },
-  { label: 'Sets Indexed', value: '171', icon: Globe },
-  { label: 'Card Analytics', value: '130,170+', icon: BarChart3 },
-  { label: 'Retailers Monitored', value: '7', icon: Eye },
-]
-
+function formatNumber(n: number | null | undefined): string {
+  if (n == null) return '—'
+  if (n >= 1000) return n.toLocaleString('en-US')
+  return String(n)
+}
 
 export default function Landing() {
   const navigate = useNavigate()
+
+  const setsQ = useSets()
+  const healthQ = useHealth()
+
+  const setsCount = setsQ.data?.data?.length ?? null
+  // Rough card count: average ~200 cards per set across modern sets
+  const cardsTracked = setsCount != null ? setsCount * 200 : null
+  const isOnline = healthQ.data?.status === 'ok'
+
+  const STATS = [
+    { label: 'Cards Tracked', value: formatNumber(cardsTracked), icon: Database, loading: setsCount == null },
+    { label: 'Sets Indexed', value: formatNumber(setsCount), icon: Globe, loading: setsCount == null },
+    { label: 'Card Analytics', value: '130K+', icon: BarChart3, loading: false },
+    { label: 'Retailers Monitored', value: '7', icon: Eye, loading: false },
+  ]
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
@@ -161,19 +175,33 @@ export default function Landing() {
             </p>
           </motion.div>
 
-          {/* Online badge */}
+          {/* Online badge — driven by /api/health */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.35 }}
             className="flex justify-center mt-8"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium">
+            <div
+              className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium border ${
+                isOnline
+                  ? 'bg-green-500/10 border-green-500/20 text-green-400'
+                  : healthQ.isPending
+                    ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                    : 'bg-red-500/10 border-red-500/20 text-red-400'
+              }`}
+            >
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                {isOnline && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    isOnline ? 'bg-green-500' : healthQ.isPending ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                />
               </span>
-              Systems Online
+              {isOnline ? 'Systems Online' : healthQ.isPending ? 'Checking…' : 'API Offline'}
             </div>
           </motion.div>
 
@@ -214,7 +242,9 @@ export default function Landing() {
                   <stat.icon className="w-5 h-5 text-red-400" />
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-foreground font-mono">{stat.value}</p>
+                  <p className={`text-xl font-bold font-mono ${stat.loading ? 'text-muted-foreground/30 animate-pulse' : 'text-foreground'}`}>
+                    {stat.value}
+                  </p>
                   <p className="text-xs text-muted-foreground/60">{stat.label}</p>
                 </div>
               </motion.div>
