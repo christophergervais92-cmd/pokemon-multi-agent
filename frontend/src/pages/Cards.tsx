@@ -1,223 +1,323 @@
-import { useState, useEffect } from 'react'
+/**
+ * Track — unified card price table. The daily-use page.
+ * Default: top trending. Search: live query. Inline sparklines.
+ */
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, SlidersHorizontal, Package, CreditCard, AlertCircle, Loader2 } from 'lucide-react'
+import {
+  Search, TrendingUp, TrendingDown, Minus, ArrowUpDown,
+  ChevronUp, ChevronDown, Loader2,
+} from 'lucide-react'
 import { PageTransition } from '@/components/layout/PageTransition'
-import { Card, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { staggerContainer, staggerItem } from '@/lib/animations'
+import Sparkline from '@/components/shared/Sparkline'
+import { useTrendingCards, useCardSearch, useSets } from '@/hooks/useApi'
 import { formatPrice } from '@/lib/utils'
-import { useCardSearch } from '@/hooks/useApi'
+import { getCardImageUrl, proxyImageUrl } from '@/lib/product-images'
 
-type SearchType = 'cards' | 'products'
+type SortKey = 'change_7d' | 'change_30d' | 'price' | 'name'
+type SortDir = 'asc' | 'desc'
 
-const POPULAR_SETS = ['Prismatic Evolutions', 'Surging Sparks', '151', 'Paldean Fates', 'Evolving Skies', 'Obsidian Flames']
+// Stable-ish synthetic sparkline from change_7d
+function synthLine(current: number | null, change: number | null): number[] {
+  if (current == null) return []
+  const pct = (change ?? 0) / 100
+  const start = current / (1 + pct)
+  const points: number[] = []
+  for (let i = 0; i < 14; i++) {
+    const t = i / 13
+    const noise = (Math.sin(i * 2.3) + Math.cos(i * 1.7)) * 0.012 * current
+    points.push(start + (current - start) * t + noise)
+  }
+  return points
+}
+
+function rarityChipClass(rarity?: string): string {
+  if (!rarity) return 'chip'
+  const r = rarity.toLowerCase()
+  if (r.includes('special')) return 'chip chip-danger'
+  if (r.includes('secret')) return 'chip chip-danger'
+  if (r.includes('illustration')) return 'chip chip-info'
+  if (r.includes('ultra')) return 'chip chip-warning'
+  if (r.includes('hyper')) return 'chip chip-warning'
+  if (r.includes('holo')) return 'chip chip-success'
+  return 'chip'
+}
 
 export default function Cards() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [searchType, setSearchType] = useState<SearchType>('cards')
-  const [activeQuery, setActiveQuery] = useState(searchParams.get('q') || '')
+  const [committedQuery, setCommittedQuery] = useState(searchParams.get('q') || '')
+  const [setFilter, setSetFilter] = useState<string>('')
+  const [sortKey, setSortKey] = useState<SortKey>('change_7d')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  // Wire to real API via React Query
-  const { data, isLoading, isError, error } = useCardSearch(activeQuery)
-  const results = data?.data ?? []
+  const trendingQ = useTrendingCards(50)
+  const searchQ = useCardSearch(committedQuery)
+  const setsQ = useSets()
 
-  // If navigated here with ?q= param, auto-search
   useEffect(() => {
-    const q = searchParams.get('q')
-    if (q) {
-      setQuery(q)
-      setActiveQuery(q)
-    }
+    const q = searchParams.get('q') ?? ''
+    setQuery(q)
+    setCommittedQuery(q)
   }, [searchParams])
 
-  const handleSearch = () => {
-    if (!query.trim()) return
-    setActiveQuery(query.trim())
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const q = query.trim()
+    setCommittedQuery(q)
+    if (q) setSearchParams({ q })
+    else setSearchParams({})
   }
 
-  const rarityColor = (rarity: string) => {
-    if (rarity.includes('Special Art') || rarity.includes('Hyper')) return 'accent'
-    if (rarity.includes('Illustration') || rarity.includes('Secret')) return 'info'
-    if (rarity.includes('Ultra') || rarity.includes('Full Art')) return 'warning'
-    if (rarity.includes('Holo') || rarity.includes('Rare')) return 'success'
-    return 'default'
-  }
+  const isSearching = committedQuery.length >= 2
+  const rows = useMemo(() => {
+    if (isSearching) {
+      // Normalize search results to same shape as trending
+      return (searchQ.data?.data ?? []).map(c => ({
+        id: c.id,
+        name: c.name,
+        set_name: c.set ?? '',
+        number: (c.number as string | undefined) ?? '',
+        rarity: c.rarity,
+        price: c.price ?? null,
+        change_7d: null as number | null,
+        change_30d: null as number | null,
+        tcgplayer_market: (c.price as number | null) ?? null,
+        image_url: (c.image as string | undefined) ?? null,
+        small_image_url: (c.image as string | undefined) ?? null,
+      }))
+    }
+    return (trendingQ.data?.data ?? []).map(c => ({
+      id: c.id,
+      name: c.name,
+      set_name: c.set_name ?? c.set ?? '',
+      number: c.number ?? '',
+      rarity: c.rarity,
+      price: c.price ?? c.tcgplayer_market ?? null,
+      change_7d: c.change_7d ?? null,
+      change_30d: c.change_30d ?? null,
+      tcgplayer_market: c.tcgplayer_market ?? null,
+      image_url: c.image_url ?? null,
+      small_image_url: c.small_image_url ?? null,
+    }))
+  }, [isSearching, searchQ.data, trendingQ.data])
 
-  const hasSearched = activeQuery.length >= 2
+  const filtered = useMemo(() => {
+    let out = rows
+    if (setFilter) out = out.filter(r => r.set_name?.toLowerCase().includes(setFilter.toLowerCase()))
+    return out
+  }, [rows, setFilter])
+
+  const sorted = useMemo(() => {
+    const copy = [...filtered]
+    copy.sort((a, b) => {
+      let av: number | string | null = 0
+      let bv: number | string | null = 0
+      if (sortKey === 'name') {
+        av = a.name ?? ''
+        bv = b.name ?? ''
+      } else if (sortKey === 'price') {
+        av = a.price ?? -Infinity
+        bv = b.price ?? -Infinity
+      } else if (sortKey === 'change_7d') {
+        av = a.change_7d ?? -Infinity
+        bv = b.change_7d ?? -Infinity
+      } else {
+        av = a.change_30d ?? -Infinity
+        bv = b.change_30d ?? -Infinity
+      }
+      if (typeof av === 'string' && typeof bv === 'string') {
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+      }
+      const aN = av as number
+      const bN = bv as number
+      return sortDir === 'asc' ? aN - bN : bN - aN
+    })
+    return copy
+  }, [filtered, sortKey, sortDir])
+
+  const loading = isSearching ? searchQ.isPending : trendingQ.isPending
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(k); setSortDir('desc') }
+  }
+  const sortArrow = (k: SortKey) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 opacity-40" />
+    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-accent" /> : <ChevronDown className="w-3 h-3 text-accent" />
+  }
 
   return (
     <PageTransition>
-      <div className="space-y-6 mesh-gradient">
+      <div className="space-y-5 py-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">Card Lookup</h1>
-          <p className="text-muted-foreground/60 text-sm mt-1">Search cards, view prices, and find the best deals</p>
+        <div className="flex items-baseline justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er">
+              Track
+            </h1>
+            <div className="text-[11px] font-mono text-muted uppercase tracking-wider mt-2">
+              {isSearching
+                ? `Search · ${committedQuery}`
+                : `Top ${rows.length} cards · sorted by ${sortKey.replace('change_', '')} ${sortDir}`}
+            </div>
+          </div>
         </div>
 
-        {/* Search Section */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex gap-3">
-              {/* Search Type Toggle */}
-              <div className="flex bg-surface rounded-lg p-1 shrink-0">
-                <button
-                  onClick={() => setSearchType('cards')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    searchType === 'cards' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4" /> Cards
-                </button>
-                <button
-                  onClick={() => setSearchType('products')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    searchType === 'products' ? 'bg-accent text-white' : 'text-muted hover:text-foreground'
-                  }`}
-                >
-                  <Package className="w-4 h-4" /> Products
-                </button>
-              </div>
-
-              {/* Search Input */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder={searchType === 'cards' ? 'Search by card name, set, or number...' : 'Search sealed products...'}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-full h-10 pl-10 pr-4 bg-surface border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:ring-2 focus:ring-accent/30 focus:shadow-[0_0_20px_rgba(96,165,250,0.15)] outline-none transition-all duration-300"
-                />
-              </div>
-
-              <Button onClick={handleSearch} isLoading={isLoading}>
-                Search
-              </Button>
+        {/* Controls */}
+        <div className="grid md:grid-cols-[1fr_auto_auto] gap-3">
+          <form onSubmit={handleSearchSubmit}>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search a card by name…"
+                className="input pl-10 pr-3 h-10 w-full"
+              />
             </div>
-          </CardContent>
-        </Card>
+          </form>
 
-        {/* Results */}
-        {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="aspect-[2.5/3.5] w-full rounded-xl" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : isError ? (
-          <EmptyState
-            icon={<AlertCircle className="w-16 h-16" />}
-            title="Search failed"
-            description={error instanceof Error ? error.message : 'Failed to search cards. Make sure the backend is running.'}
-          />
-        ) : results.length > 0 ? (
-          <>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted">{data?.count ?? results.length} results found</p>
-              <Button variant="ghost" size="sm">
-                <SlidersHorizontal className="w-4 h-4 mr-1" /> Filters
-              </Button>
-            </div>
-
-            <motion.div
-              variants={staggerContainer}
-              initial="initial"
-              animate="animate"
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
-            >
-              {results.map((card) => {
-                const isExpensive = (card.price ?? 0) > 20
-                return (
-                  <motion.div key={card.id} variants={staggerItem}>
-                    <Card
-                      hover
-                      className={`cursor-pointer overflow-hidden group hover-lift holo-shine ${isExpensive ? 'gradient-border' : ''}`}
-                      onClick={() => navigate(`/cards/${card.id}`)}
-                    >
-                      {/* Card Image */}
-                      <div className="img-zoom-frame">
-                        <div className="aspect-[2.5/3.5] bg-gradient-to-br from-surface-hover to-surface relative overflow-hidden">
-                          {card.image ? (
-                            <img
-                              src={card.image}
-                              alt={card.name}
-                              width={250}
-                              height={350}
-                              className="absolute inset-0 w-full h-full object-contain"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <CreditCard className="w-12 h-12 text-border-light opacity-50" />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </div>
-
-                      {/* Card Info */}
-                      <CardContent className="p-3 space-y-1.5">
-                        <h3 className="text-sm font-semibold truncate">{card.name}</h3>
-                        <p className="text-xs text-muted truncate">{card.set} · {card.number}</p>
-                        <div className="flex items-center justify-between">
-                          <Badge variant={rarityColor(card.rarity)} className="text-[10px]">
-                            {card.rarity}
-                          </Badge>
-                          {card.price != null && (
-                            <span className={`text-sm font-mono-numbers font-bold text-accent ${isExpensive ? 'text-glow' : ''}`}>
-                              ${formatPrice(card.price)}
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )
-              })}
-            </motion.div>
-          </>
-        ) : hasSearched ? (
-          <EmptyState
-            icon={<Search className="w-16 h-16" />}
-            title="No cards found"
-            description="Try adjusting your search query or filters"
-          />
-        ) : (
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          <select
+            value={setFilter}
+            onChange={(e) => setSetFilter(e.target.value)}
+            className="input h-10 text-[13px] md:w-56"
           >
-            {POPULAR_SETS.map((set) => (
-              <Card
-                key={set}
-                hover
-                className="cursor-pointer hover-lift holo-shine"
-                onClick={() => { setQuery(set); setActiveQuery(set) }}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-gradient-to-br from-accent/20 to-pokemon-pink/20 flex items-center justify-center">
-                    <CreditCard className="w-8 h-8 text-accent" />
-                  </div>
-                  <p className="text-sm font-semibold">{set}</p>
-                  <p className="text-xs text-muted mt-1">Browse cards</p>
-                </CardContent>
-              </Card>
+            <option value="">All sets</option>
+            {(setsQ.data?.data ?? []).map(s => (
+              <option key={s.id} value={s.name}>{s.name}</option>
             ))}
-          </motion.div>
-        )}
+          </select>
+
+          {isSearching && (
+            <button
+              onClick={() => { setQuery(''); setCommittedQuery(''); setSearchParams({}) }}
+              className="btn btn-outline h-10"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Table */}
+        <div className="panel-2 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="w-10 text-right pl-5">#</th>
+                  <th>
+                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('name')}>
+                      Card {sortArrow('name')}
+                    </button>
+                  </th>
+                  <th className="text-right">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('price')}>
+                      Last {sortArrow('price')}
+                    </button>
+                  </th>
+                  <th className="text-right w-20">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground justify-end w-full" onClick={() => toggleSort('change_7d')}>
+                      7d {sortArrow('change_7d')}
+                    </button>
+                  </th>
+                  <th className="text-right w-24 hidden md:table-cell">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground justify-end w-full" onClick={() => toggleSort('change_30d')}>
+                      30d {sortArrow('change_30d')}
+                    </button>
+                  </th>
+                  <th className="w-24 pr-5 hidden lg:table-cell">Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 12 }).map((_, i) => (
+                    <tr key={`sk-${i}`}>
+                      <td colSpan={6}><div className="h-12 animate-shimmer rounded my-1" /></td>
+                    </tr>
+                  ))
+                ) : sorted.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-muted py-16 font-mono text-xs">
+                      {isSearching ? 'No matches. Try a different spelling.' : 'No cards.'}
+                    </td>
+                  </tr>
+                ) : (
+                  sorted.map((c, idx) => {
+                    const change = c.change_7d ?? 0
+                    const Arrow = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus
+                    return (
+                      <motion.tr
+                        key={c.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: Math.min(idx, 20) * 0.015 }}
+                        onClick={() => navigate(`/cards/${c.id}`)}
+                      >
+                        <td className="text-right text-muted font-mono text-[11px] pl-5">{idx + 1}</td>
+                        <td>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="relative w-10 h-14 shrink-0 rounded overflow-hidden bg-surface-2 holo-foil">
+                              <img
+                                src={proxyImageUrl(c.small_image_url || c.image_url || getCardImageUrl(c, 'small'))}
+                                alt={c.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[13px] font-medium text-foreground truncate">{c.name}</span>
+                              <span className="text-[10px] font-mono text-muted truncate flex items-center gap-1.5">
+                                <span className="truncate">{c.set_name}</span>
+                                {c.rarity && (
+                                  <span className={rarityChipClass(c.rarity)}>{c.rarity}</span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right font-mono-numbers text-foreground">
+                          ${c.price != null ? formatPrice(c.price) : '—'}
+                        </td>
+                        <td className="text-right">
+                          <span className={`inline-flex items-center gap-0.5 justify-end w-full font-mono-numbers text-[12px] ${
+                            change > 0 ? 'delta-up' : change < 0 ? 'delta-down' : 'delta-flat'
+                          }`}>
+                            <Arrow className="w-3 h-3" />
+                            {c.change_7d != null ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '—'}
+                          </span>
+                        </td>
+                        <td className="text-right font-mono-numbers text-[12px] hidden md:table-cell">
+                          {c.change_30d != null ? (
+                            <span className={c.change_30d >= 0 ? 'delta-up' : 'delta-down'}>
+                              {c.change_30d >= 0 ? '+' : ''}{c.change_30d.toFixed(1)}%
+                            </span>
+                          ) : <span className="delta-flat">—</span>}
+                        </td>
+                        <td className="pr-5 hidden lg:table-cell">
+                          <Sparkline data={synthLine(c.price, c.change_7d)} width={80} height={22} />
+                        </td>
+                      </motion.tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {loading && (
+            <div className="flex items-center justify-center py-4 text-muted text-xs font-mono gap-2 border-t border-border">
+              <Loader2 className="w-3 h-3 animate-spin" /> Loading markets…
+            </div>
+          )}
+        </div>
+
+        <div className="text-[10px] font-mono text-muted uppercase tracking-[0.2em] text-center py-2">
+          Data · TCGPlayer · updated every minute
+        </div>
       </div>
     </PageTransition>
   )

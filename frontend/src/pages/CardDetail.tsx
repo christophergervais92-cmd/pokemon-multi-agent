@@ -420,11 +420,14 @@ function CardDetailInner() {
 
   return (
     <PageTransition>
-      <div className="space-y-6">
+      <div className="space-y-6 py-6">
         {/* Back Button */}
-        <Button variant="ghost" size="sm" onClick={() => navigate('/cards')}>
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to results
-        </Button>
+        <button
+          onClick={() => navigate('/cards')}
+          className="btn btn-ghost btn-sm -ml-2"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Track
+        </button>
 
         {/* Main Layout: Image + Info */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -513,24 +516,35 @@ function CardDetailInner() {
             transition={{ delay: 0.1 }}
             className="lg:col-span-2 space-y-6"
           >
-            {/* Card Header Info */}
-            <div>
-              <h1 className="text-3xl font-bold">{card.name}</h1>
-              <div className="flex items-center gap-3 mt-2 text-sm text-muted flex-wrap">
-                <span>{card.set_name || card.set}</span>
-                <span>·</span>
-                <span>#{card.number}</span>
-                {card.supertype && (
-                  <>
-                    <span>·</span>
-                    <span>{card.supertype}</span>
-                  </>
-                )}
-                {card.rarity && (
-                  <>
-                    <span>·</span>
-                    <Badge variant={rarityVariant}>{card.rarity}</Badge>
-                  </>
+            {/* ── Card Header — editorial hero ── */}
+            <div className="panel-2 p-6 relative overflow-hidden">
+              <div className="flex items-start justify-between gap-6 flex-wrap">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-muted">
+                    {card.set_name || card.set} · #{card.number}
+                  </div>
+                  <h1 className="font-display text-[clamp(2rem,5vw,3.5rem)] leading-[0.95] tracking-tight-er mt-2 text-foreground">
+                    {card.name}
+                  </h1>
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    {card.supertype && <span className="chip">{card.supertype}</span>}
+                    {card.rarity && <span className={`chip ${rarityVariant === 'accent' ? 'chip-danger' : rarityVariant === 'info' ? 'chip-info' : rarityVariant === 'warning' ? 'chip-warning' : 'chip-success'}`}>{card.rarity}</span>}
+                  </div>
+                </div>
+
+                {/* Big price kpi */}
+                {rawPrice != null && (
+                  <div className="text-right shrink-0">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted">TCGPlayer · Market</div>
+                    <div className="font-mono-numbers text-[clamp(2.5rem,6vw,4rem)] leading-none text-foreground mt-2">
+                      ${formatPrice(rawPrice)}
+                    </div>
+                    {card.tcgplayer_low != null && card.tcgplayer_high != null && (
+                      <div className="text-[11px] font-mono text-muted mt-2">
+                        ${formatPrice(card.tcgplayer_low)} — ${formatPrice(card.tcgplayer_high)}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

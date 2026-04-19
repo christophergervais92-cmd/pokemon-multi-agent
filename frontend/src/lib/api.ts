@@ -525,6 +525,8 @@ export interface TrendingCard {
   change_30d?: number | null
   image_url?: string | null
   small_image_url?: string | null
+  tcgplayer_market?: number | null
+  number?: string
   [key: string]: unknown
 }
 

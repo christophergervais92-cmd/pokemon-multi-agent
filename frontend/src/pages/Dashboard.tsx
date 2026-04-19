@@ -1,382 +1,409 @@
-import { useState, useEffect, useMemo } from 'react'
+/**
+ * Terminal — the home view after Landing.
+ * Multi-panel: market pulse / top movers / watchlist / drops feed.
+ */
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
-  DollarSign, CreditCard, TrendingUp, TrendingDown,
-  Search, Flame, Sparkles, ArrowRight, Activity, ArrowUpRight,
-  Eye, Wifi, WifiOff,
+  TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight,
+  Activity, Flame, Sparkles, LineChart, Wallet,
 } from 'lucide-react'
 import { PageTransition } from '@/components/layout/PageTransition'
-import { useHealth, useStats, useTrendingCards } from '@/hooks/useApi'
-import { getCardImageUrl } from '../lib/product-images'
-import { OptimizedImage } from '../components/OptimizedImage'
 import {
-  staggerSlow,
-  staggerItemScale,
-} from '@/lib/animations'
+  useHealth, useStats, useTrendingCards, useSets,
+  useDrops, useDropsLiveIntel,
+} from '@/hooks/useApi'
+import { formatPrice } from '@/lib/utils'
+import { getCardImageUrl, proxyImageUrl } from '@/lib/product-images'
+import Sparkline from '@/components/shared/Sparkline'
 
-/* ── Animated counter ── */
-function AnimatedNumber({ value, prefix = '', suffix = '', duration = 1.6 }: {
-  value: number; prefix?: string; suffix?: string; duration?: number
-}) {
-  const mv = useMotionValue(0)
-  const display = useTransform(mv, (v) => {
-    if (value >= 1000) return `${prefix}${Math.round(v).toLocaleString()}${suffix}`
-    return `${prefix}${Math.round(v)}${suffix}`
-  })
-  useEffect(() => {
-    const ctrl = animate(mv, value, { duration, ease: [0.22, 1, 0.36, 1] })
-    return ctrl.stop
-  }, [mv, value, duration])
-  return <motion.span>{display}</motion.span>
+// Synthesize a sparkline from change_7d for a card (since we don't have per-card
+// history in trending response). Short-term fallback until backend adds series.
+function synthFromChange(current: number | null, change7d: number | null): number[] {
+  if (current == null) return []
+  const pct = (change7d ?? 0) / 100
+  const start = current / (1 + pct)
+  const points: number[] = []
+  for (let i = 0; i < 12; i++) {
+    const t = i / 11
+    // subtle noise + smooth linear interpolation
+    const noise = (Math.sin(i * 2.3) + Math.cos(i * 1.7)) * 0.01 * current
+    points.push(start + (current - start) * t + noise)
+  }
+  return points
 }
 
-const ACTIONS = [
-  { label: 'Find Stock', desc: 'Search retailers near you', icon: Search, path: '/stock', gradient: 'from-red-400/8 via-transparent to-transparent', iconColor: 'text-red-400' },
-  { label: 'Card Lookup', desc: 'Prices & market data', icon: CreditCard, path: '/cards', gradient: 'from-rose-400/8 via-transparent to-transparent', iconColor: 'text-rose-400' },
-  { label: 'Drop Calendar', desc: 'Upcoming releases', icon: Flame, path: '/drops', gradient: 'from-orange-400/8 via-transparent to-transparent', iconColor: 'text-orange-400' },
-  { label: 'AI Grading', desc: 'Grade cards from photos', icon: Sparkles, path: '/grading', gradient: 'from-pink-400/8 via-transparent to-transparent', iconColor: 'text-pink-400' },
-]
-
-const TRENDING = [
-  { name: 'Prismatic Evolutions ETB', price: '$74.99', change: '+15%', up: true },
-  { name: 'Surging Sparks BB', price: '$129.99', change: '+3%', up: true },
-  { name: '151 ETB', price: '$54.99', change: '-2%', up: false },
-  { name: 'Evolving Skies BB', price: '$420.00', change: '+8%', up: true },
-  { name: 'Obsidian Flames BB', price: '$109.99', change: '+1%', up: true },
-]
-
-const FEED = [
-  { text: 'Charizard ex detected at Target — Aisle D42', time: '2m', color: 'bg-red-500' },
-  { text: 'Prismatic Evolutions restocked at Walmart', time: '18m', color: 'bg-blue-500' },
-  { text: 'Pikachu VMAX price dropped 12%', time: '45m', color: 'bg-rose-500' },
-  { text: 'New PSA 10 listing — Umbreon VMAX Alt', time: '1h', color: 'bg-amber-500' },
-  { text: 'Surging Sparks back in stock at Pokemon Center', time: '2h', color: 'bg-violet-500' },
-]
-
-/* ── Page ── */
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-
-  // Wire to real API
   const { data: healthData } = useHealth()
   const { data: statsData } = useStats()
-  const { data: trendingData } = useTrendingCards(8)
+  const { data: trendingData } = useTrendingCards(30)
+  const { data: setsData } = useSets()
+  const { data: dropsData } = useDrops('this_month')
+  const { data: liveData } = useDropsLiveIntel(undefined, false)
 
-  // Merge API trending data with hardcoded fallback
-  const trendingItems = useMemo(() => {
-    if (trendingData?.data && trendingData.data.length > 0) {
-      return trendingData.data.slice(0, 5).map((card) => ({
-        name: card.name,
-        price: card.price != null ? `$${card.price.toFixed(2)}` : '--',
-        change: card.change_7d != null ? `${card.change_7d >= 0 ? '+' : ''}${card.change_7d.toFixed(0)}%` : '--',
-        up: (card.change_7d ?? 0) >= 0,
-        imageUrl: getCardImageUrl(card, 'small'),
-        id: card.id,
-      }))
+  const isOnline = healthData?.status === 'ok' || healthData?.status === 'healthy'
+  const trending = trendingData?.data ?? []
+
+  const { gainers, losers } = useMemo(() => {
+    const sorted = [...trending].sort((a, b) => (b.change_7d ?? 0) - (a.change_7d ?? 0))
+    return {
+      gainers: sorted.filter(c => (c.change_7d ?? 0) > 0).slice(0, 6),
+      losers: sorted.filter(c => (c.change_7d ?? 0) < 0).slice(-6).reverse(),
     }
-    return TRENDING.map((t) => ({ ...t, imageUrl: '', id: '' }))
-  }, [trendingData])
+  }, [trending])
 
-  const isConnected = healthData?.status === 'ok' || healthData?.status === 'healthy'
+  const watchlist = useMemo(() => trending.slice(0, 4), [trending])
 
-  // Build KPI from real stats or fallback to defaults (memoized to avoid re-creating every render)
-  const collectionStats = statsData?.collections as Record<string, number> | undefined
-  const alertStats = statsData?.alerts as Record<string, number> | undefined
+  // Market pulse stats
+  const avgChange = useMemo(() => {
+    const vals = trending.map(c => c.change_7d).filter((n): n is number => n != null)
+    if (vals.length === 0) return null
+    return vals.reduce((a, b) => a + b, 0) / vals.length
+  }, [trending])
 
-  const KPI = useMemo(() => [
+  const totalValue = useMemo(() => {
+    return trending.reduce((sum, c) => sum + (c.price ?? c.tcgplayer_market ?? 0), 0)
+  }, [trending])
+
+  const pulseStats = [
     {
-      label: 'Portfolio Value',
-      value: collectionStats?.total_value ?? 0,
-      prefix: '$',
-      icon: DollarSign,
-      delta: isConnected ? 'Live' : 'Offline',
-      up: isConnected,
-      accent: 'from-red-400/15 to-red-500/5',
-      featured: true,
+      label: 'Market Pulse',
+      value: avgChange != null ? `${avgChange >= 0 ? '+' : ''}${avgChange.toFixed(2)}%` : '—',
+      sub: '24h average · trending 30',
+      tone: avgChange == null ? 'neutral' : avgChange >= 0 ? 'up' : 'down',
     },
     {
-      label: 'Active Alerts',
-      value: alertStats?.active_alerts ?? 0,
-      prefix: '',
-      icon: Activity,
-      delta: `${alertStats?.triggered_today ?? 0} triggered`,
-      up: true,
-      accent: 'from-rose-400/15 to-rose-500/5',
-      featured: false,
+      label: 'Top 30 Cap',
+      value: `$${totalValue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`,
+      sub: 'combined market value',
+      tone: 'neutral',
     },
     {
-      label: 'Cards Tracked',
-      value: collectionStats?.total_items ?? 0,
-      prefix: '',
-      icon: Eye,
-      accent: 'from-red-500/15 to-red-600/5',
-      featured: false,
+      label: 'Sets Indexed',
+      value: String(setsData?.data?.length ?? '—'),
+      sub: `${(statsData?.collections as Record<string, unknown>)?.unique_cards_tracked ?? 0} cards tracked`,
+      tone: 'neutral',
     },
     {
-      label: 'Backend Status',
-      value: isConnected ? 1 : 0,
-      prefix: '',
-      icon: isConnected ? Wifi : WifiOff,
-      delta: isConnected ? 'Connected' : 'Disconnected',
-      up: isConnected,
-      accent: 'from-orange-400/15 to-orange-500/5',
-      featured: false,
+      label: 'System',
+      value: isOnline ? 'Online' : 'Offline',
+      sub: `API · Render · v2.0`,
+      tone: isOnline ? 'up' : 'down',
     },
-  ], [collectionStats, alertStats, isConnected])
+  ] as const
+
+  const upcomingDrops = (dropsData?.data ?? []).slice(0, 4)
+  const liveIntel = (liveData?.data ?? []).slice(0, 6)
 
   return (
     <PageTransition>
-      {/* Particles background layer */}
-      <div className="particles-bg" />
+      <div className="space-y-6 py-6">
+        {/* ── Header ── */}
+        <div className="flex items-baseline justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er">
+              Terminal
+            </h1>
+            <div className="flex items-center gap-3 mt-2 text-[11px] font-mono text-muted uppercase tracking-wider">
+              <span className="live-dot" />
+              {isOnline ? 'Live · all streams connected' : 'Backend disconnected'}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => navigate('/cards')} className="btn btn-outline">
+              <LineChart className="w-3.5 h-3.5" /> Track cards
+            </button>
+            <button onClick={() => navigate('/portfolio')} className="btn btn-primary">
+              <Wallet className="w-3.5 h-3.5" /> Portfolio
+            </button>
+          </div>
+        </div>
 
-      <div className="space-y-8 mesh-gradient">
+        {/* ── Market Pulse strip ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border overflow-hidden rounded">
+          {pulseStats.map((s) => (
+            <div key={s.label} className="panel-hover bg-background p-5">
+              <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted">
+                {s.label}
+              </div>
+              <div className={`font-mono-numbers text-3xl mt-2 leading-none ${
+                s.tone === 'up' ? 'delta-up' : s.tone === 'down' ? 'delta-down' : 'text-foreground'
+              }`}>
+                {s.value}
+              </div>
+              <div className="text-[11px] text-muted mt-2 truncate">{s.sub}</div>
+            </div>
+          ))}
+        </div>
 
-        {/* ── Hero section ── */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="relative overflow-hidden rounded-2xl border border-white/[0.04] bg-gradient-to-br from-white/[0.02] to-transparent p-8 sm:p-12 border-beam"
-        >
-          {/* Decorative elements */}
-          <div className="pointer-events-none absolute -top-40 -right-40 w-96 h-96 rounded-full bg-red-500/[0.05] blur-[120px]" />
-          <div className="pointer-events-none absolute -bottom-32 -left-32 w-72 h-72 rounded-full bg-red-500/[0.04] blur-[100px]" />
-          <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-rose-500/[0.02] blur-[150px]" />
+        {/* ── Movers: gainers + losers ── */}
+        <div className="grid lg:grid-cols-2 gap-4">
+          <MoversPanel
+            title="Top Gainers"
+            subtitle="7d"
+            items={gainers}
+            tone="up"
+            onRowClick={(id) => navigate(`/cards/${id}`)}
+          />
+          <MoversPanel
+            title="Top Losers"
+            subtitle="7d"
+            items={losers}
+            tone="down"
+            onRowClick={(id) => navigate(`/cards/${id}`)}
+          />
+        </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-red-400/70 mb-4">
-              <span className="h-1 w-1 rounded-full bg-red-400/60" />
-              TCG Intelligence Platform
-            </span>
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="text-3xl sm:text-4xl lg:text-[2.75rem] font-bold tracking-[-0.03em] leading-[1.1] gradient-text text-glow"
-          >
-            Welcome back
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-3 text-sm sm:text-[15px] max-w-lg leading-relaxed"
-          >
-            <span className="animated-gradient-text font-medium">
-              Track prices, find stock, and manage your collection
-            </span>
-            <span className="text-muted-foreground/70"> — all powered by AI agents.</span>
-            {isConnected && (
-              <span className="inline-flex items-center gap-1.5 ml-2 text-red-400 text-xs font-medium">
-                <span className="status-dot status-dot-live" />
-                Backend connected
-              </span>
-            )}
-          </motion.p>
-        </motion.section>
-
-        {/* ── KPI Cards ── */}
-        <motion.div
-          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
-          variants={staggerSlow}
-          initial="initial"
-          animate="animate"
-          whileInView="animate"
-          viewport={{ once: true }}
-        >
-          {KPI.map((k, i) => {
-            const Icon = k.icon
-            return (
-              <motion.div
-                key={k.label}
-                variants={staggerItemScale}
-              >
-                <div className={`group relative rounded-2xl border border-white/[0.04] bg-gradient-to-b from-white/[0.02] to-transparent p-5 sm:p-6 hover:border-white/[0.08] transition-all duration-500 stat-card-hover holo-shine gradient-border ${k.featured ? 'border-beam' : ''}`}>
-                  {/* Subtle gradient accent */}
-                  <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${k.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">{k.label}</span>
-                      <div className="h-8 w-8 rounded-xl bg-white/[0.04] flex items-center justify-center group-hover:bg-white/[0.06] transition-colors duration-300">
-                        <Icon className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-red-400/70 transition-colors duration-300" />
-                      </div>
-                    </div>
-                    <p className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] kpi-value">
-                      {k.label === 'Backend Status' ? (
-                        <span className={`font-mono-numbers ${isConnected ? 'text-red-400 text-glow-green' : 'text-rose-400'}`}>
-                          {isConnected ? 'Online' : 'Offline'}
-                        </span>
-                      ) : (
-                        <span className="font-mono-numbers text-glow">
-                          {mounted ? <AnimatedNumber value={k.value} prefix={k.prefix} /> : `${k.prefix}0`}
-                        </span>
-                      )}
-                    </p>
-                    {k.delta && (
-                      <div className="mt-2.5 flex items-center gap-1">
-                        <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${k.up ? 'text-red-400' : 'text-rose-400'}`}>
-                          {k.delta === 'Live' ? (
-                            <>
-                              <span className="status-dot status-dot-live" />
-                              <span className="ml-1.5">{k.delta}</span>
-                            </>
-                          ) : (
-                            <>
-                              {k.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                              {k.delta}
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+        {/* ── Watchlist + Live intel ── */}
+        <div className="grid lg:grid-cols-3 gap-4">
+          {/* Watchlist (left, 2col) */}
+          <div className="lg:col-span-2 panel-2 p-5">
+            <div className="flex items-baseline justify-between mb-4">
+              <div>
+                <h3 className="font-display italic text-2xl leading-none">Watchlist</h3>
+                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted mt-1.5">
+                  Pinned · auto-refresh 60s
                 </div>
-              </motion.div>
-            )
-          })}
-        </motion.div>
-
-        {/* ── Quick Actions ── */}
-        <motion.div
-          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
-          variants={staggerSlow}
-          initial="initial"
-          animate="animate"
-          whileInView="animate"
-          viewport={{ once: true }}
-        >
-          {ACTIONS.map((a, i) => {
-            const Icon = a.icon
-            return (
-              <motion.div
-                key={a.label}
-                variants={staggerItemScale}
-              >
-                <motion.button
-                  whileHover={{ y: -3 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
-                  onClick={() => navigate(a.path)}
-                  className={`w-full text-left rounded-2xl border border-white/[0.04] bg-gradient-to-br ${a.gradient} p-5 sm:p-6 hover:border-white/[0.08] transition-all duration-400 group hover-lift holo-shine`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <Icon className={`h-5 w-5 ${a.iconColor} opacity-80`} />
-                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-red-400/60 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-300" />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground/90">{a.label}</p>
-                  <p className="text-[11px] text-muted-foreground/50 mt-0.5">{a.desc}</p>
-                </motion.button>
-              </motion.div>
-            )
-          })}
-        </motion.div>
-
-        {/* ── Bottom row: Trending + Feed ── */}
-        <motion.div
-          className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-50px' }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {/* Trending */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-foreground/80 text-glow">Trending Products</h2>
-              <button
-                onClick={() => navigate('/stock')}
-                className="text-[11px] text-muted-foreground/40 hover:text-red-400 flex items-center gap-1 transition-colors duration-300 group"
-              >
-                View all <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform duration-200" />
+              </div>
+              <button onClick={() => navigate('/cards')} className="text-[11px] text-muted hover:text-accent font-mono uppercase tracking-wider transition-colors">
+                Browse →
               </button>
             </div>
-            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] overflow-hidden divide-y divide-white/[0.03] border-beam">
-              {trendingItems.map((p, i) => (
-                <motion.div
-                  key={p.name + i}
-                  initial={{ opacity: 0, scale: 0.97 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 + i * 0.06, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex items-center justify-between px-5 py-3.5 hover:bg-white/[0.015] transition-colors duration-300 cursor-pointer group card-3d holo-rainbow hover-lift holo-shine"
-                  onClick={() => p.id ? navigate(`/cards/${p.id}`) : navigate('/stock')}
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    {p.imageUrl ? (
-                      <div className="img-zoom-frame">
-                        <OptimizedImage
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="object-contain"
-                          containerClassName="h-8 w-6 shrink-0 rounded"
-                          showSkeleton={false}
-                        />
+
+            {watchlist.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-muted text-sm font-mono">Loading…</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {watchlist.map((card) => {
+                  const price = card.price ?? card.tcgplayer_market ?? null
+                  const change = card.change_7d ?? 0
+                  const isUp = change > 0
+                  return (
+                    <motion.button
+                      key={card.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={() => navigate(`/cards/${card.id}`)}
+                      whileHover={{ y: -2 }}
+                      className="panel p-3 text-left transition-colors hover:border-border-light"
+                    >
+                      <div className="flex gap-3">
+                        <div className="relative w-14 h-20 shrink-0 rounded overflow-hidden bg-surface-2 holo-foil">
+                          <img
+                            src={proxyImageUrl(getCardImageUrl(card, 'small'))}
+                            alt={card.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div>
+                            <div className="text-[13px] font-medium text-foreground truncate leading-tight">
+                              {card.name}
+                            </div>
+                            <div className="text-[10px] font-mono text-muted truncate mt-0.5">
+                              {card.set_name}
+                            </div>
+                          </div>
+                          <div className="flex items-end justify-between gap-2">
+                            <div className="font-mono-numbers text-lg text-foreground leading-none">
+                              ${price != null ? formatPrice(price) : '—'}
+                            </div>
+                            <div className={`text-[11px] font-mono-numbers leading-none ${
+                              isUp ? 'delta-up' : change < 0 ? 'delta-down' : 'delta-flat'
+                            }`}>
+                              {change != null ? `${isUp ? '+' : ''}${change.toFixed(1)}%` : '—'}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="h-8 w-8 rounded-lg bg-white/[0.03] flex items-center justify-center shrink-0 group-hover:bg-white/[0.05] transition-colors duration-300">
-                        <CreditCard className="h-3.5 w-3.5 text-muted-foreground/30" />
+                      <div className="mt-2">
+                        <Sparkline data={synthFromChange(price, change)} height={28} />
                       </div>
-                    )}
-                    <span className="text-[13px] font-medium truncate text-foreground/80">{p.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0 ml-4">
-                    <span className="text-[13px] font-mono-numbers font-semibold text-foreground/70 text-glow">{p.price}</span>
-                    <span className={`text-[11px] font-mono-numbers font-semibold w-10 text-right ${p.up ? 'text-red-400/80 text-glow-green' : 'text-rose-400/80'}`}>
-                      {p.change}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                    </motion.button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Activity Feed */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-foreground/80 text-glow">Live Feed</h2>
-              <div className="flex items-center gap-1.5">
-                {isConnected ? (
-                  <span className="status-dot status-dot-live" />
-                ) : (
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-400" />
-                  </span>
-                )}
-                <span className={`text-[10px] font-medium ${isConnected ? 'text-red-400/60' : 'text-rose-400/60'}`}>
-                  {isConnected ? 'Real-time' : 'Offline'}
-                </span>
+          {/* Live intel (right) */}
+          <div className="panel-2 p-5">
+            <div className="flex items-baseline justify-between mb-4">
+              <div>
+                <h3 className="font-display italic text-2xl leading-none">Signal</h3>
+                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted mt-1.5">
+                  Live intel feed
+                </div>
               </div>
+              <Activity className="w-4 h-4 text-muted" />
             </div>
-            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] overflow-hidden divide-y divide-white/[0.03] border-beam">
-              {FEED.map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex items-start gap-3 px-4 py-3.5 hover:bg-white/[0.015] transition-colors duration-300 holo-shine"
-                >
-                  <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${item.color} opacity-60`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] text-foreground/70 leading-relaxed">{item.text}</p>
-                    <p className="text-[10px] text-muted-foreground/40 mt-0.5 font-mono-numbers">{item.time} ago</p>
+
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {liveIntel.length === 0 ? (
+                <div className="text-muted text-xs font-mono">No intel.</div>
+              ) : (
+                liveIntel.map((item) => (
+                  <div key={item.id} className="border-l-2 border-border pl-3 hover:border-accent transition-colors">
+                    <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
+                      <span className="text-accent">{item.source}</span>
+                      <span className="text-muted">·</span>
+                      <span className="text-muted">{item.timestamp}</span>
+                    </div>
+                    <p className="text-[12px] text-foreground-dim mt-1 leading-snug">{item.content}</p>
                   </div>
-                </motion.div>
-              ))}
+                ))
+              )}
             </div>
           </div>
-        </motion.div>
+        </div>
+
+        {/* ── Drops strip ── */}
+        <div className="panel-2 p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <div>
+              <h3 className="font-display italic text-2xl leading-none">
+                Coming up <span className="text-muted not-italic">·</span> <span className="text-accent">drops</span>
+              </h3>
+              <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted mt-1.5">
+                This month
+              </div>
+            </div>
+            <button onClick={() => navigate('/drops')} className="text-[11px] text-muted hover:text-accent font-mono uppercase tracking-wider transition-colors">
+              All drops →
+            </button>
+          </div>
+
+          {upcomingDrops.length === 0 ? (
+            <div className="text-muted text-xs font-mono h-24 flex items-center">No drops scheduled this month.</div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {upcomingDrops.map((drop) => (
+                <button
+                  key={drop.id}
+                  onClick={() => navigate('/drops')}
+                  className="panel p-3 text-left hover:border-border-light transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Flame className="w-3 h-3 text-accent" />
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted">
+                      {drop.type.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="text-[13px] font-medium text-foreground leading-tight truncate">
+                    {drop.title}
+                  </div>
+                  <div className="flex items-baseline justify-between mt-3">
+                    <span className="text-[11px] font-mono text-muted">{drop.date_label}</span>
+                    <span className="font-mono-numbers text-[13px] text-accent">
+                      {drop.days_until}d
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Quick actions ── */}
+        <div className="grid sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {[
+            { label: 'Cards', icon: LineChart, path: '/cards' },
+            { label: 'Sealed', icon: Sparkles, path: '/sealed' },
+            { label: 'Portfolio', icon: Wallet, path: '/portfolio' },
+            { label: 'Monitors', icon: Activity, path: '/monitors' },
+            { label: 'Flip', icon: ArrowUpRight, path: '/flip' },
+            { label: 'Settings', icon: ArrowDownRight, path: '/settings' },
+          ].map((a) => {
+            const Icon = a.icon
+            return (
+              <button
+                key={a.path}
+                onClick={() => navigate(a.path)}
+                className="panel-hover panel p-4 text-left group"
+              >
+                <Icon className="w-4 h-4 text-muted group-hover:text-accent transition-colors" />
+                <div className="mt-2 text-[13px] font-medium text-foreground">{a.label}</div>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </PageTransition>
+  )
+}
+
+// ── Movers panel (sub-component) ─────────────────────────
+interface MoversItem {
+  id: string
+  name: string
+  set_name?: string
+  price: number | null
+  change_7d?: number | null
+  tcgplayer_market?: number | null
+}
+
+function MoversPanel({
+  title, subtitle, items, tone, onRowClick,
+}: {
+  title: string; subtitle: string
+  items: MoversItem[]; tone: 'up' | 'down'
+  onRowClick: (id: string) => void
+}) {
+  return (
+    <div className="panel-2 overflow-hidden">
+      <div className="flex items-baseline justify-between px-5 pt-5 pb-4">
+        <h3 className="font-display italic text-2xl leading-none">{title}</h3>
+        <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted">{subtitle}</div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="px-5 pb-5 text-muted text-xs font-mono">No data.</div>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Card</th>
+              <th className="text-right w-24">Last</th>
+              <th className="text-right w-24">7d</th>
+              <th className="w-24 text-right pr-5">Trend</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c) => {
+              const price = c.price ?? c.tcgplayer_market ?? null
+              const change = c.change_7d ?? 0
+              const Arrow = tone === 'up' ? TrendingUp : tone === 'down' ? TrendingDown : Minus
+              return (
+                <tr key={c.id} onClick={() => onRowClick(c.id)}>
+                  <td>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] text-foreground truncate max-w-[22ch]">{c.name}</span>
+                      <span className="text-[10px] font-mono text-muted truncate max-w-[22ch]">{c.set_name}</span>
+                    </div>
+                  </td>
+                  <td className="text-right font-mono-numbers text-foreground">
+                    ${price != null ? formatPrice(price) : '—'}
+                  </td>
+                  <td className="text-right">
+                    <span className={`inline-flex items-center gap-0.5 font-mono-numbers text-[12px] ${
+                      tone === 'up' ? 'delta-up' : 'delta-down'
+                    }`}>
+                      <Arrow className="w-3 h-3" />
+                      {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="pr-5">
+                    <Sparkline data={synthFromChange(price, change)} width={80} height={22} />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }

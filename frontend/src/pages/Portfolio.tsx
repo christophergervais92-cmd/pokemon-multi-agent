@@ -123,66 +123,60 @@ export default function Portfolio() {
 
   return (
     <PageTransition>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 py-6">
+        {/* ── Header — editorial ── */}
+        <div className="flex items-end justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">Portfolio</h1>
-            <p className="text-muted-foreground/60 text-sm mt-1">Track your collection value, P&L, and set completion</p>
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-muted">
+              Your book
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er mt-2">
+              Portfolio
+              <span className="italic text-accent"> · {totalItems} </span>
+              <span className="font-mono-numbers text-muted">{totalItems === 1 ? 'item' : 'items'}</span>
+            </h1>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={refreshPrices}>
-              <RefreshCw className={`w-4 h-4 mr-1 ${collectionLoading ? 'animate-spin' : ''}`} /> Refresh
-            </Button>
-            <Button onClick={() => setShowAddForm(!showAddForm)}>
-              <Plus className="w-4 h-4 mr-1" /> Add Item
-            </Button>
+          <div className="flex gap-2">
+            <button onClick={refreshPrices} className="btn btn-outline">
+              <RefreshCw className={`w-3.5 h-3.5 ${collectionLoading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+            <button onClick={() => setShowAddForm(!showAddForm)} className="btn btn-primary">
+              <Plus className="w-3.5 h-3.5" /> Add holding
+            </button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <motion.div
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-          className="grid grid-cols-2 md:grid-cols-4 gap-4"
-        >
+        {/* ── KPI strip ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded overflow-hidden">
           {[
-            { label: 'Total Value', value: `$${formatPrice(totalValue)}`, icon: DollarSign, color: 'accent' },
+            { label: 'Total Value', value: `$${formatPrice(totalValue)}`, tone: 'neutral' as const, sub: 'current market' },
+            { label: 'Cost Basis', value: `$${formatPrice(totalCost)}`, tone: 'neutral' as const, sub: 'amount invested' },
             {
-              label: 'Gain/Loss',
-              value: `${totalGain >= 0 ? '+' : ''}$${formatPrice(Math.abs(totalGain))}`,
-              icon: totalGain >= 0 ? TrendingUp : TrendingDown,
-              color: totalGain >= 0 ? 'success' : 'danger'
+              label: 'Gain / Loss',
+              value: `${totalGain >= 0 ? '+' : '-'}$${formatPrice(Math.abs(totalGain))}`,
+              tone: totalGain >= 0 ? 'up' as const : 'down' as const,
+              sub: 'unrealised',
             },
-            { label: 'Items', value: String(totalItems), icon: Package, color: 'info' },
             {
               label: 'ROI',
               value: `${roiPercent >= 0 ? '+' : ''}${roiPercent.toFixed(1)}%`,
-              icon: PieIcon,
-              color: roiPercent >= 0 ? 'success' : 'danger'
+              tone: roiPercent >= 0 ? 'up' as const : 'down' as const,
+              sub: 'cumulative',
             },
-          ].map((stat) => (
-            <motion.div key={stat.label} variants={staggerItem}>
-              <Card variant="elevated" className={`stat-card-hover ${stat.label === 'Total Value' ? 'border-beam gradient-border' : ''}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`p-1.5 rounded-lg bg-${stat.color}-muted`}>
-                      <stat.icon className={`w-4 h-4 text-${stat.color}`} />
-                    </div>
-                    <span className="text-xs text-muted">{stat.label}</span>
-                  </div>
-                  <p className={`text-2xl font-mono-numbers font-bold ${
-                    stat.label === 'Total Value' ? 'kpi-value text-glow' :
-                    stat.label === 'Gain/Loss' || stat.label === 'ROI'
-                      ? (totalGain >= 0 ? 'text-success text-glow-green' : 'text-danger')
-                      : ''
-                  }`}>{stat.value}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
+          ].map((s) => (
+            <div key={s.label} className="bg-background p-5 panel-hover">
+              <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted">
+                {s.label}
+              </div>
+              <div className={`font-mono-numbers text-3xl mt-2 leading-none ${
+                s.tone === 'up' ? 'delta-up' : s.tone === 'down' ? 'delta-down' : 'text-foreground'
+              }`}>
+                {s.value}
+              </div>
+              <div className="text-[11px] text-muted mt-2">{s.sub}</div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
         {/* Tab Navigation */}
         <div className="flex gap-1 p-1 bg-surface rounded-xl border border-border w-fit">
