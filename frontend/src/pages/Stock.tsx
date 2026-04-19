@@ -260,7 +260,7 @@ export default function Stock() {
       <div className="space-y-8 pb-8 mesh-gradient">
         {/* Header */}
         <div className="page-header">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">
+          <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground">
             Stock Finder
           </h1>
           <p className="mt-1 text-muted-foreground/60 text-sm">

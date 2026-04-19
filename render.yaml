@@ -1,19 +1,63 @@
 services:
+  # ═══ Backend · Flask API ═══
   - type: web
     name: poke-agent-api
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn "api.app:create_app()" --bind 0.0.0.0:$PORT --workers 2 --timeout 120
-    healthCheckPath: /health
+    healthCheckPath: /api/health
+    branch: react-rebuild
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
       - key: POKEMON_TCG_API_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: POKEMON_PRICE_TRACKER_API_KEY
-        sync: false  # FREE - get at https://pokemonpricetracker.com/api-keys
+        sync: false
       - key: COLLECTR_API_KEY
-        sync: false  # PAID - get at https://getcollectr.com/api
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: EBAY_APP_ID
+        sync: false
+      - key: EBAY_CERT_ID
+        sync: false
+      - key: EBAY_DEV_ID
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
       - key: PYTHONPATH
         value: /opt/render/project/src
+    plan: free
+
+  # ═══ Frontend · Vite static build ═══
+  - type: web
+    name: pokeagent
+    runtime: static
+    branch: react-rebuild
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_API_URL
+        value: https://pokemon-multi-agent.onrender.com/api
+    routes:
+      # SPA fallback — every path serves index.html so client-side router wins
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     plan: free

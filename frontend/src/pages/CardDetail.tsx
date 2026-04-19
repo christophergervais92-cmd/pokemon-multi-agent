@@ -550,11 +550,11 @@ function CardDetailInner() {
             </div>
 
             {/* ── Graded Price Cards ── */}
-            <Card variant="elevated" className="gradient-border">
-              <CardHeader>
-                <CardTitle className="text-base">Market Prices by Grade</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="panel-2 p-5">
+              <div className="flex items-baseline justify-between mb-4">
+                <h3 className="font-display italic text-2xl leading-none">Market · by grade</h3>
+                <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted">Toggle on chart</span>
+              </div>
                 {gradedLoading ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -569,57 +569,61 @@ function CardDetailInner() {
                         <button
                           key={g.key}
                           onClick={() => toggleDataset(g.key)}
-                          className={`relative p-3 rounded-xl border transition-all duration-300 text-left group glass-card-enhanced ${
+                          className={`relative p-3 panel text-left transition-all ${
                             isVisible
-                              ? 'border-white/[0.12] bg-white/[0.03]'
-                              : 'border-white/[0.04] bg-transparent opacity-50'
+                              ? 'border-border-light'
+                              : 'opacity-45'
                           }`}
                         >
-                          {/* Color indicator */}
                           <div
-                            className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full transition-opacity"
+                            className="absolute top-3 right-3 h-2 w-2 rounded-full"
                             style={{ backgroundColor: g.color, opacity: isVisible ? 1 : 0.3 }}
                           />
-
-                          <div className="flex items-center gap-1.5 mb-1">
-                            {isVisible ? (
-                              <Eye className="h-3 w-3 text-muted-foreground/40" />
-                            ) : (
-                              <EyeOff className="h-3 w-3 text-muted-foreground/30" />
-                            )}
-                            <p className="text-[11px] text-muted-foreground/60 font-medium truncate pr-4">{g.label}</p>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            {isVisible
+                              ? <Eye className="h-3 w-3 text-muted" />
+                              : <EyeOff className="h-3 w-3 text-muted" />}
+                            <p className="text-[10px] text-muted font-mono uppercase tracking-wider truncate pr-5">
+                              {g.label}
+                            </p>
                           </div>
-                          <p className="text-lg font-mono-numbers font-bold">
+                          <p className="font-mono-numbers text-xl text-foreground leading-none">
                             {g.price != null ? `$${formatPrice(g.price)}` : '—'}
                           </p>
                           {g.low != null && g.high != null && (
-                            <p className="text-[10px] text-muted-foreground/40 mt-0.5">
+                            <p className="text-[10px] font-mono text-muted mt-1.5">
                               ${formatPrice(g.low)} — ${formatPrice(g.high)}
                             </p>
                           )}
                           {g.source && (
-                            <p className="text-[9px] text-muted-foreground/30 mt-0.5 uppercase tracking-wider">{g.source}</p>
+                            <p className="text-[9px] text-muted mt-1 font-mono uppercase tracking-wider opacity-60">
+                              {g.source}
+                            </p>
                           )}
                         </button>
                       )
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </div>
 
             {/* ── Multi-Line Price Chart ── */}
-            <Card variant="elevated" className="chart-glow">
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">Price History — All Grades</CardTitle>
-                <div className="flex gap-1">
+            <div className="panel-2 p-5 chart-glow">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <div>
+                  <h3 className="font-display italic text-2xl leading-none">Price history</h3>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted mt-1.5">
+                    All grades · {selectedRange}
+                  </div>
+                </div>
+                <div className="inline-flex bg-surface border border-border rounded">
                   {TIME_RANGES.map((r) => (
                     <button
                       key={r.value}
                       onClick={() => setSelectedRange(r.value)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                      className={`px-2.5 py-1 text-[11px] font-mono transition-colors border-r border-border last:border-r-0 ${
                         selectedRange === r.value
-                          ? 'bg-accent text-white'
+                          ? 'bg-accent text-background'
                           : 'text-muted hover:text-foreground hover:bg-surface-hover'
                       }`}
                     >
@@ -627,25 +631,21 @@ function CardDetailInner() {
                     </button>
                   ))}
                 </div>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div>
                 {/* Dataset toggles */}
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-1.5 mb-4">
                   {GRADE_DATASETS.map((ds) => {
                     const isVisible = visibleDatasets.has(ds.key)
                     return (
                       <button
                         key={ds.key}
                         onClick={() => toggleDataset(ds.key)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-200 ${
-                          isVisible
-                            ? 'border-white/[0.12] bg-white/[0.04] text-foreground/80'
-                            : 'border-white/[0.04] text-muted-foreground/40'
-                        }`}
+                        className={`chip transition-opacity ${isVisible ? '' : 'opacity-40'}`}
                       >
                         <span
                           className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{ backgroundColor: ds.color, opacity: isVisible ? 1 : 0.3 }}
+                          style={{ backgroundColor: ds.color }}
                         />
                         {ds.label}
                       </button>
@@ -702,30 +702,30 @@ function CardDetailInner() {
 
                 {/* Chart Stats */}
                 {chartStats && (
-                  <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/[0.04]">
-                    <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Avg (Raw)</p>
-                      <p className="text-sm font-mono-numbers font-bold">${formatPrice(chartStats.avg)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Low</p>
-                      <p className="text-sm font-mono-numbers font-bold">${formatPrice(chartStats.low)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">High</p>
-                      <p className="text-sm font-mono-numbers font-bold">${formatPrice(chartStats.high)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">Change</p>
-                      <p className={`text-sm font-mono-numbers font-bold flex items-center justify-center gap-0.5 ${chartStats.change >= 0 ? 'text-red-400' : 'text-rose-400'}`}>
-                        {chartStats.change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                        {chartStats.change >= 0 ? '+' : ''}{chartStats.change.toFixed(1)}%
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-4 gap-px bg-border mt-5 rounded overflow-hidden">
+                    {[
+                      { label: 'Avg (Raw)', val: `$${formatPrice(chartStats.avg)}`, tone: 'neutral' },
+                      { label: 'Low', val: `$${formatPrice(chartStats.low)}`, tone: 'neutral' },
+                      { label: 'High', val: `$${formatPrice(chartStats.high)}`, tone: 'neutral' },
+                      {
+                        label: `Change · ${selectedRange}`,
+                        val: `${chartStats.change >= 0 ? '+' : ''}${chartStats.change.toFixed(1)}%`,
+                        tone: chartStats.change >= 0 ? 'up' : 'down',
+                      },
+                    ].map((s) => (
+                      <div key={s.label} className="bg-surface p-3">
+                        <p className="text-[10px] text-muted uppercase tracking-[0.18em] font-mono">{s.label}</p>
+                        <p className={`font-mono-numbers text-sm mt-1 leading-none ${
+                          s.tone === 'up' ? 'delta-up' : s.tone === 'down' ? 'delta-down' : 'text-foreground'
+                        }`}>
+                          {s.val}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         </div>
 

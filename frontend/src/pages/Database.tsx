@@ -98,7 +98,7 @@ export default function Database() {
       <div className="space-y-8">
         {/* Header */}
         <div className="page-header">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">Set Database</h1>
+          <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground">Set Database</h1>
           <p className="mt-1 text-muted-foreground/60 text-sm">Explore every Pokemon TCG set</p>
         </div>
 

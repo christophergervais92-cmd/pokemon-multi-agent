@@ -115,7 +115,7 @@ export default function Monitors() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">Stock Monitors</h1>
+            <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground">Stock Monitors</h1>
             <p className="text-muted-foreground/60 text-sm mt-1">
               Automated stock alerts with Discord webhooks · {stats ? `${stats.active}/${stats.total} active` : ''}
             </p>

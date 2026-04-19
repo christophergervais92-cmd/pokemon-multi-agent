@@ -72,7 +72,7 @@ export default function Vending() {
       <div className="space-y-6">
         {/* Header */}
         <div className="page-header">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">Vending Machine Map</h1>
+          <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground">Vending Machine Map</h1>
           <p className="text-muted-foreground/60 text-sm mt-1">
             Find Pokemon TCG vending machines near you
             {stats && ` · ${stats.total_locations} locations · ${stats.verified} verified · ${stats.states_covered} states`}

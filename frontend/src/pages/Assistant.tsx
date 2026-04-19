@@ -142,7 +142,7 @@ export default function Assistant() {
         <div className="lg:col-span-3 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">AI Assistant</h1>
+              <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground">AI Assistant</h1>
               <p className="text-muted-foreground/60 text-sm mt-1">
                 Pokemon TCG market intelligence powered by Claude
               </p>

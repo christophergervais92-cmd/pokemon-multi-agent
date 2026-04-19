@@ -239,7 +239,7 @@ export default function Sealed() {
         {/* Header */}
         <div className="page-header">
           <motion.h1
-            className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground gradient-text"
+            className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >

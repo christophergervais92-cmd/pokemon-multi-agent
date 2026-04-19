@@ -34,29 +34,30 @@ export const TIME_RANGES = [
 ] as const
 
 export const CHART_COLORS = {
-  line: '#ef4444',
-  fill: 'rgba(96, 165, 250, 0.08)',
-  grid: '#162550',
-  text: '#7e92b8',
-  tooltip: '#0a1228',
+  line: '#ff6b1a',
+  fill: 'rgba(255, 107, 26, 0.10)',
+  grid: 'rgba(255,255,255,0.05)',
+  text: '#7a7a75',
+  tooltip: '#121215',
 } as const
 
 /* ── Multi-dataset graded price chart colors ── */
+/* Raw = accent; grades = spectrum that reads on the oil-black palette */
 export const GRADE_DATASETS = [
-  { key: 'raw',    label: 'Raw',              color: '#ef4444' },
+  { key: 'raw',    label: 'Raw',              color: '#ff6b1a' },
   { key: 'psa10',  label: 'PSA 10',           color: '#f43f5e' },
-  { key: 'psa9',   label: 'PSA 9',            color: '#f97316' },
-  { key: 'psa8',   label: 'PSA 8',            color: '#eab308' },
-  { key: 'cgc10',  label: 'CGC 10',           color: '#ef4444' },
+  { key: 'psa9',   label: 'PSA 9',            color: '#fb7185' },
+  { key: 'psa8',   label: 'PSA 8',            color: '#facc15' },
+  { key: 'cgc10',  label: 'CGC 10',           color: '#38bdf8' },
   { key: 'bgs10',  label: 'BGS 10 / Black Label', color: '#a855f7' },
 ] as const
 
 export const GRADED_CHART_COLORS: Record<string, string> = {
-  raw:   '#ef4444',
+  raw:   '#ff6b1a',
   psa10: '#f43f5e',
-  psa9:  '#f97316',
-  psa8:  '#eab308',
-  cgc10: '#ef4444',
+  psa9:  '#fb7185',
+  psa8:  '#facc15',
+  cgc10: '#38bdf8',
   bgs10: '#a855f7',
 } as const
 

@@ -113,7 +113,7 @@ export default function Settings() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="page-header">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-[-0.02em] text-foreground">Settings</h1>
+          <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er text-foreground">Settings</h1>
           <p className="text-muted-foreground/60 text-sm mt-1">Configure your PokeAgent experience</p>
         </div>
 
