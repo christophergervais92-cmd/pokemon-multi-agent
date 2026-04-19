@@ -49,6 +49,28 @@ export const api = {
 
   /* ── Cards ── */
   cards: {
+    /** Paginated list of every card with filters. */
+    list: (opts?: {
+      page?: number; limit?: number;
+      set?: string; rarity?: string;
+      minPrice?: number; maxPrice?: number;
+      q?: string;
+      sort?: 'price' | 'name' | 'set' | 'rarity';
+      dir?: 'asc' | 'desc';
+    }) => {
+      const p = new URLSearchParams()
+      if (opts?.page) p.set('page', String(opts.page))
+      if (opts?.limit) p.set('limit', String(opts.limit))
+      if (opts?.set) p.set('set', opts.set)
+      if (opts?.rarity) p.set('rarity', opts.rarity)
+      if (opts?.minPrice != null) p.set('min_price', String(opts.minPrice))
+      if (opts?.maxPrice != null) p.set('max_price', String(opts.maxPrice))
+      if (opts?.q) p.set('q', opts.q)
+      if (opts?.sort) p.set('sort', opts.sort)
+      if (opts?.dir) p.set('dir', opts.dir)
+      return request<CardsListResponse>(`/cards${p.toString() ? `?${p}` : ''}`)
+    },
+    rarities: () => request<{ data: { rarity: string; count: number }[]; count: number }>(`/cards/rarities`),
     search: (q: string, opts?: { set?: string; rarity?: string; limit?: number }) => {
       const params = new URLSearchParams({ q })
       if (opts?.set) params.set('set', opts.set)
@@ -337,6 +359,44 @@ export interface CardSearchResult {
   image?: string
   price?: number | null
   [key: string]: unknown
+}
+
+/* ── All-cards (paginated) ── */
+export interface CardListItem {
+  id: string
+  set_id: string
+  set_name: string | null
+  set_series: string | null
+  set_logo_url: string | null
+  name: string
+  number?: string
+  rarity: string | null
+  supertype: string | null
+  subtype: string | null
+  image_url: string | null
+  small_image_url: string | null
+  tcgplayer_market: number | null
+  tcgplayer_low: number | null
+  tcgplayer_mid: number | null
+  tcgplayer_high: number | null
+  price: number | null
+}
+
+export interface CardsListResponse {
+  data: CardListItem[]
+  total: number
+  page: number
+  pages: number
+  limit: number
+  filters: {
+    set: string | null
+    rarity: string | null
+    min_price: number | null
+    max_price: number | null
+    q: string | null
+    sort: string
+    dir: string
+  }
 }
 
 export interface CardDetail {

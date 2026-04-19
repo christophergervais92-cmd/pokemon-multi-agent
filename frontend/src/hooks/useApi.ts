@@ -60,6 +60,32 @@ export function useSetCards(setId: string, page = 1, limit = 60) {
 export type { SetCardItem }
 
 /* ── Cards ── */
+export function useAllCards(opts?: {
+  page?: number; limit?: number;
+  set?: string; rarity?: string;
+  minPrice?: number; maxPrice?: number;
+  q?: string;
+  sort?: 'price' | 'name' | 'set' | 'rarity';
+  dir?: 'asc' | 'desc';
+}) {
+  return useQuery({
+    queryKey: ['allCards', opts],
+    queryFn: () => api.cards.list(opts),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    placeholderData: (prev) => prev,
+  })
+}
+
+export function useCardRarities() {
+  return useQuery({
+    queryKey: ['cardRarities'],
+    queryFn: () => api.cards.rarities(),
+    staleTime: 10 * 60_000,
+    gcTime: 60 * 60_000,
+  })
+}
+
 export function useCardSearch(query: string, opts?: { set?: string; rarity?: string; limit?: number }) {
   return useQuery({
     queryKey: ['cardSearch', query, opts],

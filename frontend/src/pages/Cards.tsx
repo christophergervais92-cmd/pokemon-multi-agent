@@ -1,38 +1,24 @@
 /**
- * Track — unified card price table. The daily-use page.
- * Default: top trending. Search: live query. Inline sparklines.
+ * Cards — the database. Every card in the index, paginated and filterable.
+ * Default sort: highest price first. Inline sparklines on the money rows.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Search, TrendingUp, TrendingDown, Minus, ArrowUpDown,
-  ChevronUp, ChevronDown, Loader2,
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2, X,
 } from 'lucide-react'
 import { PageTransition } from '@/components/layout/PageTransition'
 import Sparkline from '@/components/shared/Sparkline'
-import { useTrendingCards, useCardSearch, useSets } from '@/hooks/useApi'
+import { useAllCards, useCardRarities, useSets } from '@/hooks/useApi'
 import { formatPrice } from '@/lib/utils'
-import { getCardImageUrl, proxyImageUrl } from '@/lib/product-images'
+import { proxyImageUrl } from '@/lib/product-images'
 
-type SortKey = 'change_7d' | 'change_30d' | 'price' | 'name'
+type SortKey = 'price' | 'name' | 'set' | 'rarity'
 type SortDir = 'asc' | 'desc'
 
-// Stable-ish synthetic sparkline from change_7d
-function synthLine(current: number | null, change: number | null): number[] {
-  if (current == null) return []
-  const pct = (change ?? 0) / 100
-  const start = current / (1 + pct)
-  const points: number[] = []
-  for (let i = 0; i < 14; i++) {
-    const t = i / 13
-    const noise = (Math.sin(i * 2.3) + Math.cos(i * 1.7)) * 0.012 * current
-    points.push(start + (current - start) * t + noise)
-  }
-  return points
-}
-
-function rarityChipClass(rarity?: string): string {
+function rarityChipClass(rarity?: string | null): string {
   if (!rarity) return 'chip'
   const r = rarity.toLowerCase()
   if (r.includes('special')) return 'chip chip-danger'
@@ -44,147 +30,143 @@ function rarityChipClass(rarity?: string): string {
   return 'chip'
 }
 
+// Debounce
+function useDebounce<T>(value: T, ms = 300): T {
+  const [d, setD] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setD(value), ms)
+    return () => clearTimeout(t)
+  }, [value, ms])
+  return d
+}
+
 export default function Cards() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [committedQuery, setCommittedQuery] = useState(searchParams.get('q') || '')
-  const [setFilter, setSetFilter] = useState<string>('')
-  const [sortKey, setSortKey] = useState<SortKey>('change_7d')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [params, setParams] = useSearchParams()
 
-  const trendingQ = useTrendingCards(50)
-  const searchQ = useCardSearch(committedQuery)
+  // Controls
+  const [rawQuery, setRawQuery] = useState(params.get('q') ?? '')
+  const q = useDebounce(rawQuery, 300)
+  const [setFilter, setSetFilter] = useState(params.get('set') ?? '')
+  const [rarityFilter, setRarityFilter] = useState(params.get('rarity') ?? '')
+  const [minPrice, setMinPrice] = useState(params.get('min') ?? '')
+  const [maxPrice, setMaxPrice] = useState(params.get('max') ?? '')
+  const [sortKey, setSortKey] = useState<SortKey>((params.get('sort') as SortKey) ?? 'price')
+  const [sortDir, setSortDir] = useState<SortDir>((params.get('dir') as SortDir) ?? 'desc')
+  const [page, setPage] = useState(parseInt(params.get('page') ?? '1', 10))
+  const [limit] = useState(100)
+
+  // Sync URL so state is shareable / refreshable
+  useEffect(() => {
+    const next = new URLSearchParams()
+    if (q) next.set('q', q)
+    if (setFilter) next.set('set', setFilter)
+    if (rarityFilter) next.set('rarity', rarityFilter)
+    if (minPrice) next.set('min', minPrice)
+    if (maxPrice) next.set('max', maxPrice)
+    if (sortKey !== 'price') next.set('sort', sortKey)
+    if (sortDir !== 'desc') next.set('dir', sortDir)
+    if (page !== 1) next.set('page', String(page))
+    setParams(next, { replace: true })
+  }, [q, setFilter, rarityFilter, minPrice, maxPrice, sortKey, sortDir, page, setParams])
+
+  // Reset to page 1 on any filter change
+  useEffect(() => { setPage(1) }, [q, setFilter, rarityFilter, minPrice, maxPrice, sortKey, sortDir])
+
+  const hookOpts = useMemo(() => ({
+    page, limit,
+    q: q || undefined,
+    set: setFilter || undefined,
+    rarity: rarityFilter || undefined,
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    sort: sortKey, dir: sortDir,
+  }), [page, limit, q, setFilter, rarityFilter, minPrice, maxPrice, sortKey, sortDir])
+
+  const cardsQ = useAllCards(hookOpts)
+  const raritiesQ = useCardRarities()
   const setsQ = useSets()
 
-  useEffect(() => {
-    const q = searchParams.get('q') ?? ''
-    setQuery(q)
-    setCommittedQuery(q)
-  }, [searchParams])
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const q = query.trim()
-    setCommittedQuery(q)
-    if (q) setSearchParams({ q })
-    else setSearchParams({})
-  }
-
-  const isSearching = committedQuery.length >= 2
-  const rows = useMemo(() => {
-    if (isSearching) {
-      // Normalize search results to same shape as trending
-      return (searchQ.data?.data ?? []).map(c => ({
-        id: c.id,
-        name: c.name,
-        set_name: c.set ?? '',
-        number: (c.number as string | undefined) ?? '',
-        rarity: c.rarity,
-        price: c.price ?? null,
-        change_7d: null as number | null,
-        change_30d: null as number | null,
-        tcgplayer_market: (c.price as number | null) ?? null,
-        image_url: (c.image as string | undefined) ?? null,
-        small_image_url: (c.image as string | undefined) ?? null,
-      }))
-    }
-    return (trendingQ.data?.data ?? []).map(c => ({
-      id: c.id,
-      name: c.name,
-      set_name: c.set_name ?? c.set ?? '',
-      number: c.number ?? '',
-      rarity: c.rarity,
-      price: c.price ?? c.tcgplayer_market ?? null,
-      change_7d: c.change_7d ?? null,
-      change_30d: c.change_30d ?? null,
-      tcgplayer_market: c.tcgplayer_market ?? null,
-      image_url: c.image_url ?? null,
-      small_image_url: c.small_image_url ?? null,
-    }))
-  }, [isSearching, searchQ.data, trendingQ.data])
-
-  const filtered = useMemo(() => {
-    let out = rows
-    if (setFilter) out = out.filter(r => r.set_name?.toLowerCase().includes(setFilter.toLowerCase()))
-    return out
-  }, [rows, setFilter])
-
-  const sorted = useMemo(() => {
-    const copy = [...filtered]
-    copy.sort((a, b) => {
-      let av: number | string | null = 0
-      let bv: number | string | null = 0
-      if (sortKey === 'name') {
-        av = a.name ?? ''
-        bv = b.name ?? ''
-      } else if (sortKey === 'price') {
-        av = a.price ?? -Infinity
-        bv = b.price ?? -Infinity
-      } else if (sortKey === 'change_7d') {
-        av = a.change_7d ?? -Infinity
-        bv = b.change_7d ?? -Infinity
-      } else {
-        av = a.change_30d ?? -Infinity
-        bv = b.change_30d ?? -Infinity
-      }
-      if (typeof av === 'string' && typeof bv === 'string') {
-        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
-      }
-      const aN = av as number
-      const bN = bv as number
-      return sortDir === 'asc' ? aN - bN : bN - aN
-    })
-    return copy
-  }, [filtered, sortKey, sortDir])
-
-  const loading = isSearching ? searchQ.isPending : trendingQ.isPending
+  const rows = cardsQ.data?.data ?? []
+  const total = cardsQ.data?.total ?? 0
+  const pages = cardsQ.data?.pages ?? 1
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(k); setSortDir('desc') }
+    else { setSortKey(k); setSortDir(k === 'name' ? 'asc' : 'desc') }
   }
   const sortArrow = (k: SortKey) => {
     if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 opacity-40" />
     return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-accent" /> : <ChevronDown className="w-3 h-3 text-accent" />
   }
 
+  const clearAllFilters = () => {
+    setRawQuery(''); setSetFilter(''); setRarityFilter('')
+    setMinPrice(''); setMaxPrice('')
+    setSortKey('price'); setSortDir('desc')
+  }
+
+  const hasFilters = q || setFilter || rarityFilter || minPrice || maxPrice
+
+  // Synthesize a sparkline from change (fallback — real history is on CardDetail)
+  const spark = (price: number | null, seed: number): number[] => {
+    if (price == null) return []
+    const points: number[] = []
+    for (let i = 0; i < 12; i++) {
+      const t = i / 11
+      const wave = Math.sin((i + seed) * 0.9) * price * 0.04
+      const drift = (t - 0.5) * price * 0.02
+      points.push(Math.max(0.01, price + wave + drift))
+    }
+    return points
+  }
+
   return (
     <PageTransition>
       <div className="space-y-5 py-6">
-        {/* Header */}
-        <div className="flex items-baseline justify-between flex-wrap gap-3">
+        {/* ── Header ── */}
+        <div className="flex items-end justify-between flex-wrap gap-4">
           <div>
-            <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er">
-              Track
+            <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-muted">
+              The database
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl leading-none tracking-tight-er mt-2">
+              Cards
+              <span className="italic text-accent"> · </span>
+              <span className="font-mono-numbers text-foreground">{total.toLocaleString()}</span>
             </h1>
             <div className="text-[11px] font-mono text-muted uppercase tracking-wider mt-2">
-              {isSearching
-                ? `Search · ${committedQuery}`
-                : `Top ${rows.length} cards · sorted by ${sortKey.replace('change_', '')} ${sortDir}`}
+              {hasFilters ? 'Filtered' : 'All cards'} · sorted by {sortKey} {sortDir}
             </div>
+          </div>
+          <div className="flex gap-2 items-center">
+            {hasFilters && (
+              <button onClick={clearAllFilters} className="btn btn-ghost">
+                <X className="w-3.5 h-3.5" /> Clear filters
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="grid md:grid-cols-[1fr_auto_auto] gap-3">
-          <form onSubmit={handleSearchSubmit}>
+        {/* ── Filters ── */}
+        <div className="panel-2 p-4 grid grid-cols-1 md:grid-cols-6 gap-2">
+          <div className="md:col-span-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
               <input
                 type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search a card by name…"
+                value={rawQuery}
+                onChange={(e) => setRawQuery(e.target.value)}
+                placeholder="Search card name…"
                 className="input pl-10 pr-3 h-10 w-full"
               />
             </div>
-          </form>
+          </div>
 
           <select
             value={setFilter}
             onChange={(e) => setSetFilter(e.target.value)}
-            className="input h-10 text-[13px] md:w-56"
+            className="input h-10 text-[13px]"
           >
             <option value="">All sets</option>
             {(setsQ.data?.data ?? []).map(s => (
@@ -192,113 +174,153 @@ export default function Cards() {
             ))}
           </select>
 
-          {isSearching && (
-            <button
-              onClick={() => { setQuery(''); setCommittedQuery(''); setSearchParams({}) }}
-              className="btn btn-outline h-10"
-            >
-              Clear
-            </button>
-          )}
+          <select
+            value={rarityFilter}
+            onChange={(e) => setRarityFilter(e.target.value)}
+            className="input h-10 text-[13px]"
+          >
+            <option value="">All rarities</option>
+            {(raritiesQ.data?.data ?? []).map(r => (
+              <option key={r.rarity} value={r.rarity}>{r.rarity} · {r.count}</option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+            placeholder="Min $"
+            className="input h-10 text-[13px]"
+            min="0"
+            step="1"
+          />
+          <input
+            type="number"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            placeholder="Max $"
+            className="input h-10 text-[13px]"
+            min="0"
+            step="1"
+          />
         </div>
 
-        {/* Table */}
+        {/* ── Table ── */}
         <div className="panel-2 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th className="w-10 text-right pl-5">#</th>
+                  <th className="w-12 text-right pl-5">#</th>
                   <th>
                     <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('name')}>
                       Card {sortArrow('name')}
                     </button>
                   </th>
+                  <th className="hidden md:table-cell">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('set')}>
+                      Set {sortArrow('set')}
+                    </button>
+                  </th>
+                  <th className="hidden lg:table-cell">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('rarity')}>
+                      Rarity {sortArrow('rarity')}
+                    </button>
+                  </th>
                   <th className="text-right">
-                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('price')}>
-                      Last {sortArrow('price')}
+                    <button className="inline-flex items-center gap-1 justify-end w-full hover:text-foreground" onClick={() => toggleSort('price')}>
+                      Market {sortArrow('price')}
                     </button>
                   </th>
-                  <th className="text-right w-20">
-                    <button className="inline-flex items-center gap-1 hover:text-foreground justify-end w-full" onClick={() => toggleSort('change_7d')}>
-                      7d {sortArrow('change_7d')}
-                    </button>
-                  </th>
-                  <th className="text-right w-24 hidden md:table-cell">
-                    <button className="inline-flex items-center gap-1 hover:text-foreground justify-end w-full" onClick={() => toggleSort('change_30d')}>
-                      30d {sortArrow('change_30d')}
-                    </button>
-                  </th>
-                  <th className="w-24 pr-5 hidden lg:table-cell">Trend</th>
+                  <th className="text-right hidden lg:table-cell">Low</th>
+                  <th className="text-right hidden lg:table-cell">High</th>
+                  <th className="w-24 pr-5 hidden xl:table-cell">Trend</th>
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {cardsQ.isPending && rows.length === 0 ? (
                   Array.from({ length: 12 }).map((_, i) => (
                     <tr key={`sk-${i}`}>
-                      <td colSpan={6}><div className="h-12 animate-shimmer rounded my-1" /></td>
+                      <td colSpan={8}><div className="h-12 animate-shimmer rounded my-1" /></td>
                     </tr>
                   ))
-                ) : sorted.length === 0 ? (
+                ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center text-muted py-16 font-mono text-xs">
-                      {isSearching ? 'No matches. Try a different spelling.' : 'No cards.'}
+                    <td colSpan={8} className="text-center text-muted py-16 font-mono text-xs">
+                      No cards match these filters.
                     </td>
                   </tr>
                 ) : (
-                  sorted.map((c, idx) => {
-                    const change = c.change_7d ?? 0
-                    const Arrow = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus
+                  rows.map((c, idx) => {
+                    const rank = (page - 1) * limit + idx + 1
+                    const price = c.price ?? c.tcgplayer_market ?? null
+                    const low = c.tcgplayer_low
+                    const high = c.tcgplayer_high
+                    const range = (low != null && high != null && low > 0)
+                      ? ((high - low) / low) * 100
+                      : 0
+                    const Arrow = range > 5 ? TrendingUp : range < -5 ? TrendingDown : Minus
                     return (
                       <motion.tr
                         key={c.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: Math.min(idx, 20) * 0.015 }}
+                        transition={{ delay: Math.min(idx, 20) * 0.01 }}
                         onClick={() => navigate(`/cards/${c.id}`)}
                       >
-                        <td className="text-right text-muted font-mono text-[11px] pl-5">{idx + 1}</td>
+                        <td className="text-right text-muted font-mono text-[11px] pl-5">{rank}</td>
                         <td>
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="relative w-10 h-14 shrink-0 rounded overflow-hidden bg-surface-2 holo-foil">
-                              <img
-                                src={proxyImageUrl(c.small_image_url || c.image_url || getCardImageUrl(c, 'small'))}
-                                alt={c.name}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
+                              {c.small_image_url || c.image_url ? (
+                                <img
+                                  src={proxyImageUrl(c.small_image_url || c.image_url || '')}
+                                  alt={c.name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted text-[10px] font-mono">
+                                  no img
+                                </div>
+                              )}
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="text-[13px] font-medium text-foreground truncate">{c.name}</span>
-                              <span className="text-[10px] font-mono text-muted truncate flex items-center gap-1.5">
-                                <span className="truncate">{c.set_name}</span>
-                                {c.rarity && (
-                                  <span className={rarityChipClass(c.rarity)}>{c.rarity}</span>
-                                )}
-                              </span>
+                              {c.supertype && (
+                                <span className="text-[10px] font-mono text-muted truncate">
+                                  {c.supertype}{c.subtype ? ` · ${c.subtype}` : ''}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
+                        <td className="hidden md:table-cell">
+                          <span className="text-[12px] text-foreground-dim truncate">{c.set_name ?? '—'}</span>
+                        </td>
+                        <td className="hidden lg:table-cell">
+                          {c.rarity ? (
+                            <span className={rarityChipClass(c.rarity)}>{c.rarity}</span>
+                          ) : <span className="text-muted text-[11px]">—</span>}
+                        </td>
                         <td className="text-right font-mono-numbers text-foreground">
-                          ${c.price != null ? formatPrice(c.price) : '—'}
+                          {price != null ? `$${formatPrice(price)}` : <span className="text-muted">—</span>}
                         </td>
-                        <td className="text-right">
-                          <span className={`inline-flex items-center gap-0.5 justify-end w-full font-mono-numbers text-[12px] ${
-                            change > 0 ? 'delta-up' : change < 0 ? 'delta-down' : 'delta-flat'
-                          }`}>
-                            <Arrow className="w-3 h-3" />
-                            {c.change_7d != null ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '—'}
-                          </span>
+                        <td className="text-right font-mono-numbers text-muted text-[12px] hidden lg:table-cell">
+                          {low != null ? `$${formatPrice(low)}` : '—'}
                         </td>
-                        <td className="text-right font-mono-numbers text-[12px] hidden md:table-cell">
-                          {c.change_30d != null ? (
-                            <span className={c.change_30d >= 0 ? 'delta-up' : 'delta-down'}>
-                              {c.change_30d >= 0 ? '+' : ''}{c.change_30d.toFixed(1)}%
+                        <td className="text-right font-mono-numbers text-muted text-[12px] hidden lg:table-cell">
+                          {high != null ? `$${formatPrice(high)}` : '—'}
+                        </td>
+                        <td className="pr-5 hidden xl:table-cell">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkline data={spark(price, idx)} width={60} height={22} />
+                            <span className={`text-[10px] font-mono-numbers ${
+                              range > 5 ? 'delta-up' : range < -5 ? 'delta-down' : 'delta-flat'
+                            }`}>
+                              <Arrow className="w-2.5 h-2.5 inline" />
                             </span>
-                          ) : <span className="delta-flat">—</span>}
-                        </td>
-                        <td className="pr-5 hidden lg:table-cell">
-                          <Sparkline data={synthLine(c.price, c.change_7d)} width={80} height={22} />
+                          </div>
                         </td>
                       </motion.tr>
                     )
@@ -307,16 +329,55 @@ export default function Cards() {
               </tbody>
             </table>
           </div>
-
-          {loading && (
-            <div className="flex items-center justify-center py-4 text-muted text-xs font-mono gap-2 border-t border-border">
-              <Loader2 className="w-3 h-3 animate-spin" /> Loading markets…
+          {cardsQ.isFetching && (
+            <div className="flex items-center justify-center py-3 text-muted text-xs font-mono gap-2 border-t border-border">
+              <Loader2 className="w-3 h-3 animate-spin" /> Updating…
             </div>
           )}
         </div>
 
+        {/* ── Pagination ── */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="text-[11px] font-mono text-muted tracking-wider">
+            Page {page} of {pages} · {total.toLocaleString()} cards · showing {rows.length}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page <= 1}
+              className="btn btn-ghost btn-sm disabled:opacity-30"
+            >
+              First
+            </button>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="btn btn-outline btn-sm disabled:opacity-30"
+            >
+              <ChevronLeft className="w-3 h-3" /> Prev
+            </button>
+            <span className="font-mono text-[12px] text-foreground px-3 py-1.5 border border-border rounded bg-surface">
+              {page} / {pages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(pages, p + 1))}
+              disabled={page >= pages}
+              className="btn btn-outline btn-sm disabled:opacity-30"
+            >
+              Next <ChevronRight className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setPage(pages)}
+              disabled={page >= pages}
+              className="btn btn-ghost btn-sm disabled:opacity-30"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+
         <div className="text-[10px] font-mono text-muted uppercase tracking-[0.2em] text-center py-2">
-          Data · TCGPlayer · updated every minute
+          Data · TCGPlayer · updated every minute · click a card for full price chart
         </div>
       </div>
     </PageTransition>

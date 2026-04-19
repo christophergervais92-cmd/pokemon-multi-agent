@@ -1258,6 +1258,150 @@ def create_app() -> Flask:
 
         return jsonify(result)
 
+    # ── All cards (paginated, filterable) ───────────────────
+    @app.route("/api/cards", methods=["GET"])
+    def api_all_cards():
+        """
+        Paginated list of every card in the index.
+          ?page=1&limit=100
+          ?set=Prismatic%20Evolutions
+          ?rarity=Special%20Illustration%20Rare
+          ?min_price=50&max_price=500
+          ?sort=price|name|set|rarity  (default: price)
+          ?dir=asc|desc                (default: desc)
+          ?q=free-text on name         (optional)
+        """
+        try:
+            page = max(1, int(request.args.get("page", "1")))
+            limit = max(1, min(int(request.args.get("limit", "100")), 500))
+        except ValueError:
+            return jsonify({"error": "invalid page or limit"}), 400
+
+        set_filter = request.args.get("set") or None
+        rarity_filter = request.args.get("rarity") or None
+        q = (request.args.get("q") or "").strip()
+        try:
+            min_price = float(request.args.get("min_price")) if request.args.get("min_price") else None
+            max_price = float(request.args.get("max_price")) if request.args.get("max_price") else None
+        except ValueError:
+            return jsonify({"error": "invalid min_price or max_price"}), 400
+
+        sort = (request.args.get("sort") or "price").lower()
+        direction = (request.args.get("dir") or "desc").lower()
+        direction_sql = "DESC" if direction == "desc" else "ASC"
+
+        sort_map = {
+            "price": "COALESCE(tcgplayer_market, 0)",
+            "name": "name COLLATE NOCASE",
+            "set": "set_id",
+            "rarity": "rarity",
+        }
+        order_col = sort_map.get(sort, sort_map["price"])
+
+        where = []
+        params: list = []
+        if set_filter:
+            where.append("sets.name = ?")
+            params.append(set_filter)
+        if rarity_filter:
+            where.append("cards.rarity = ?")
+            params.append(rarity_filter)
+        if min_price is not None:
+            where.append("cards.tcgplayer_market >= ?")
+            params.append(min_price)
+        if max_price is not None:
+            where.append("cards.tcgplayer_market <= ?")
+            params.append(max_price)
+        if q:
+            where.append("cards.name LIKE ?")
+            params.append(f"%{q}%")
+
+        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+
+        cache_key = f"cards_all:{page}:{limit}:{set_filter}:{rarity_filter}:{min_price}:{max_price}:{sort}:{direction}:{q}"
+
+        def _run():
+            from db.connection import get_connection
+            conn = get_connection()
+
+            count_sql = f"""
+              SELECT COUNT(*) AS n
+              FROM cards LEFT JOIN sets ON sets.id = cards.set_id
+              {where_sql}
+            """
+            total = conn.execute(count_sql, params).fetchone()["n"]
+
+            offset = (page - 1) * limit
+            select_sql = f"""
+              SELECT cards.id, cards.set_id, cards.name, cards.rarity,
+                     cards.supertype, cards.subtype,
+                     cards.image_url, cards.small_image_url,
+                     cards.tcgplayer_market, cards.tcgplayer_low,
+                     cards.tcgplayer_mid, cards.tcgplayer_high,
+                     sets.name AS set_name, sets.series AS set_series,
+                     sets.logo_url AS set_logo_url
+              FROM cards
+              LEFT JOIN sets ON sets.id = cards.set_id
+              {where_sql}
+              ORDER BY {order_col} {direction_sql}
+              LIMIT ? OFFSET ?
+            """
+            rows = conn.execute(select_sql, (*params, limit, offset)).fetchall()
+
+            data = []
+            for r in rows:
+                data.append({
+                    "id": r["id"],
+                    "set_id": r["set_id"],
+                    "set_name": r["set_name"],
+                    "set_series": r["set_series"],
+                    "set_logo_url": r["set_logo_url"],
+                    "name": r["name"],
+                    "rarity": r["rarity"],
+                    "supertype": r["supertype"],
+                    "subtype": r["subtype"],
+                    "image_url": r["image_url"],
+                    "small_image_url": r["small_image_url"],
+                    "tcgplayer_market": r["tcgplayer_market"],
+                    "tcgplayer_low": r["tcgplayer_low"],
+                    "tcgplayer_mid": r["tcgplayer_mid"],
+                    "tcgplayer_high": r["tcgplayer_high"],
+                    "price": r["tcgplayer_market"],
+                })
+            pages = (total + limit - 1) // limit if limit else 1
+            return {
+                "data": data, "total": total, "page": page, "pages": pages, "limit": limit,
+                "filters": {
+                    "set": set_filter, "rarity": rarity_filter,
+                    "min_price": min_price, "max_price": max_price,
+                    "q": q or None, "sort": sort, "dir": direction,
+                },
+            }
+
+        payload = _cached(cache_key, 60, _run)
+        resp = jsonify(payload)
+        resp.headers["X-Cache-TTL"] = "60"
+        return resp
+
+    # ── Distinct rarities (for filter dropdowns) ────────────
+    @app.route("/api/cards/rarities", methods=["GET"])
+    def api_card_rarities():
+        def _run():
+            from db.connection import get_connection
+            conn = get_connection()
+            rows = conn.execute(
+                """SELECT rarity, COUNT(*) AS n
+                   FROM cards
+                   WHERE rarity IS NOT NULL AND rarity != ''
+                   GROUP BY rarity
+                   ORDER BY n DESC"""
+            ).fetchall()
+            return [{"rarity": r["rarity"], "count": r["n"]} for r in rows]
+        data = _cached("card_rarities", 600, _run)
+        resp = jsonify({"data": data, "count": len(data)})
+        resp.headers["X-Cache-TTL"] = "600"
+        return resp
+
     # ── Paginated cards for a set ───────────────────────────
     @app.route("/api/sets/<set_id>/cards", methods=["GET"])
     def api_set_cards(set_id):

@@ -3,23 +3,24 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Search, Bell, Command, Activity, Flame, LineChart, Archive, Wallet,
   Sparkles, MessageSquare, Package, MapPin, Settings, SlidersHorizontal,
-  Calculator, BarChart3,
+  Calculator, BarChart3, Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useHealth } from '@/hooks/useApi'
 import Ticker from '@/components/shared/Ticker'
 
+// Focused nav — the database is the product.
 const PRIMARY = [
-  { path: '/dashboard', label: 'Terminal', icon: Activity },
-  { path: '/cards',     label: 'Track',    icon: LineChart },
-  { path: '/sealed',    label: 'Sealed',   icon: Archive },
-  { path: '/portfolio', label: 'Portfolio',icon: Wallet },
-  { path: '/drops',     label: 'Drops',    icon: Flame },
-  { path: '/monitors',  label: 'Monitors', icon: Bell },
+  { path: '/dashboard', label: 'Terminal',  icon: Activity },
+  { path: '/cards',     label: 'Cards',     icon: LineChart },
+  { path: '/database',  label: 'Sets',      icon: Layers },
+  { path: '/sealed',    label: 'Sealed',    icon: Archive },
+  { path: '/portfolio', label: 'Portfolio', icon: Wallet },
 ] as const
 
 const SECONDARY = [
-  { path: '/database',  label: 'Database',  icon: Package },
+  { path: '/drops',     label: 'Drops',     icon: Flame },
+  { path: '/monitors',  label: 'Monitors',  icon: Bell },
   { path: '/stock',     label: 'Stock',     icon: Search },
   { path: '/flip',      label: 'Flip',      icon: Calculator },
   { path: '/pack-ev',   label: 'Pack EV',   icon: SlidersHorizontal },
